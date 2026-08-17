@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 import { assetById } from '@/data/assetIndex'
 import { equippedWeapon, WEAPONS } from '@/data/weapons'
-import { STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '@/data/worldDressing'
-import { cellCenter } from '@/navigation/NavGrid'
+import { ENEMY_ASSETS, STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '@/data/worldDressing'
+import { cellCenter, worldToCell } from '@/navigation/NavGrid'
 import { followCameraOffset } from '@/controls/CameraWish'
 import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, SurvivorState, WorldState } from '@/simulation/types'
@@ -261,7 +261,7 @@ export class DebugRenderer {
     this.syncLighting(world)
     this.syncZones(world)
     this.syncStructures(world)
-    this.syncActors(world.enemies, this.enemies, 1.2, 1.6, 0x4a5a32)
+    this.syncEnemies(world, dt)
     this.syncActors(world.wildlife, this.wildlife, 1.4, 1.1, 0xb8a078)
     for (const survivor of world.survivors) {
       let marker = this.survivors.get(survivor.id)
@@ -474,7 +474,11 @@ export class DebugRenderer {
   private ensureStatic(world: WorldState): void {
     if (this.extras.length > 0) return
 
+    const hasWarehouse = world.structures.some((structure) => structure.definitionId === 'warehouse' && structure.stage === 'complete')
+    const hasWorkshop = world.structures.some((structure) => structure.definitionId === 'workshop' && structure.stage === 'complete')
     for (const container of world.containers) {
+      if (container.kind === 'warehouse' && hasWarehouse) continue
+      if (container.kind === 'tool_locker' && hasWorkshop) continue
       const isLocker = container.kind === 'tool_locker'
       const group = new THREE.Group()
       const mesh = new THREE.Mesh(
@@ -555,14 +559,81 @@ export class DebugRenderer {
     }
   }
 
+  private syncEnemies(world: WorldState, dt: number): void {
+    const seen = new Set<string>()
+    for (const enemy of world.enemies) {
+      seen.add(enemy.id)
+      let marker = this.enemies.get(enemy.id)
+      if (!marker) {
+        const mesh = this.createSurvivorMarker()
+        this.scene.add(mesh)
+        marker = { id: enemy.id, mesh }
+        this.enemies.set(enemy.id, marker)
+      }
+      this.kitEnemy(enemy)
+      marker.mesh.position.set(enemy.position.x, 0, enemy.position.z)
+      marker.mesh.rotation.y = enemy.facingYaw
+      this.driveEnemy(enemy, dt)
+      const kit = marker.mesh.getObjectByName('kit')
+      const fallback = marker.mesh.getObjectByName('fallback')
+      if (fallback) fallback.visible = !kit
+    }
+    for (const [id, marker] of this.enemies) {
+      if (seen.has(id)) continue
+      this.disposeObject(marker.mesh)
+      this.rigs.delete(id)
+      this.enemies.delete(id)
+    }
+  }
+
+  private kitEnemy(enemy: { id: string; kind: string; position: { x: number; z: number } }): void {
+    const marker = this.enemies.get(enemy.id)
+    const assetId = ENEMY_ASSETS[enemy.kind] ?? 'people/punk'
+    this.enqueueAsset(assetId)
+    if (!marker || marker.mesh.getObjectByName('kit')) return
+    const kit = this.spawnKit(assetId, 1)
+    if (!kit) return
+    fitToHeight(kit, 2.4)
+    marker.mesh.add(kit)
+    const mixer = new THREE.AnimationMixer(kit)
+    const clips = this.library.clips(assetId)
+    const poses: CharacterRig['poses'] = {}
+    for (const kind of ['idle', 'walk', 'run'] as const) {
+      const clip = pickCharacterClip(clips, kind)
+      if (clip) poses[kind] = mixer.clipAction(clip)
+    }
+    poses.idle?.play()
+    this.rigs.set(enemy.id, {
+      mixer,
+      poses,
+      current: 'idle',
+      lastX: enemy.position.x,
+      lastZ: enemy.position.z,
+      displaySpeed: 0,
+    })
+  }
+
+  private driveEnemy(enemy: { id: string; position: { x: number; z: number } }, dt: number): void {
+    const rig = this.rigs.get(enemy.id)
+    if (!rig) return
+    const speed = Math.hypot(enemy.position.x - rig.lastX, enemy.position.z - rig.lastZ) / Math.max(dt, 1 / 120)
+    rig.lastX = enemy.position.x
+    rig.lastZ = enemy.position.z
+    rig.displaySpeed = speed > 0.2 ? speed : rig.displaySpeed * Math.exp(-dt * 12)
+    const next = rig.displaySpeed > 2.6 ? 'run' : rig.displaySpeed > 0.35 ? 'walk' : 'idle'
+    if (next !== rig.current) {
+      rig.poses[rig.current]?.fadeOut(0.12)
+      rig.poses[next]?.reset().fadeIn(0.12).play()
+      rig.current = next
+    }
+    rig.mixer.update(dt)
+  }
+
   private bootIds(): string[] {
     const ids = [
       ...Object.values(SURVIVOR_ASSETS),
-      STRUCTURE_ASSETS.wall,
-      STRUCTURE_ASSETS.gate,
-      STRUCTURE_ASSETS.kitchen,
-      STRUCTURE_ASSETS.warehouse,
-      STRUCTURE_ASSETS.locker,
+      ...Object.values(ENEMY_ASSETS),
+      ...Object.values(STRUCTURE_ASSETS),
       'survival/bonfire',
       'survival/tent',
       'nature/pine',
@@ -805,7 +876,10 @@ export class DebugRenderer {
       if (child.name !== 'kit') continue
       root.remove(child)
     }
-    const assetId = structure.kind === 'gate' ? STRUCTURE_ASSETS.gate : structure.kind === 'building' ? STRUCTURE_ASSETS.kitchen : STRUCTURE_ASSETS.wall
+    const assetId =
+      STRUCTURE_ASSETS[structure.definitionId] ??
+      (structure.kind === 'gate' ? STRUCTURE_ASSETS.gate : structure.kind === 'building' ? STRUCTURE_ASSETS.kitchen : STRUCTURE_ASSETS.wall) ??
+      'fort/wooden-wall'
     if (structure.kind === 'wall') {
       const pieces: THREE.Object3D[] = []
       for (const cell of structure.cells) {
@@ -814,7 +888,7 @@ export class DebugRenderer {
         const center = cellCenter(world.nav, cell)
         kit.position.x += center.x
         kit.position.z += center.z
-        kit.rotation.y = wallYaw(structure, cell)
+        kit.rotation.y = wallYaw(world, structure, cell)
         kit.scale.x *= 0.22
         kit.scale.z *= 1.8
         pieces.push(kit)
@@ -831,6 +905,7 @@ export class DebugRenderer {
       })
       kit.position.x += mid.x
       kit.position.z += mid.z
+      if (structure.kind === 'gate') kit.rotation.y = gateYaw(structure)
       root.add(kit)
     }
     this.kitted.set(structure.id, cellSig)
@@ -895,9 +970,27 @@ function tracerColor(weaponId: string): number {
   return 0xd8e07a
 }
 
-function wallYaw(structure: StructureState, cell: GridCell): number {
-  const alongZ = structure.cells.some((entry) => entry.x === cell.x && Math.abs(entry.z - cell.z) === 1)
-  const alongX = structure.cells.some((entry) => entry.z === cell.z && Math.abs(entry.x - cell.x) === 1)
-  if (alongZ && !alongX) return Math.PI / 2
+function wallYaw(world: WorldState, _structure: StructureState, cell: GridCell): number {
+  const alongX = hasWallNeighbor(world, cell, -1, 0) || hasWallNeighbor(world, cell, 1, 0)
+  const alongZ = hasWallNeighbor(world, cell, 0, -1) || hasWallNeighbor(world, cell, 0, 1)
+  if (alongX && !alongZ) return Math.PI / 2
+  if (alongZ && !alongX) return 0
+  const north = worldToCell(world.nav, { x: 0, y: 0, z: BASE.north }).z
+  const south = worldToCell(world.nav, { x: 0, y: 0, z: BASE.south }).z
+  if (cell.z === north || cell.z === south) return Math.PI / 2
   return 0
+}
+
+function hasWallNeighbor(world: WorldState, cell: GridCell, dx: number, dz: number): boolean {
+  return world.structures.some((structure) =>
+    (structure.kind === 'wall' || structure.kind === 'gate') &&
+    structure.stage === 'complete' &&
+    structure.cells.some((entry) => entry.x === cell.x + dx && entry.z === cell.z + dz),
+  )
+}
+
+function gateYaw(structure: StructureState): number {
+  const xs = structure.cells.map((cell) => cell.x)
+  const zs = structure.cells.map((cell) => cell.z)
+  return Math.max(...xs) - Math.min(...xs) >= Math.max(...zs) - Math.min(...zs) ? 0 : Math.PI / 2
 }

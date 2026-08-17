@@ -8,13 +8,22 @@ export const SURVIVOR_ASSETS: Record<string, string> = {
   builder: 'people/man',
 }
 
-export const STRUCTURE_ASSETS = {
+export const STRUCTURE_ASSETS: Record<string, string> = {
   wall: 'fort/wooden-wall',
   gate: 'fort/wooden-fortress-gate',
   kitchen: 'fort/house',
   warehouse: 'fort/storage-house',
   locker: 'fort/storage-shed',
-} as const
+  hall: 'fort/town-center',
+  workshop: 'fort/shack',
+  quarters: 'fort/hut',
+  watchtower: 'fort/small-watch-tower',
+}
+
+export const ENEMY_ASSETS: Record<string, string> = {
+  wanderer: 'people/punk',
+  runner: 'people/punk-2',
+}
 
 export const CREATIVE_TABS: Array<{ id: 'all' | AssetCategory; label: string }> = [
   { id: 'all', label: '全部' },

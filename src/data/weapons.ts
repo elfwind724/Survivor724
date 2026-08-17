@@ -41,7 +41,7 @@ export function equippedWeapon(survivor: SurvivorState): WeaponDefinition | unde
   return undefined
 }
 
-export function fireProfile(survivor: SurvivorState) {
+export function fireProfile(survivor: SurvivorState, extraRange = 0) {
   const weapon = equippedWeapon(survivor)
   const stats = derivedStats(survivor.attributes, survivor.equipment)
   const level = Math.max(1, survivor.level)
@@ -61,7 +61,7 @@ export function fireProfile(survivor: SurvivorState) {
   const levelBonus = (level - 1) * 0.07
   const damage = Math.round(weapon.damage * (1 + levelBonus + stats.total.strength * 0.035))
   const cooldown = Math.max(0.08, weapon.cooldown / (1 + stats.total.agility * 0.018 + (level - 1) * 0.025))
-  const range = weapon.range * (1 + (level - 1) * 0.035)
+  const range = weapon.range * (1 + (level - 1) * 0.035) + extraRange
   const speed = weapon.speed * (1 + (level - 1) * 0.02)
   const spread = Math.max(0.004, weapon.spread * (1 - Math.min(0.55, stats.total.agility * 0.012 + (level - 1) * 0.03)))
   return { weapon, damage, cooldown, range, speed, spread, pellets: weapon.pellets, ammoCost: weapon.ammoCost, muzzle: weapon.muzzle }

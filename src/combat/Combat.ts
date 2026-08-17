@@ -38,6 +38,7 @@ export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
   survivor.fireCooldownMax = profile.cooldown
   const aimJitter = (unitNoise(`${survivor.id}:${world.time.daySeconds.toFixed(2)}`) * 2 - 1) * profile.spread
   const origin = muzzleOrigin(survivor)
+  const range = profile.range + towerRangeBonus(world, survivor)
   for (let index = 0; index < profile.pellets; index += 1) {
     const yaw = survivor.facingYaw + aimJitter + pelletSpread(index, profile.spread)
     const look = lookXZ(yaw)
@@ -48,11 +49,18 @@ export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
       position: cloneVec3(origin),
       velocity: { x: look.x * profile.speed, y: 0, z: look.z * profile.speed },
       damage: profile.damage,
-      remaining: profile.range,
-      range: profile.range,
+      remaining: range,
+      range,
     })
   }
   return true
+}
+
+export function towerRangeBonus(world: WorldState, survivor: SurvivorState): number {
+  const post = world.nightPosts.find((entry) => entry.id === survivor.nightPostId)
+  if (!post || post.rangeBonus <= 0) return 0
+  if (distanceXZ(survivor.position, post.position) > 2.2) return 0
+  return post.rangeBonus
 }
 
 export function stepProjectiles(world: WorldState, dt: number): void {

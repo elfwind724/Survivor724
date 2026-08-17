@@ -182,6 +182,7 @@ export interface NightPost {
   position: Vec3
   facingYaw: number
   occupantId: string | null
+  rangeBonus: number
 }
 
 export interface DefenseSector {

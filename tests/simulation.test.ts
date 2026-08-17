@@ -142,8 +142,8 @@ describe('simulation layer', () => {
 
     const warehouse = world.inventories['inv-warehouse']
     if (!warehouse) throw new Error('missing warehouse')
-    expect(countItem(warehouse, 'raw_meat')).toBeGreaterThan(0)
-    expect(countItem(warehouse, 'raw_fish')).toBeGreaterThan(0)
+    expect(countItem(warehouse, 'raw_meat') + countItem(warehouse, 'meal')).toBeGreaterThan(6)
+    expect(countItem(warehouse, 'raw_fish') + countItem(warehouse, 'meal')).toBeGreaterThan(6)
     expect(countItem(warehouse, 'scrap')).toBeGreaterThan(0)
 
     for (const id of ['hunter', 'fisher', 'scavenger'] as const) {

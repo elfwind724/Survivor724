@@ -4,7 +4,7 @@ import { countItem } from '@/inventory/Inventory'
 import { worldToCell } from '@/navigation/NavGrid'
 import { stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
-import { eatAtBase, eatOne } from '@/survivors/Living'
+import { diningSpot, eatAtBase, eatOne } from '@/survivors/Living'
 
 const DT = 1 / 30
 
@@ -18,11 +18,10 @@ describe('living loop', () => {
     const world = createInitialWorld()
     const hunter = world.survivors.find((entry) => entry.id === 'hunter')
     const warehouse = world.inventories['inv-warehouse']
-    const store = world.containers.find((entry) => entry.kind === 'warehouse')
-    if (!hunter || !warehouse || !store) throw new Error('missing hunter')
+    if (!hunter || !warehouse) throw new Error('missing hunter')
     hunter.hunger = 40
     hunter.thirst = 40
-    hunter.position = { ...store.position }
+    hunter.position = { ...diningSpot(world) }
     const meals = countItem(warehouse, 'meal')
     expect(eatAtBase(world)).toBeGreaterThan(0)
     expect(eatOne(world, hunter)).toBe(true)

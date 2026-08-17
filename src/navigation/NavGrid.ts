@@ -1,3 +1,4 @@
+import { facilityDefinition } from '@/data/facilities'
 import type { GridCell, NavGridState, StructureState, Vec3, WorldState } from '@/simulation/types'
 
 export const NAV_CELL = 1
@@ -47,6 +48,8 @@ export function isBlocked(nav: NavGridState, cell: GridCell): boolean {
 export function structureBlocksNav(structure: StructureState): boolean {
   if (structure.stage !== 'complete') return false
   if (structure.kind === 'gate') return !structure.open
+  const definition = facilityDefinition(structure.definitionId)
+  if (definition && !definition.blocksNav) return false
   return true
 }
 

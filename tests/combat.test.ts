@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { createEnemy, reloadWeapon, stepProjectiles, tryShoot } from '@/combat/Combat'
+import { createEnemy, reloadWeapon, stepProjectiles, towerRangeBonus, tryShoot } from '@/combat/Combat'
 import { reinforceSector } from '@/combat/Defense'
 import { assignedRescuer, stepNightCycle } from '@/combat/Night'
 import { fireProfile, magazineSize, muzzleOrigin, readMag } from '@/data/weapons'
 import { duskWarningLevel } from '@/simulation/TimeSystem'
-import { cellCenter } from '@/navigation/NavGrid'
+import { cellCenter, worldToCell } from '@/navigation/NavGrid'
 import { stepWorld } from '@/simulation/SimStep'
 import { possessSurvivor } from '@/controls/PlayerControl'
 import { skipSeconds } from '@/simulation/SimStep'
-import { createInitialWorld } from '@/simulation/WorldState'
+import { BASE, createInitialWorld } from '@/simulation/WorldState'
 import { findSurvivor } from '@/simulation/EntityRegistry'
 import { equipItem } from '@/survivors/Equipment'
 import { grantXp } from '@/survivors/Progress'
@@ -174,18 +174,39 @@ describe('combat and night', () => {
     world.time.phase = 'night'
     stepNightCycle(world)
     expect(world.enemies.length).toBeGreaterThan(8)
+    expect(world.nightPosts).toHaveLength(4)
+    expect(world.nightPosts.every((post) => post.rangeBonus > 0)).toBe(true)
     expect(world.nightPosts.some((post) => post.occupantId !== null)).toBe(true)
     const count = world.enemies.length
     stepNightCycle(world)
     expect(world.enemies.length).toBe(count)
   })
 
+  it('extends fire range when a survivor stands on a watchtower post', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    const post = world.nightPosts[0]
+    if (!hunter || !post) throw new Error('missing hunter or post')
+    hunter.equipment.weapon = 'rifle'
+    hunter.nightPostId = post.id
+    hunter.position = { ...post.position }
+    expect(towerRangeBonus(world, hunter)).toBeGreaterThan(10)
+    expect(tryShoot(world, hunter)).toBe(true)
+    expect(world.projectiles[0]?.range).toBeGreaterThan(40)
+  })
+
   it('lets enemies break a damaged wall', () => {
     const world = createInitialWorld()
-    const wall = world.structures.find((structure) => structure.kind === 'wall' && structure.stage === 'complete')
+    const west = worldToCell(world.nav, { x: BASE.west, y: 0, z: 0 })
+    const wall = world.structures.find(
+      (structure) =>
+        structure.kind === 'wall' &&
+        structure.stage === 'complete' &&
+        structure.cells.some((cell) => cell.x === west.x && cell.z === west.z),
+    )
     if (!wall || !wall.cells[0]) throw new Error('missing wall')
     wall.hp = 10
-    const point = cellCenter(world.nav, wall.cells[0])
+    const point = cellCenter(world.nav, west)
     world.enemies.push(createEnemy('wanderer', { x: point.x + 1.1, y: 0, z: point.z }, 'ram'))
     const id = wall.id
     for (let i = 0; i < 90; i += 1) stepWorld(world, 1 / 30)

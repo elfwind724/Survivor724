@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createCompleteStructure, placeBlueprint, setGateOpen } from '@/base/construction'
+import { demolishAt, placeBlueprint, setGateOpen } from '@/base/construction'
 import { findPath, pathExists } from '@/navigation/AStar'
 import { isBlocked, rebuildNav, worldToCell } from '@/navigation/NavGrid'
 import { BASE, createInitialWorld } from '@/simulation/WorldState'
@@ -50,21 +50,17 @@ describe('navigation', () => {
 
   it('rejects a wall blueprint that would seal the only remaining exit', () => {
     const world = createInitialWorld()
-    const gate = world.structures.find((structure) => structure.kind === 'gate')
-    if (!gate) throw new Error('missing gate')
-    setGateOpen(world, gate.id, false)
-    rebuildNav(world)
-
-    const west = worldToCell(world.nav, vec3(BASE.west, 0, BASE.south - 1))
-    const gap = worldToCell(world.nav, vec3(BASE.east - 1, 0, BASE.south - 1))
-    for (let x = west.x; x < gap.x; x += 1) {
-      createCompleteStructure(world, 'wall', x, west.z)
+    for (const gate of world.structures.filter((structure) => structure.kind === 'gate')) {
+      setGateOpen(world, gate.id, false)
     }
+    const holePoint = vec3(BASE.east, 0, 0)
+    expect(demolishAt(world, holePoint, false)).toBeTruthy()
     rebuildNav(world)
 
-    const result = placeBlueprint(world, 'wall', gap.x, west.z)
+    const hole = worldToCell(world.nav, holePoint)
+    const result = placeBlueprint(world, 'wall', hole.x, hole.z)
     expect(result.ok).toBe(false)
     expect(result.reason).toBe('blocks_exit')
-    expect(pathExists(world, vec3(-10, 0, -8), forestPosition(world))).toBe(true)
+    expect(pathExists(world, vec3(0, 0, 0), forestPosition(world))).toBe(true)
   })
 })

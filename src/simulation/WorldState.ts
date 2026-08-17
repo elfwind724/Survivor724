@@ -6,12 +6,12 @@ import { createDefenseSectors } from '@/combat/Defense'
 import { rebuildNightPosts } from '@/combat/Night'
 import { createInventory } from '@/inventory/Inventory'
 import { createJob } from '@/jobs/JobBoard'
-import { createNavGrid, rebuildNav, worldToCell } from '@/navigation/NavGrid'
+import { cellCenter, createNavGrid, rebuildNav, worldToCell } from '@/navigation/NavGrid'
 import { dressProfession } from '@/survivors/Equipment'
 import { createSurvivor } from '@/survivors/Survivor'
 import { createTimeState } from './TimeSystem'
 import { BASE } from './baseLayout'
-import { vec3, type WorldState } from './types'
+import { vec3, type StructureState, type Vec3, type WorldState } from './types'
 
 export { BASE }
 
@@ -47,8 +47,8 @@ export function createInitialWorld(): WorldState {
   const forest = vec3(55, 0, -20)
   const river = vec3(-55, 0, 32)
   const ruin = vec3(40, 0, 55)
-  const locker = vec3(10, 0, -8)
-  const warehouse = vec3(-10, 0, -8)
+  const locker = vec3(16, 0, -21)
+  const warehouse = vec3(-20, 0, -19)
 
   const world: WorldState = {
     time: createTimeState(),
@@ -185,26 +185,79 @@ export function createInitialWorld(): WorldState {
   }
 
   seedBaseWalls(world)
+  seedStarterBuildings(world)
+  bindContainersToBuildings(world)
+  assignStarterHomes(world)
   for (const survivor of world.survivors) dressProfession(survivor)
-  const blueprintCell = worldToCell(world.nav, vec3(16, 0, 4))
+  const blueprintCell = worldToCell(world.nav, vec3(0, 0, BASE.south - 4))
   placeBlueprint(world, 'wall', blueprintCell.x, blueprintCell.z)
   rebuildNightPosts(world)
   rebuildNav(world)
   return world
 }
 
+function seedAt(world: WorldState, definitionId: string, x: number, z: number, open = true): void {
+  const cell = worldToCell(world.nav, vec3(x, 0, z))
+  createCompleteStructure(world, definitionId, cell.x, cell.z, open)
+}
+
+function seedStarterBuildings(world: WorldState): void {
+  seedAt(world, 'kitchen', -22, 8)
+  seedAt(world, 'warehouse', -22, -16)
+  seedAt(world, 'hall', 18, 16)
+  seedAt(world, 'quarters', 16, -6)
+  seedAt(world, 'workshop', 16, -18)
+  seedAt(world, 'watchtower', BASE.west + 2, BASE.north - 3)
+  seedAt(world, 'watchtower', BASE.east - 3, BASE.north - 3)
+  seedAt(world, 'watchtower', BASE.east - 3, BASE.south + 2)
+  seedAt(world, 'watchtower', BASE.west + 2, BASE.south + 2)
+}
+
+function bindContainersToBuildings(world: WorldState): void {
+  const warehouse = world.containers.find((entry) => entry.kind === 'warehouse')
+  const locker = world.containers.find((entry) => entry.kind === 'tool_locker')
+  const warehouseHall = world.structures.find((entry) => entry.definitionId === 'warehouse' && entry.stage === 'complete')
+  const workshop = world.structures.find((entry) => entry.definitionId === 'workshop' && entry.stage === 'complete')
+  if (warehouse && warehouseHall) warehouse.position = approachSouth(world, warehouseHall)
+  if (locker && workshop) locker.position = approachSouth(world, workshop)
+}
+
+function assignStarterHomes(world: WorldState): void {
+  const quarters = world.structures.find((entry) => entry.definitionId === 'quarters' && entry.stage === 'complete')
+  if (!quarters) return
+  const south = approachSouth(world, quarters)
+  world.survivors.forEach((survivor, index) => {
+    const offset = (index - (world.survivors.length - 1) / 2) * 1.1
+    survivor.homePosition = { x: south.x + offset, y: 0, z: south.z }
+  })
+}
+
+function approachSouth(world: WorldState, structure: StructureState): Vec3 {
+  const xs = structure.cells.map((cell) => cell.x)
+  const zs = structure.cells.map((cell) => cell.z)
+  const south = cellCenter(world.nav, {
+    x: (Math.min(...xs) + Math.max(...xs)) / 2,
+    z: Math.min(...zs),
+  })
+  return { x: south.x, y: 0, z: south.z - 2.2 }
+}
+
 function seedBaseWalls(world: WorldState): void {
   const west = worldToCell(world.nav, vec3(BASE.west, 0, BASE.south))
   const east = worldToCell(world.nav, vec3(BASE.east, 0, BASE.south))
   const north = worldToCell(world.nav, vec3(BASE.west, 0, BASE.north))
-  const southEnd = worldToCell(world.nav, vec3(BASE.west, 0, BASE.north))
-  const gate = worldToCell(world.nav, vec3(-1, 0, BASE.north))
+  const south = worldToCell(world.nav, vec3(BASE.west, 0, BASE.south))
+  const northGate = worldToCell(world.nav, vec3(-1, 0, BASE.north))
+  const southGate = worldToCell(world.nav, vec3(-1, 0, BASE.south))
 
-  for (let z = west.z; z <= southEnd.z; z += 1) {
+  for (let z = south.z; z <= north.z; z += 1) {
     createCompleteStructure(world, 'wall', west.x, z)
     createCompleteStructure(world, 'wall', east.x, z)
   }
-  for (let x = north.x; x < gate.x; x += 1) createCompleteStructure(world, 'wall', x, north.z)
-  for (let x = gate.x + 3; x <= east.x; x += 1) createCompleteStructure(world, 'wall', x, north.z)
-  createCompleteStructure(world, 'gate', gate.x, gate.z, true)
+  for (let x = north.x + 1; x < northGate.x; x += 1) createCompleteStructure(world, 'wall', x, north.z)
+  for (let x = northGate.x + 3; x < east.x; x += 1) createCompleteStructure(world, 'wall', x, north.z)
+  createCompleteStructure(world, 'gate', northGate.x, northGate.z, true)
+  for (let x = south.x + 1; x < southGate.x; x += 1) createCompleteStructure(world, 'wall', x, south.z)
+  for (let x = southGate.x + 3; x < east.x; x += 1) createCompleteStructure(world, 'wall', x, south.z)
+  createCompleteStructure(world, 'gate', southGate.x, southGate.z, true)
 }

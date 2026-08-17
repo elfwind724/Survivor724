@@ -16,8 +16,8 @@ describe('asset catalog', () => {
     expect(assetById(SURVIVOR_ASSETS.hunter ?? '')?.name).toBe('Adventurer')
     expect(assetById(SURVIVOR_ASSETS.fisher ?? '')?.name).toBe('Beach Character')
     expect(assetById(SURVIVOR_ASSETS.hauler ?? '')?.name).toBe('Worker')
-    expect(assetById(STRUCTURE_ASSETS.wall)?.name).toBe('Wooden Wall')
-    expect(assetById(STRUCTURE_ASSETS.warehouse)?.name).toBe('Storage House')
+    expect(assetById(STRUCTURE_ASSETS.wall ?? '')?.name).toBe('Wooden Wall')
+    expect(assetById(STRUCTURE_ASSETS.warehouse ?? '')?.name).toBe('Storage House')
   })
 
   it('exposes creative tabs for every catalog category', () => {

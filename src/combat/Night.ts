@@ -10,24 +10,56 @@ import { equipItem } from '@/survivors/Equipment'
 import { beginTravel, followTravel } from '@/navigation/Travel'
 import { createEnemy, tryShoot } from './Combat'
 
+export const TOWER_RANGE_BONUS = 16
+
 export function rebuildNightPosts(world: WorldState): void {
-  const posts: NightPost[] = []
-  let index = 0
-  for (let x = BASE.west + 6; x <= BASE.east - 6; x += 8) {
-    posts.push({ id: `post-s-${index}`, sector: 'south', position: { x, y: 0, z: BASE.south + 2 }, facingYaw: Math.PI, occupantId: null })
-    index += 1
+  const towers = world.structures
+    .filter((structure) => structure.definitionId === 'watchtower' && structure.stage === 'complete')
+    .map((structure) => ({
+      mid: structureMid(world, structure),
+    }))
+  const nw = pickTower(towers, (point) => -point.x + point.z) ?? { x: BASE.west + 3, y: 0, z: BASE.north - 3 }
+  const ne = pickTower(towers, (point) => point.x + point.z) ?? { x: BASE.east - 3, y: 0, z: BASE.north - 3 }
+  const se = pickTower(towers, (point) => point.x - point.z) ?? { x: BASE.east - 3, y: 0, z: BASE.south + 3 }
+  const sw = pickTower(towers, (point) => -point.x - point.z) ?? { x: BASE.west + 3, y: 0, z: BASE.south + 3 }
+  world.nightPosts = [
+    { id: 'post-nw', sector: 'north', position: nw, facingYaw: 0, occupantId: null, rangeBonus: TOWER_RANGE_BONUS },
+    { id: 'post-ne', sector: 'east', position: ne, facingYaw: Math.PI / 2, occupantId: null, rangeBonus: TOWER_RANGE_BONUS },
+    { id: 'post-se', sector: 'south', position: se, facingYaw: Math.PI, occupantId: null, rangeBonus: TOWER_RANGE_BONUS },
+    { id: 'post-sw', sector: 'west', position: sw, facingYaw: -Math.PI / 2, occupantId: null, rangeBonus: TOWER_RANGE_BONUS },
+  ]
+}
+
+function structureMid(world: WorldState, structure: StructureState) {
+  const xs = structure.cells.map((cell) => cell.x)
+  const zs = structure.cells.map((cell) => cell.z)
+  return cellCenter(world.nav, {
+    x: (Math.min(...xs) + Math.max(...xs)) / 2,
+    z: (Math.min(...zs) + Math.max(...zs)) / 2,
+  })
+}
+
+function pickTower(
+  towers: Array<{ mid: { x: number; y: number; z: number } }>,
+  score: (point: { x: number; z: number }) => number,
+) {
+  let best = towers[0]?.mid
+  let bestScore = best ? score(best) : Number.NEGATIVE_INFINITY
+  for (const tower of towers) {
+    const value = score(tower.mid)
+    if (value > bestScore) {
+      best = tower.mid
+      bestScore = value
+    }
   }
-  for (let x = BASE.west + 4; x <= BASE.east - 4; x += 6) {
-    posts.push({ id: `post-n-${index}`, sector: 'north', position: { x, y: 0, z: BASE.north - 1.5 }, facingYaw: 0, occupantId: null })
-    index += 1
-  }
-  for (let z = BASE.south + 6; z <= BASE.north - 6; z += 8) {
-    posts.push({ id: `post-e-${index}`, sector: 'east', position: { x: BASE.east - 1.5, y: 0, z }, facingYaw: Math.PI / 2, occupantId: null })
-    index += 1
-    posts.push({ id: `post-w-${index}`, sector: 'west', position: { x: BASE.west + 1.5, y: 0, z }, facingYaw: -Math.PI / 2, occupantId: null })
-    index += 1
-  }
-  world.nightPosts = posts
+  return best
+}
+
+export function watchRangeBonus(world: WorldState, survivor: SurvivorState): number {
+  const post = world.nightPosts.find((entry) => entry.id === survivor.nightPostId)
+  if (!post || post.rangeBonus <= 0) return 0
+  if (distanceXZ(survivor.position, post.position) > 2.2) return 0
+  return post.rangeBonus
 }
 
 export function stepNightCycle(world: WorldState): void {
@@ -61,7 +93,7 @@ export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt
     return
   }
 
-  const enemy = nearestEnemy(world, survivor.position, 30)
+  const enemy = nearestEnemy(world, survivor.position, 30 + watchRangeBonus(world, survivor))
   if (enemy) {
     const dx = enemy.position.x - survivor.position.x
     const dz = enemy.position.z - survivor.position.z

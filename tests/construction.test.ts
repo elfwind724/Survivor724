@@ -113,7 +113,7 @@ describe('construction and work zones', () => {
     const cell = worldToCell(world.nav, { x: -4, y: 0, z: 8 })
     const preview = previewPlacement(world, 'kitchen', cell.x, cell.z)
     expect(preview.valid).toBe(true)
-    expect(preview.cells).toHaveLength(80)
+    expect(preview.cells).toHaveLength(16)
 
     const wall = world.structures.find((structure) => structure.definitionId === 'wall' && structure.stage === 'complete')
     if (!wall?.cells[0]) throw new Error('missing wall')
@@ -150,7 +150,7 @@ describe('construction and work zones', () => {
     expect(placed.ok).toBe(true)
     expect(placed.structure?.cells.length).toBeGreaterThan(10)
 
-    simulate(world, 25)
+    simulate(world, 50)
     expect(placed.structure?.stage).toBe('complete')
   })
 
@@ -191,5 +191,46 @@ describe('construction and work zones', () => {
     expect(toggled?.id).toBe(first.id)
     expect(first.open).toBe(true)
     expect(extra.open).toBe(false)
+  })
+
+  it('seeds kitchen, warehouse, hall, workshop, quarters, and four watchtowers', () => {
+    const world = createInitialWorld()
+    const ids = world.structures.filter((structure) => structure.stage === 'complete').map((structure) => structure.definitionId)
+    expect(world.survivors).toHaveLength(5)
+    expect(ids).toEqual(expect.arrayContaining(['kitchen', 'warehouse', 'hall', 'workshop', 'quarters', 'watchtower']))
+    expect(ids.filter((id) => id === 'watchtower')).toHaveLength(4)
+    expect(world.structures.filter((structure) => structure.kind === 'gate').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('closes the north wall except for the gate opening', () => {
+    const world = createInitialWorld()
+    const north = worldToCell(world.nav, { x: BASE.west, y: 0, z: BASE.north })
+    const east = worldToCell(world.nav, { x: BASE.east, y: 0, z: BASE.north })
+    const gate = world.structures.find((structure) => structure.kind === 'gate' && structure.cells.some((cell) => cell.z === north.z))
+    expect(gate).toBeDefined()
+    const covered = new Set<number>()
+    for (const structure of world.structures) {
+      if (structure.stage !== 'complete') continue
+      for (const cell of structure.cells) {
+        if (cell.z === north.z) covered.add(cell.x)
+      }
+    }
+    for (let x = north.x; x <= east.x; x += 1) expect(covered.has(x), `missing north cell ${x}`).toBe(true)
+  })
+
+  it('puts beds by the quarters and keeps watchtowers walkable', () => {
+    const world = createInitialWorld()
+    const quarters = world.structures.find((structure) => structure.definitionId === 'quarters')
+    const warehouse = world.containers.find((entry) => entry.kind === 'warehouse')
+    const warehouseHall = world.structures.find((structure) => structure.definitionId === 'warehouse')
+    if (!quarters || !warehouse || !warehouseHall) throw new Error('missing camp buildings')
+    const home = world.survivors[0]?.homePosition
+    expect(home).toBeDefined()
+    expect(Math.hypot((home?.x ?? 0) - 16, (home?.z ?? 0) + 6)).toBeLessThan(12)
+    expect(Math.hypot(warehouse.position.x + 22, warehouse.position.z + 16)).toBeLessThan(10)
+    for (const post of world.nightPosts) {
+      const cell = worldToCell(world.nav, post.position)
+      expect(world.nav.blocked[cell.z * world.nav.width + cell.x]).toBe(0)
+    }
   })
 })
