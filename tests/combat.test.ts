@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createEnemy, stepProjectiles, tryShoot } from '@/combat/Combat'
+import { createEnemy, reloadWeapon, stepProjectiles, tryShoot } from '@/combat/Combat'
 import { reinforceSector } from '@/combat/Defense'
 import { assignedRescuer, stepNightCycle } from '@/combat/Night'
 import { fireProfile, magazineSize, muzzleOrigin, readMag } from '@/data/weapons'
@@ -101,6 +101,22 @@ describe('combat and night', () => {
     hunter.fireCooldown = 0
     expect(tryShoot(world, hunter)).toBe(true)
     expect(hunter.ammo).toBe(2)
+  })
+
+  it('reloads the current gun from warehouse ammo without touching other magazines', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    const warehouse = world.inventories['inv-warehouse']
+    if (!hunter || !warehouse) throw new Error('missing hunter')
+    hunter.equipment.weapon = 'pistol'
+    hunter.ammo = 2
+    hunter.weaponAmmo = { pistol: 2, rifle: 9 }
+    const stock = warehouse.items.find((item) => item.itemId === 'ammo')?.count ?? 0
+    expect(reloadWeapon(world, hunter)).toBe('ok')
+    expect(hunter.ammo).toBe(12)
+    expect(hunter.weaponAmmo.rifle).toBe(9)
+    expect(warehouse.items.find((item) => item.itemId === 'ammo')?.count).toBe(stock - 10)
+    expect(reloadWeapon(world, hunter)).toBe('full')
   })
 
   it('lets a survivor equip a locker gun and refuses to fire without one', () => {

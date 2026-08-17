@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { demolishAt, interactGate, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, structureAt } from '@/base/construction'
 import { decorationNear, placeDecoration, removeDecoration, snapDecor } from '@/base/decorations'
 import { facilityPreviewHeight } from '@/data/facilities'
-import { tryShoot } from '@/combat/Combat'
+import { reloadWeapon, tryShoot } from '@/combat/Combat'
 import { equippedWeapon, fireProfile } from '@/data/weapons'
 import { setWorkZone } from '@/base/workZones'
 import { cameraRelativeWish } from '@/controls/CameraWish'
@@ -211,6 +211,23 @@ export class GameApp {
     if (event.code === 'KeyR' && this.editor.getBrush()) {
       this.editor.rotate(event.shiftKey ? -Math.PI / 2 : Math.PI / 2)
       this.notice = '已旋转手中素材'
+      return
+    }
+    if (event.code === 'KeyR') {
+      const actor = this.world.player.controlledId
+        ? findSurvivor(this.world, this.world.player.controlledId)
+        : this.world.player.selectedId
+          ? findSurvivor(this.world, this.world.player.selectedId)
+          : undefined
+      if (!actor) {
+        this.notice = '先选中或接管一个人再按 R 装弹'
+        return
+      }
+      const result = reloadWeapon(this.world, actor)
+      if (result === 'ok') this.notice = `已装填 ${actor.ammo}发`
+      else if (result === 'full') this.notice = '弹匣是满的'
+      else if (result === 'no_gun') this.notice = '没有装备枪械'
+      else this.notice = '仓库没有备用弹药'
     }
     if ((event.code === 'Equal' || event.code === 'NumpadAdd') && this.editor.getBrush()) {
       this.editor.nudgeScale(1.15)

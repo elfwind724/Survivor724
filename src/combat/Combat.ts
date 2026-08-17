@@ -1,8 +1,8 @@
 import { damageStructure } from '@/base/construction'
 import { ENEMY_DEFINITIONS } from '@/data/enemies'
 import { derivedStats } from '@/data/equipment'
-import { fireProfile, muzzleOrigin, readMag, writeMag } from '@/data/weapons'
-import { addItem, inventoryOf } from '@/inventory/Inventory'
+import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
+import { equippedWeapon, fireProfile, magazineSize, muzzleOrigin, readMag, writeMag } from '@/data/weapons'
 import { cellCenter, isBlocked, worldToCell } from '@/navigation/NavGrid'
 import { lookXZ } from '@/controls/CameraWish'
 import { findContainer } from '@/simulation/EntityRegistry'
@@ -59,6 +59,24 @@ export function stepProjectiles(world: WorldState, dt: number): void {
     if (!advanceProjectile(world, shot, dt)) next.push(shot)
   }
   world.projectiles = next
+}
+
+export function reloadWeapon(world: WorldState, survivor: SurvivorState): 'ok' | 'full' | 'no_gun' | 'no_stock' {
+  const gun = equippedWeapon(survivor)
+  if (!gun) return 'no_gun'
+  const have = readMag(survivor, gun.id)
+  const cap = magazineSize(gun.id)
+  if (have >= cap) return 'full'
+  const warehouse = findContainer(world, 'warehouse')
+  if (!warehouse) return 'no_stock'
+  const stock = inventoryOf(world.inventories, warehouse.inventoryId)
+  const take = Math.min(cap - have, countItem(stock, 'ammo'))
+  if (take <= 0) return 'no_stock'
+  if (!removeItem(stock, 'ammo', take)) return 'no_stock'
+  writeMag(survivor, gun.id, have + take)
+  survivor.fireCooldown = Math.max(survivor.fireCooldown, 0.55)
+  survivor.fireCooldownMax = Math.max(survivor.fireCooldownMax, 0.55)
+  return 'ok'
 }
 
 export function harvestWildlife(world: WorldState, survivor: SurvivorState): boolean {
