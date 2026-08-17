@@ -19,7 +19,11 @@ export class DebugRenderer {
   private readonly survivors = new Map<string, Marker>()
   private readonly structures = new Map<string, Marker>()
   private readonly extras: THREE.Object3D[] = []
+  private readonly enemies = new Map<string, Marker>()
+  private readonly wildlife = new Map<string, Marker>()
   private zones: THREE.Object3D[] = []
+  private readonly hemi: THREE.HemisphereLight
+  private readonly sun: THREE.DirectionalLight
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
@@ -30,10 +34,10 @@ export class DebugRenderer {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
-    const hemi = new THREE.HemisphereLight(0xdde6d8, 0x2a2f28, 1.1)
-    const sun = new THREE.DirectionalLight(0xfff1d0, 0.7)
-    sun.position.set(20, 40, 10)
-    this.scene.add(hemi, sun)
+    this.hemi = new THREE.HemisphereLight(0xdde6d8, 0x2a2f28, 1.1)
+    this.sun = new THREE.DirectionalLight(0xfff1d0, 0.7)
+    this.sun.position.set(20, 40, 10)
+    this.scene.add(this.hemi, this.sun)
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(200, 200),
@@ -101,8 +105,11 @@ export class DebugRenderer {
 
   sync(world: WorldState): void {
     this.ensureStatic(world)
+    this.syncLighting(world)
     this.syncZones(world)
     this.syncStructures(world)
+    this.syncActors(world.enemies, this.enemies, 1.2, 1.6, 0x4a5a32)
+    this.syncActors(world.wildlife, this.wildlife, 1.4, 1.1, 0xb8a078)
     for (const survivor of world.survivors) {
       let marker = this.survivors.get(survivor.id)
       if (!marker) {
@@ -272,6 +279,57 @@ export class DebugRenderer {
       mesh.position.set(node.position.x, 0.2, node.position.z)
       this.scene.add(mesh)
       this.extras.push(mesh)
+    }
+  }
+
+  private syncLighting(world: WorldState): void {
+    if (world.time.phase === 'night') {
+      this.scene.background = new THREE.Color(0x0c1014)
+      this.hemi.intensity = 0.28
+      this.sun.intensity = 0.08
+      return
+    }
+    if (world.time.phase === 'dusk') {
+      this.scene.background = new THREE.Color(0x2a1c16)
+      this.hemi.intensity = 0.7
+      this.sun.intensity = 0.35
+      return
+    }
+    this.scene.background = new THREE.Color(0x1b2124)
+    this.hemi.intensity = 1.1
+    this.sun.intensity = 0.7
+  }
+
+  private syncActors(
+    actors: Array<{ id: string; position: { x: number; z: number }; facingYaw?: number; alive?: boolean }>,
+    store: Map<string, Marker>,
+    width: number,
+    height: number,
+    color: number,
+  ): void {
+    const seen = new Set<string>()
+    for (const actor of actors) {
+      seen.add(actor.id)
+      let marker = store.get(actor.id)
+      if (!marker) {
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(width, height, width * 0.7),
+          new THREE.MeshLambertMaterial({ color }),
+        )
+        this.scene.add(mesh)
+        marker = { id: actor.id, mesh }
+        store.set(actor.id, marker)
+      }
+      if (marker.mesh instanceof THREE.Mesh && marker.mesh.material instanceof THREE.MeshLambertMaterial) {
+        marker.mesh.material.color.set(actor.alive === false ? 0x6a5040 : color)
+      }
+      marker.mesh.position.set(actor.position.x, height / 2, actor.position.z)
+      if (actor.facingYaw !== undefined) marker.mesh.rotation.y = actor.facingYaw
+    }
+    for (const [id, marker] of store) {
+      if (seen.has(id)) continue
+      this.scene.remove(marker.mesh)
+      store.delete(id)
     }
   }
 

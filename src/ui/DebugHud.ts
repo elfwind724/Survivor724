@@ -28,8 +28,8 @@ export class DebugHud {
 
     this.root.innerHTML = `
       <strong>Dawn Bastion</strong><br />
-      操控 ${controlled?.name ?? '（观察中）'} · ${world.player.view}<br />
-      Day ${world.time.dayIndex} · ${world.time.phase} · ${world.time.daySeconds.toFixed(1)}s<br />
+      操控 ${controlled?.name ?? '（观察中）'} · ${world.player.view} · HP ${controlled ? Math.ceil(controlled.health) : '-'} · 弹 ${controlled?.ammo ?? '-'}<br />
+      Day ${world.time.dayIndex} · ${world.time.phase} · ${world.time.daySeconds.toFixed(0)}s · ${world.time.timeScale}× · 敌 ${world.enemies.length}<br />
       Build ${buildMode} · Zone ${zoneJob}<br />
       Warehouse ${stock || 'empty'}<br />
       Sites ${sites || 'none'}<br />

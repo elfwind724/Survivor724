@@ -101,6 +101,10 @@ export interface SurvivorState {
   pathTarget: Vec3 | null
   pathVersion: number
   facingYaw: number
+  ammo: number
+  fireCooldown: number
+  nightPostId: string | null
+  downed: boolean
 }
 
 export type CameraView = 'topdown' | 'firstperson'
@@ -109,6 +113,31 @@ export interface PlayerState {
   selectedId: string | null
   controlledId: string | null
   view: CameraView
+}
+
+export interface EnemyState {
+  id: string
+  kind: 'wanderer' | 'runner'
+  position: Vec3
+  health: number
+  moveSpeed: number
+  facingYaw: number
+  attackCooldown: number
+}
+
+export interface WildlifeState {
+  id: string
+  kind: 'deer'
+  position: Vec3
+  health: number
+  alive: boolean
+}
+
+export interface NightPost {
+  id: string
+  position: Vec3
+  facingYaw: number
+  occupantId: string | null
 }
 
 export interface ResourceNodeState {
@@ -145,6 +174,11 @@ export interface WorldState {
   structures: StructureState[]
   workZones: WorkZoneState[]
   player: PlayerState
+  enemies: EnemyState[]
+  wildlife: WildlifeState[]
+  nightPosts: NightPost[]
+  lastPhase: DayPhase
+  nightSpawnedDay: number
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

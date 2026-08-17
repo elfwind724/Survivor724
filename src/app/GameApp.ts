@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { demolishStructure, placeBlueprint, structureAt, toggleGates } from '@/base/construction'
+import { tryShoot } from '@/combat/Combat'
 import { setWorkZone } from '@/base/workZones'
 import { cameraRelativeWish } from '@/controls/CameraWish'
 import { Input } from '@/controls/Input'
@@ -8,7 +9,7 @@ import { beginTravel } from '@/navigation/Travel'
 import { worldToCell } from '@/navigation/NavGrid'
 import { DebugRenderer } from '@/render/DebugRenderer'
 import { findSurvivor } from '@/simulation/EntityRegistry'
-import { stepWorld } from '@/simulation/SimStep'
+import { skipSeconds, stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
 import type { WorldState } from '@/simulation/types'
 import { BuildMenu } from '@/ui/BuildMenu'
@@ -157,6 +158,14 @@ export class GameApp {
     if (event.code === 'Digit1') this.zoneJob = 'hunt'
     if (event.code === 'Digit2') this.zoneJob = 'fish'
     if (event.code === 'Digit3') this.zoneJob = 'scavenge'
+    if (event.code === 'KeyT') {
+      this.world.time.timeScale = this.world.time.timeScale === 1 ? 2 : 1
+      this.notice = `时间倍率 ${this.world.time.timeScale}×`
+    }
+    if (event.code === 'BracketRight') {
+      skipSeconds(this.world, 60)
+      this.notice = '时间推进 60 秒'
+    }
   }
 
   private readonly onWheel = (event: WheelEvent): void => {
@@ -166,7 +175,10 @@ export class GameApp {
   }
 
   private readonly onPointerDown = (event: PointerEvent): void => {
-    if (this.world.player.view === 'firstperson') return
+    if (this.world.player.view === 'firstperson') {
+      if (event.button === 0) this.fireIfPossessed()
+      return
+    }
     this.pointer = {
       button: event.button,
       startX: event.clientX,
@@ -224,7 +236,10 @@ export class GameApp {
 
     if (button === 0) {
       const id = this.renderer.pickSurvivor(this.world, event.clientX, event.clientY)
-      if (!id) return
+      if (!id) {
+        this.fireIfPossessed()
+        return
+      }
       const now = performance.now()
       const doubleClick = this.lastClickId === id && now - this.lastClickAt < 320
       this.lastClickAt = now
@@ -258,6 +273,14 @@ export class GameApp {
     setWorkZone(this.world, this.zoneJob, this.zoneStart.x, this.zoneStart.z, end.x, end.z)
     this.notice = `已更新 ${this.zoneJob} 工作区`
     this.zoneStart = null
+  }
+
+  private fireIfPossessed(): void {
+    if (this.buildMenu.getSelected()) return
+    const self = this.world.player.controlledId ? findSurvivor(this.world, this.world.player.controlledId) : undefined
+    if (!self) return
+    if (tryShoot(this.world, self)) this.notice = `射击 · 剩弹 ${self.ammo}`
+    else if (self.ammo <= 0) this.notice = '没有弹药'
   }
 
   private refreshHud(): void {

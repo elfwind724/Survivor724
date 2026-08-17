@@ -1,19 +1,16 @@
 import { createCompleteStructure, placeBlueprint } from '@/base/construction'
 import { createWorkZone } from '@/base/workZones'
+import { createDeer } from '@/combat/Combat'
+import { rebuildNightPosts } from '@/combat/Night'
 import { createInventory } from '@/inventory/Inventory'
 import { createJob } from '@/jobs/JobBoard'
 import { createNavGrid, rebuildNav, worldToCell } from '@/navigation/NavGrid'
 import { createSurvivor } from '@/survivors/Survivor'
 import { createTimeState } from './TimeSystem'
+import { BASE } from './baseLayout'
 import { vec3, type WorldState } from './types'
 
-/** Interior is ~60x56m so a kitchen (10x8) and other rooms can fit. */
-export const BASE = {
-  west: -30,
-  east: 30,
-  south: -26,
-  north: 30,
-} as const
+export { BASE }
 
 export function createInitialWorld(): WorldState {
   const hunterBag = createInventory('inv-hunter', 8)
@@ -24,6 +21,7 @@ export function createInitialWorld(): WorldState {
   const warehouseInv = createInventory('inv-warehouse', 400, [
     { itemId: 'wood', count: 80 },
     { itemId: 'scrap', count: 24 },
+    { itemId: 'ammo', count: 80 },
   ])
   const lockerInv = createInventory('inv-locker', 20, [
     { itemId: 'rifle', count: 1 },
@@ -149,11 +147,21 @@ export function createInitialWorld(): WorldState {
       createWorkZone('zone-fish', 'fish', -70, 15, -40, 50),
       createWorkZone('zone-scavenge', 'scavenge', 25, 40, 55, 70),
     ],
+    enemies: [],
+    wildlife: [
+      createDeer('deer-1', vec3(52, 0, -18)),
+      createDeer('deer-2', vec3(58, 0, -24)),
+      createDeer('deer-3', vec3(48, 0, -14)),
+    ],
+    nightPosts: [],
+    lastPhase: 'dawn',
+    nightSpawnedDay: 0,
   }
 
   seedBaseWalls(world)
   const blueprintCell = worldToCell(world.nav, vec3(16, 0, 4))
   placeBlueprint(world, 'wall', blueprintCell.x, blueprintCell.z)
+  rebuildNightPosts(world)
   rebuildNav(world)
   return world
 }

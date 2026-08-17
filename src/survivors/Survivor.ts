@@ -12,6 +12,10 @@ type SurvivorDraft = Omit<
   | 'pathTarget'
   | 'pathVersion'
   | 'facingYaw'
+  | 'ammo'
+  | 'fireCooldown'
+  | 'nightPostId'
+  | 'downed'
 > & {
   destination?: Vec3 | null
   homePosition?: Vec3
@@ -23,6 +27,10 @@ type SurvivorDraft = Omit<
   pathTarget?: Vec3 | null
   pathVersion?: number
   facingYaw?: number
+  ammo?: number
+  fireCooldown?: number
+  nightPostId?: string | null
+  downed?: boolean
 }
 
 export function createSurvivor(input: SurvivorDraft): SurvivorState {
@@ -39,6 +47,10 @@ export function createSurvivor(input: SurvivorDraft): SurvivorState {
     pathTarget: input.pathTarget ? cloneVec3(input.pathTarget) : null,
     pathVersion: input.pathVersion ?? 0,
     facingYaw: input.facingYaw ?? 0,
+    ammo: input.ammo ?? 18,
+    fireCooldown: input.fireCooldown ?? 0,
+    nightPostId: input.nightPostId ?? null,
+    downed: input.downed ?? false,
   }
 }
 
