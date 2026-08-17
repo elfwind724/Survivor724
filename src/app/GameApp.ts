@@ -12,8 +12,10 @@ import { findSurvivor } from '@/simulation/EntityRegistry'
 import { skipSeconds, stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
 import type { WorldState } from '@/simulation/types'
+import { reinforceSector } from '@/combat/Defense'
 import { BuildMenu } from '@/ui/BuildMenu'
 import { DebugHud } from '@/ui/DebugHud'
+import { DefenseBar } from '@/ui/DefenseBar'
 import { Minimap } from '@/ui/Minimap'
 import { GameLoop } from './GameLoop'
 
@@ -23,6 +25,7 @@ export class GameApp {
   private readonly hud: DebugHud
   private readonly minimap: Minimap
   private readonly buildMenu: BuildMenu
+  private readonly defenseBar: DefenseBar
   private readonly input = new Input()
   private readonly loop: GameLoop
   private zoneJob = 'hunt'
@@ -44,6 +47,7 @@ export class GameApp {
     hudRoot: HTMLElement,
     minimapCanvas: HTMLCanvasElement,
     buildMenuRoot: HTMLElement,
+    defenseRoot: HTMLElement,
   ) {
     this.world = createInitialWorld()
     this.renderer = new DebugRenderer(canvas)
@@ -51,6 +55,9 @@ export class GameApp {
     this.minimap = new Minimap(minimapCanvas)
     this.buildMenu = new BuildMenu(buildMenuRoot, (selected) => {
       this.notice = selected === 'demolish' ? '拆除：单击建筑' : selected ? `已选择，单击地面放置` : '已取消建造'
+    })
+    this.defenseBar = new DefenseBar(defenseRoot, (sector) => {
+      this.notice = `增援${sector}，守夜的人会往那边靠` 
     })
     this.loop = new GameLoop(this.step, this.draw)
     possessSurvivor(this.world, 'hunter')
@@ -92,6 +99,7 @@ export class GameApp {
     this.renderer.draw()
     this.refreshHud()
     this.minimap.render(this.world)
+    this.defenseBar.render(this.world)
   }
 
   private controlIntent() {
@@ -155,9 +163,19 @@ export class GameApp {
       toggleGates(this.world)
       this.notice = '已切换大门开闭'
     }
-    if (event.code === 'Digit1') this.zoneJob = 'hunt'
-    if (event.code === 'Digit2') this.zoneJob = 'fish'
-    if (event.code === 'Digit3') this.zoneJob = 'scavenge'
+    if (event.code === 'Digit1') {
+      if (this.world.time.phase === 'night') reinforceSector(this.world, 'north')
+      else this.zoneJob = 'hunt'
+    }
+    if (event.code === 'Digit2') {
+      if (this.world.time.phase === 'night') reinforceSector(this.world, 'east')
+      else this.zoneJob = 'fish'
+    }
+    if (event.code === 'Digit3') {
+      if (this.world.time.phase === 'night') reinforceSector(this.world, 'south')
+      else this.zoneJob = 'scavenge'
+    }
+    if (event.code === 'Digit4' && this.world.time.phase === 'night') reinforceSector(this.world, 'west')
     if (event.code === 'KeyT') {
       this.world.time.timeScale = this.world.time.timeScale === 1 ? 2 : 1
       this.notice = `时间倍率 ${this.world.time.timeScale}×`

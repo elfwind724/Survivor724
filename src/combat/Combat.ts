@@ -1,10 +1,11 @@
+import { damageStructure } from '@/base/construction'
 import { ENEMY_DEFINITIONS } from '@/data/enemies'
 import { weaponForTools } from '@/data/weapons'
 import { addItem, inventoryOf } from '@/inventory/Inventory'
-import { isBlocked, worldToCell } from '@/navigation/NavGrid'
+import { cellCenter, isBlocked, worldToCell } from '@/navigation/NavGrid'
 import { lookXZ } from '@/controls/CameraWish'
 import { findContainer } from '@/simulation/EntityRegistry'
-import { cloneVec3, distanceXZ, type EnemyState, type SurvivorState, type Vec3, type WildlifeState, type WorldState } from '@/simulation/types'
+import { cloneVec3, distanceXZ, type EnemyState, type StructureState, type SurvivorState, type Vec3, type WildlifeState, type WorldState } from '@/simulation/types'
 
 export function tickCooldowns(world: WorldState, dt: number): void {
   for (const survivor of world.survivors) {
@@ -64,9 +65,29 @@ export function stepEnemies(world: WorldState, dt: number): void {
       }
       continue
     }
+    const wall = adjacentStructure(world, enemy.position)
+    if (wall && (!prey || distance > 3)) {
+      if (enemy.attackCooldown <= 0) {
+        enemy.attackCooldown = definition.attackCooldown
+        damageStructure(world, wall, definition.damage + 6)
+      }
+      continue
+    }
     if (distance < 0.2) continue
     const step = enemy.moveSpeed * dt
     slideMove(world, enemy.position, (dx / distance) * step, (dz / distance) * step)
+  }
+}
+
+export function stepRevive(world: WorldState, dt: number): void {
+  for (const downed of world.survivors) {
+    if (!downed.downed) continue
+    const helper = world.survivors.find(
+      (entry) => !entry.downed && entry.id !== downed.id && distanceXZ(entry.position, downed.position) < 1.8,
+    )
+    if (!helper) continue
+    downed.health = Math.min(40, downed.health + 12 * dt)
+    if (downed.health >= 30) downed.downed = false
   }
 }
 
@@ -133,6 +154,23 @@ function nearestLivingSurvivor(world: WorldState, from: Vec3, range: number): Su
     const distance = distanceXZ(survivor.position, from)
     if (distance < bestDist) {
       best = survivor
+      bestDist = distance
+    }
+  }
+  return best
+}
+
+function adjacentStructure(world: WorldState, from: Vec3): StructureState | undefined {
+  let best: StructureState | undefined
+  let bestDist = 2.1
+  for (const structure of world.structures) {
+    if (structure.stage !== 'complete' || structure.kind === 'building') continue
+    const first = structure.cells[0]
+    if (!first) continue
+    const point = cellCenter(world.nav, first)
+    const distance = distanceXZ(from, point)
+    if (distance < bestDist) {
+      best = structure
       bestDist = distance
     }
   }

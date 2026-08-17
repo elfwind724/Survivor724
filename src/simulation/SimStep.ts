@@ -1,4 +1,4 @@
-import { harvestWildlife, stepEnemies, stepWildlife, tickCooldowns } from '@/combat/Combat'
+import { harvestWildlife, stepEnemies, stepRevive, stepWildlife, tickCooldowns } from '@/combat/Combat'
 import { stepNightCycle, stepNightDefender } from '@/combat/Night'
 import { type ControlIntent, stepPlayerControl } from '@/controls/PlayerControl'
 import { stepDayWorker } from '@/jobs/DayWorker'
@@ -26,6 +26,7 @@ export function stepWorld(world: WorldState, dt: number, intent: ControlIntent |
   }
   stepEnemies(world, dt)
   stepWildlife(world, dt)
+  stepRevive(world, dt)
 }
 
 export function skipSeconds(world: WorldState, seconds: number): void {

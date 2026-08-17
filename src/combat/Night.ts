@@ -9,14 +9,18 @@ import { createEnemy, tryShoot } from './Combat'
 export function rebuildNightPosts(world: WorldState): void {
   const posts: NightPost[] = []
   let index = 0
+  for (let x = BASE.west + 6; x <= BASE.east - 6; x += 8) {
+    posts.push({ id: `post-s-${index}`, sector: 'south', position: { x, y: 0, z: BASE.south + 2 }, facingYaw: Math.PI, occupantId: null })
+    index += 1
+  }
   for (let x = BASE.west + 4; x <= BASE.east - 4; x += 6) {
-    posts.push({ id: `post-n-${index}`, position: { x, y: 0, z: BASE.north - 1.5 }, facingYaw: 0, occupantId: null })
+    posts.push({ id: `post-n-${index}`, sector: 'north', position: { x, y: 0, z: BASE.north - 1.5 }, facingYaw: 0, occupantId: null })
     index += 1
   }
   for (let z = BASE.south + 6; z <= BASE.north - 6; z += 8) {
-    posts.push({ id: `post-e-${index}`, position: { x: BASE.east - 1.5, y: 0, z }, facingYaw: Math.PI / 2, occupantId: null })
+    posts.push({ id: `post-e-${index}`, sector: 'east', position: { x: BASE.east - 1.5, y: 0, z }, facingYaw: Math.PI / 2, occupantId: null })
     index += 1
-    posts.push({ id: `post-w-${index}`, position: { x: BASE.west + 1.5, y: 0, z }, facingYaw: -Math.PI / 2, occupantId: null })
+    posts.push({ id: `post-w-${index}`, sector: 'west', position: { x: BASE.west + 1.5, y: 0, z }, facingYaw: -Math.PI / 2, occupantId: null })
     index += 1
   }
   world.nightPosts = posts
@@ -87,9 +91,16 @@ function assignNightPosts(world: WorldState): void {
 }
 
 function assignOnePost(world: WorldState, survivor: SurvivorState): NightPost | undefined {
+  const focus = world.defenseSectors.find((entry) => entry.order === 'reinforce')?.id
   const open = world.nightPosts
     .filter((post) => post.occupantId === null || post.occupantId === survivor.id)
-    .sort((a, b) => distanceXZ(a.position, survivor.position) - distanceXZ(b.position, survivor.position))
+    .sort((a, b) => {
+      if (focus) {
+        if (a.sector === focus && b.sector !== focus) return -1
+        if (b.sector === focus && a.sector !== focus) return 1
+      }
+      return distanceXZ(a.position, survivor.position) - distanceXZ(b.position, survivor.position)
+    })
   const post = open[0]
   if (!post) return undefined
   post.occupantId = survivor.id

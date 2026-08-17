@@ -57,7 +57,7 @@ export function toggleGates(world: WorldState): void {
   }
 }
 
-export function demolishStructure(world: WorldState, structureId: string): boolean {
+export function demolishStructure(world: WorldState, structureId: string, refund = true): boolean {
   const index = world.structures.findIndex((entry) => entry.id === structureId)
   const structure = world.structures[index]
   if (index < 0 || !structure) return false
@@ -68,7 +68,7 @@ export function demolishStructure(world: WorldState, structureId: string): boole
     const site = inventoryOf(world.inventories, structure.inventoryId)
     for (const item of site.items) addItem(stock, item.itemId, item.count)
     site.items = []
-    if (structure.stage === 'complete') {
+    if (refund && structure.stage === 'complete') {
       for (const item of structure.required) addItem(stock, item.itemId, item.count)
     }
   }
@@ -127,6 +127,8 @@ export function placeBlueprint(world: WorldState, definitionId: string, originX:
     buildElapsed: 0,
     buildDuration: definition.buildDuration,
     open: definition.kind === 'gate',
+    hp: structureHp(definition.kind),
+    maxHp: structureHp(definition.kind),
   }
   world.structures.push(structure)
   return { ok: true, reason: null, structure }
@@ -155,10 +157,26 @@ export function createCompleteStructure(
     buildElapsed: definition.buildDuration,
     buildDuration: definition.buildDuration,
     open,
+    hp: structureHp(definition.kind),
+    maxHp: structureHp(definition.kind),
   }
   world.structures.push(structure)
   markNavDirty(world)
   return structure
+}
+
+export function structureHp(kind: StructureState['kind']): number {
+  if (kind === 'gate') return 140
+  if (kind === 'building') return 180
+  return 90
+}
+
+export function damageStructure(world: WorldState, structure: StructureState, amount: number): boolean {
+  if (structure.stage !== 'complete') return false
+  structure.hp = Math.max(0, structure.hp - amount)
+  if (structure.hp > 0) return false
+  demolishStructure(world, structure.id, false)
+  return true
 }
 
 function cellsOverlap(world: WorldState, cells: GridCell[]): boolean {

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { createEnemy, tryShoot } from '@/combat/Combat'
+import { reinforceSector } from '@/combat/Defense'
 import { stepNightCycle } from '@/combat/Night'
+import { cellCenter } from '@/navigation/NavGrid'
+import { stepWorld } from '@/simulation/SimStep'
 import { possessSurvivor } from '@/controls/PlayerControl'
 import { skipSeconds } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
@@ -32,6 +35,30 @@ describe('combat and night', () => {
     const count = world.enemies.length
     stepNightCycle(world)
     expect(world.enemies.length).toBe(count)
+  })
+
+  it('lets enemies break a damaged wall', () => {
+    const world = createInitialWorld()
+    const wall = world.structures.find((structure) => structure.kind === 'wall' && structure.stage === 'complete')
+    if (!wall || !wall.cells[0]) throw new Error('missing wall')
+    wall.hp = 10
+    const point = cellCenter(world.nav, wall.cells[0])
+    world.enemies.push(createEnemy('wanderer', { x: point.x + 1.1, y: 0, z: point.z }, 'ram'))
+    const id = wall.id
+    for (let i = 0; i < 90; i += 1) stepWorld(world, 1 / 30)
+    expect(world.structures.some((structure) => structure.id === id)).toBe(false)
+  })
+
+  it('reinforces a sector by sending people to those posts', () => {
+    const world = createInitialWorld()
+    world.time.phase = 'night'
+    stepNightCycle(world)
+    reinforceSector(world, 'east')
+    const east = world.survivors.filter((survivor) => {
+      const post = world.nightPosts.find((entry) => entry.id === survivor.nightPostId)
+      return post?.sector === 'east'
+    })
+    expect(east.length).toBeGreaterThan(1)
   })
 
   it('can skip into night and still keep the base standing', () => {

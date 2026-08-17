@@ -235,6 +235,9 @@ export class DebugRenderer {
     if (structure.kind === 'gate') {
       mesh.scale.y = structure.open ? 0.45 : 1
       mesh.position.y = structure.open ? 0.55 : 1.3
+    } else {
+      const ratio = structure.maxHp > 0 ? structure.hp / structure.maxHp : 1
+      mesh.scale.y = 0.35 + 0.65 * ratio
     }
     material.color.set(structure.kind === 'gate' ? 0x8a6a3a : structure.kind === 'building' ? 0x7a5a42 : 0x6b6254)
   }

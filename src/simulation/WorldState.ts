@@ -1,6 +1,7 @@
 import { createCompleteStructure, placeBlueprint } from '@/base/construction'
 import { createWorkZone } from '@/base/workZones'
 import { createDeer } from '@/combat/Combat'
+import { createDefenseSectors } from '@/combat/Defense'
 import { rebuildNightPosts } from '@/combat/Night'
 import { createInventory } from '@/inventory/Inventory'
 import { createJob } from '@/jobs/JobBoard'
@@ -18,7 +19,7 @@ export function createInitialWorld(): WorldState {
   const scavBag = createInventory('inv-scav', 6)
   const haulerBag = createInventory('inv-hauler', 8)
   const builderBag = createInventory('inv-builder', 4)
-  const warehouseInv = createInventory('inv-warehouse', 400, [
+  const warehouseInv = createInventory('inv-warehouse', 1600, [
     { itemId: 'wood', count: 80 },
     { itemId: 'scrap', count: 24 },
     { itemId: 'ammo', count: 80 },
@@ -156,6 +157,7 @@ export function createInitialWorld(): WorldState {
     nightPosts: [],
     lastPhase: 'dawn',
     nightSpawnedDay: 0,
+    defenseSectors: createDefenseSectors(),
   }
 
   seedBaseWalls(world)

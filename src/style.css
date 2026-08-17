@@ -110,3 +110,43 @@ body,
 .build-card-danger strong {
   color: #e3b3a3;
 }
+
+#defense-bar {
+  position: absolute;
+  right: 12px;
+  bottom: 16px;
+  pointer-events: auto;
+  z-index: 5;
+}
+
+.defense-label {
+  color: #c8c2b4;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.defense-row {
+  display: flex;
+  gap: 6px;
+}
+
+.defense-card {
+  width: 72px;
+  padding: 6px 8px;
+  border: 1px solid #3a4148;
+  background: rgba(16, 18, 16, 0.92);
+  color: #d7ddd4;
+  text-align: left;
+  cursor: pointer;
+}
+
+.defense-card strong,
+.defense-card span {
+  display: block;
+  font-size: 12px;
+}
+
+.defense-card.is-active {
+  border-color: #c45a4a;
+  background: #3a221e;
+}

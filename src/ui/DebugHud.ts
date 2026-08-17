@@ -1,4 +1,5 @@
 import { usedSlots } from '@/inventory/Inventory'
+import { duskStatus, secondsUntilDusk } from '@/simulation/TimeSystem'
 import type { WorldState } from '@/simulation/types'
 
 export class DebugHud {
@@ -15,13 +16,17 @@ export class DebugHud {
       .map((structure) => `${structure.definitionId}:${structure.stage}`)
       .join(' ')
 
+    const remaining = secondsUntilDusk(world)
     const lines = world.survivors.map((survivor) => {
       const bag = world.inventories[survivor.inventoryId]
       const bagText = bag ? `${usedSlots(bag)}/${bag.capacity}` : '0/0'
       const tools = survivor.carriedTools.join(',') || 'none'
       const blocked = survivor.blockedReason ? ` · ${survivor.blockedReason}` : ''
       const mark = survivor.id === world.player.controlledId ? '▶ ' : survivor.id === world.player.selectedId ? '· ' : '  '
-      return `${mark}${survivor.name} · ${survivor.workerState} · bag ${bagText} · tools ${tools}${blocked}`
+      const eta = Math.hypot(survivor.position.x, survivor.position.z) / Math.max(0.5, survivor.moveSpeed)
+      const dusk = duskStatus(eta, remaining)
+      const down = survivor.downed ? ' · 倒地' : ''
+      return `${mark}${survivor.name} · ${survivor.workerState} · ${dusk} · bag ${bagText} · 弹${survivor.ammo}${blocked}${down}`
     })
 
     const controlled = world.survivors.find((survivor) => survivor.id === world.player.controlledId)

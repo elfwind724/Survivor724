@@ -1,10 +1,11 @@
 import { completeStructure, findStructure, materialsMet, sitePosition, stillNeeded } from '@/base/construction'
+import { harvestWildlife, tryShoot } from '@/combat/Combat'
 import { nodeAllowedForSurvivor } from '@/base/workZones'
 import { WORK_SECONDS, jobDefinition } from '@/data/jobs'
 import { addItem, canAdd, inventoryOf, removeItem, usedSlots } from '@/inventory/Inventory'
 import { beginTravel, followTravel } from '@/navigation/Travel'
 import { findContainer, findJob, findNode } from '@/simulation/EntityRegistry'
-import type { DayPhase, SurvivorState, WorldState } from '@/simulation/types'
+import { distanceXZ, type DayPhase, type SurvivorState, type WorldState } from '@/simulation/types'
 
 export function isWorkPhase(phase: DayPhase): boolean {
   return phase === 'dawn' || phase === 'day'
@@ -51,7 +52,7 @@ export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: nu
       break
     case 'Work':
       if (definition?.id === 'build') stepBuild(world, survivor, dt)
-      else stepWork(survivor, dt)
+      else stepWork(world, survivor, dt)
       break
     case 'CollectOutput':
       if (definition?.id === 'haul') stepHaulCollect(world, survivor)
@@ -173,7 +174,30 @@ function stepTravel(world: WorldState, survivor: SurvivorState, dt: number): voi
   survivor.workerState = 'Work'
 }
 
-function stepWork(survivor: SurvivorState, dt: number): void {
+function stepWork(world: WorldState, survivor: SurvivorState, dt: number): void {
+  const job = currentJob(world, survivor)
+  if (job && jobDefinition(job.definitionId)?.id === 'hunt') {
+    const deer = world.wildlife.find((entry) => entry.alive && distanceXZ(entry.position, survivor.position) < 22)
+    if (deer) {
+      if (distanceXZ(deer.position, survivor.position) > 10) {
+        beginTravel(world, survivor, deer.position)
+        survivor.workerState = 'TravelToTarget'
+        return
+      }
+      const dx = deer.position.x - survivor.position.x
+      const dz = deer.position.z - survivor.position.z
+      survivor.facingYaw = Math.atan2(dx, dz)
+      if (!tryShoot(world, survivor) && survivor.ammo <= 0) {
+        survivor.workElapsed += dt
+        if (survivor.workElapsed >= WORK_SECONDS) {
+          survivor.workElapsed = 0
+          survivor.workerState = 'CollectOutput'
+        }
+      }
+      if (!deer.alive) survivor.workerState = 'CollectOutput'
+      return
+    }
+  }
   survivor.workElapsed += dt
   if (survivor.workElapsed >= WORK_SECONDS) {
     survivor.workElapsed = 0
@@ -195,6 +219,12 @@ function stepCollect(world: WorldState, survivor: SurvivorState): void {
   if (!hasRequiredTools(survivor, definition.id)) {
     survivor.blockedReason = 'missing_tool'
     beginReturn(world, survivor)
+    return
+  }
+
+  if (definition.id === 'hunt' && harvestWildlife(world, survivor)) {
+    if (shouldReturn(world, survivor)) beginReturn(world, survivor)
+    else survivor.workerState = 'Work'
     return
   }
 

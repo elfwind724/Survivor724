@@ -48,6 +48,8 @@ export interface StructureState {
   buildElapsed: number
   buildDuration: number
   open: boolean
+  hp: number
+  maxHp: number
 }
 
 export interface WorkZoneState {
@@ -133,11 +135,19 @@ export interface WildlifeState {
   alive: boolean
 }
 
+export type DefenseSectorId = 'north' | 'east' | 'west' | 'south'
+
 export interface NightPost {
   id: string
+  sector: DefenseSectorId
   position: Vec3
   facingYaw: number
   occupantId: string | null
+}
+
+export interface DefenseSector {
+  id: DefenseSectorId
+  order: 'hold' | 'reinforce' | 'fallback'
 }
 
 export interface ResourceNodeState {
@@ -179,6 +189,7 @@ export interface WorldState {
   nightPosts: NightPost[]
   lastPhase: DayPhase
   nightSpawnedDay: number
+  defenseSectors: DefenseSector[]
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {
