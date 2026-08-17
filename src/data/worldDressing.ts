@@ -23,8 +23,13 @@ export const STRUCTURE_ASSETS: Record<string, string> = {
 }
 
 export const ENEMY_ASSETS: Record<string, string> = {
-  wanderer: 'people/punk',
-  runner: 'people/punk-2',
+  wanderer: 'people/zombie',
+  runner: 'people/zombie-dog',
+}
+
+export function gateOpenAsset(closedAssetId: string): string {
+  if (closedAssetId.includes('castle-gate') || closedAssetId.includes('second')) return 'fort/wall-towers-door-seco'
+  return 'fort/wall-towers'
 }
 
 export const CREATIVE_TABS: Array<{ id: 'all' | AssetCategory; label: string }> = [

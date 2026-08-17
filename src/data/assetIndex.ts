@@ -19,6 +19,20 @@ export interface AssetEntry {
 
 export const ASSET_INDEX: readonly AssetEntry[] = [
   {
+    "id": "people/zombie",
+    "name": "zombie",
+    "category": "people",
+    "file": "zombie.glb",
+    "bytes": 4510076
+  },
+  {
+    "id": "people/zombie-dog",
+    "name": "zombie_dog",
+    "category": "people",
+    "file": "zombie_dog.glb",
+    "bytes": 369668
+  },
+  {
     "id": "people/adventurer",
     "name": "Adventurer",
     "category": "people",

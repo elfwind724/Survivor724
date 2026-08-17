@@ -48,7 +48,7 @@ const entries = []
 for (const full of files) {
   const rel = relative(ASSETS, full).replaceAll('\\', '/')
   const folder = rel.split('/')[0]
-  const category = CATEGORY[folder]
+  const category = CATEGORY[folder] ?? (rel === folder ? 'people' : null)
   if (!category) continue
   const name = normalizeName(rel.split('/').pop() ?? rel)
   const base = `${category}/${slug(name) || 'asset'}`

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createEnemy, reloadWeapon, stepProjectiles, towerRangeBonus, tryShoot } from '@/combat/Combat'
 import { reinforceSector } from '@/combat/Defense'
 import { assignedRescuer, stepNightCycle, stepNightDefender } from '@/combat/Night'
+import { hordeCounts } from '@/data/enemies'
 import { assignWatch } from '@/jobs/Roster'
 import { TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { fireProfile, magazineSize, muzzleOrigin, readMag } from '@/data/weapons'
@@ -187,12 +188,18 @@ describe('combat and night', () => {
     expect(hunter.xp).toBeGreaterThan(0)
   })
 
+  it('grows the night horde after the first night', () => {
+    expect(hordeCounts(1).wanderers + hordeCounts(1).runners).toBe(26)
+    expect(hordeCounts(3).wanderers).toBe(26)
+    expect(hordeCounts(3).runners).toBe(12)
+  })
+
   it('spawns a night horde once per night and posts defenders', () => {
     const world = createInitialWorld()
     world.time.daySeconds = 60 + 11 * 60 + 90
     world.time.phase = 'night'
     stepNightCycle(world)
-    expect(world.enemies.length).toBeGreaterThan(8)
+    expect(world.enemies.length).toBeGreaterThan(20)
     expect(world.nightPosts).toHaveLength(4)
     expect(world.nightPosts.every((post) => post.rangeBonus > 0)).toBe(true)
     expect(world.nightPosts.some((post) => post.occupantId !== null)).toBe(true)

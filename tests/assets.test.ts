@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ASSET_INDEX, assetById, assetUrl, assetsIn } from '@/data/assetIndex'
-import { CREATIVE_TABS, SURVIVOR_ASSETS, STRUCTURE_ASSETS } from '@/data/worldDressing'
+import { CREATIVE_TABS, ENEMY_ASSETS, gateOpenAsset, SURVIVOR_ASSETS, STRUCTURE_ASSETS } from '@/data/worldDressing'
 
 describe('asset catalog', () => {
   it('indexes real glbs by readable names and skips mac resource forks', () => {
@@ -18,6 +18,10 @@ describe('asset catalog', () => {
     expect(assetById(SURVIVOR_ASSETS.hauler ?? '')?.name).toBe('Worker')
     expect(assetById(STRUCTURE_ASSETS.wall ?? '')?.name).toBe('Wooden Wall')
     expect(assetById(STRUCTURE_ASSETS.warehouse ?? '')?.name).toBe('Storage House')
+    expect(assetById(ENEMY_ASSETS.wanderer ?? '')?.file).toBe('zombie.glb')
+    expect(assetById(ENEMY_ASSETS.runner ?? '')?.file).toBe('zombie_dog.glb')
+    expect(gateOpenAsset('fort/wooden-fortress-gate')).toBe('fort/wall-towers')
+    expect(gateOpenAsset('fort/castle-gate')).toBe('fort/wall-towers-door-seco')
   })
 
   it('exposes creative tabs for every catalog category', () => {

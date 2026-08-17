@@ -1,5 +1,5 @@
 import { repairStructure } from '@/base/construction'
-import { NIGHT_HORDE } from '@/data/enemies'
+import { hordeCounts } from '@/data/enemies'
 import { equippedWeapon, magazineSize, writeMag } from '@/data/weapons'
 import { countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { cellCenter } from '@/navigation/NavGrid'
@@ -118,22 +118,25 @@ export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt
 }
 
 function spawnHorde(world: WorldState): void {
+  const counts = hordeCounts(world.time.dayIndex)
   let serial = 0
-  for (let i = 0; i < NIGHT_HORDE.wanderers; i += 1) {
+  for (let i = 0; i < counts.wanderers; i += 1) {
     world.enemies.push(createEnemy('wanderer', edgePoint(i), `wanderer-${world.time.dayIndex}-${serial}`))
     serial += 1
   }
-  for (let i = 0; i < NIGHT_HORDE.runners; i += 1) {
-    world.enemies.push(createEnemy('runner', edgePoint(i + 8), `runner-${world.time.dayIndex}-${serial}`))
+  for (let i = 0; i < counts.runners; i += 1) {
+    world.enemies.push(createEnemy('runner', edgePoint(i + counts.wanderers), `runner-${world.time.dayIndex}-${serial}`))
     serial += 1
   }
 }
 
 function edgePoint(seed: number) {
-  const lane = seed % 3
-  if (lane === 0) return { x: -20 + (seed % 5) * 8, y: 0, z: 58 }
-  if (lane === 1) return { x: 58, y: 0, z: -10 + (seed % 4) * 8 }
-  return { x: -58, y: 0, z: -8 + (seed % 4) * 8 }
+  const lane = seed % 4
+  const slot = Math.floor(seed / 4)
+  if (lane === 0) return { x: -28 + (slot % 8) * 8, y: 0, z: 64 + (slot % 3) * 4 }
+  if (lane === 1) return { x: 64 + (slot % 3) * 4, y: 0, z: -28 + (slot % 8) * 8 }
+  if (lane === 2) return { x: -64 - (slot % 3) * 4, y: 0, z: -28 + (slot % 8) * 8 }
+  return { x: -28 + (slot % 8) * 8, y: 0, z: -64 - (slot % 3) * 4 }
 }
 
 function assignNightPosts(world: WorldState): void {

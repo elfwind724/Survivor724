@@ -4,7 +4,7 @@ import { bedSpot, interiorProps, isCooking, isSleeping } from '@/base/FacilityLi
 import { isLifeBuilding, TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { assetById } from '@/data/assetIndex'
 import { equippedWeapon, WEAPONS } from '@/data/weapons'
-import { ENEMY_ASSETS, STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '@/data/worldDressing'
+import { ENEMY_ASSETS, gateOpenAsset, STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '@/data/worldDressing'
 import { cellCenter, worldToCell } from '@/navigation/NavGrid'
 import { followCameraOffset } from '@/controls/CameraWish'
 import { BASE } from '@/simulation/baseLayout'
@@ -437,7 +437,6 @@ export class DebugRenderer {
 
   private styleStructure(root: THREE.Object3D, structure: StructureState): void {
     const hasKit = root.children.some((child) => child.name === 'kit')
-    if (structure.kind === 'gate') this.styleGateKit(root, structure)
     const meshes = root instanceof THREE.Mesh ? [root] : root.children
     for (const mesh of meshes) {
       if (mesh.name === 'kit' || mesh.parent?.name === 'kit' || mesh.name === 'wreck') continue
@@ -668,29 +667,6 @@ export class DebugRenderer {
     attr.needsUpdate = true
   }
 
-  private styleGateKit(root: THREE.Object3D, structure: StructureState): void {
-    for (const child of root.children) {
-      if (child.name !== 'kit') continue
-      if (child.userData.closedX === undefined) {
-        child.userData.closedX = child.position.x
-        child.userData.closedZ = child.position.z
-        child.userData.closedYaw = child.rotation.y
-      }
-      const closedX = Number(child.userData.closedX)
-      const closedZ = Number(child.userData.closedZ)
-      const closedYaw = Number(child.userData.closedYaw)
-      if (structure.open) {
-        child.rotation.y = closedYaw + Math.PI / 2
-        child.position.x = closedX + Math.cos(closedYaw) * 2.8
-        child.position.z = closedZ + Math.sin(closedYaw) * 2.8
-      } else {
-        child.rotation.y = closedYaw
-        child.position.x = closedX
-        child.position.z = closedZ
-      }
-    }
-  }
-
   private disposeObject(object: THREE.Object3D): void {
     this.scene.remove(object)
     object.removeFromParent()
@@ -863,12 +839,12 @@ export class DebugRenderer {
 
   private kitEnemy(enemy: { id: string; kind: string; position: { x: number; z: number } }): void {
     const marker = this.enemies.get(enemy.id)
-    const assetId = ENEMY_ASSETS[enemy.kind] ?? 'people/punk'
+    const assetId = ENEMY_ASSETS[enemy.kind] ?? 'people/zombie'
     this.enqueueAsset(assetId)
     if (!marker || marker.mesh.getObjectByName('kit')) return
     const kit = this.spawnKit(assetId, 1)
     if (!kit) return
-    fitToHeight(kit, 2.4)
+    fitToHeight(kit, enemy.kind === 'runner' ? 1.08 : 2.45)
     marker.mesh.add(kit)
     const mixer = new THREE.AnimationMixer(kit)
     const clips = this.library.clips(assetId)
@@ -909,6 +885,8 @@ export class DebugRenderer {
       ...Object.values(SURVIVOR_ASSETS),
       ...Object.values(ENEMY_ASSETS),
       ...Object.values(STRUCTURE_ASSETS),
+      'fort/wall-towers',
+      'fort/wall-towers-door-seco',
       'survival/bonfire',
       'survival/tent',
       'nature/pine',
@@ -1194,17 +1172,18 @@ export class DebugRenderer {
 
   private kitStructure(world: WorldState, structure: StructureState, root: THREE.Object3D, cellSig: string): void {
     if (structure.stage !== 'complete') return
-    const kitKey = `${cellSig}|${structure.visualAssetId ?? ''}|${structure.yaw ?? 0}`
+    const closedAsset =
+      structure.visualAssetId ??
+      STRUCTURE_ASSETS[structure.definitionId] ??
+      (structure.kind === 'gate' ? STRUCTURE_ASSETS.gate : structure.kind === 'building' ? STRUCTURE_ASSETS.kitchen : STRUCTURE_ASSETS.wall) ??
+      'fort/wooden-wall'
+    const assetId = structure.kind === 'gate' && structure.open ? gateOpenAsset(closedAsset) : closedAsset
+    const kitKey = `${cellSig}|${assetId}|${structure.yaw ?? 0}|${structure.open ? 'open' : 'shut'}`
     if (this.kitted.get(structure.id) === kitKey) return
     for (const child of [...root.children]) {
       if (child.name !== 'kit') continue
       root.remove(child)
     }
-    const assetId =
-      structure.visualAssetId ??
-      STRUCTURE_ASSETS[structure.definitionId] ??
-      (structure.kind === 'gate' ? STRUCTURE_ASSETS.gate : structure.kind === 'building' ? STRUCTURE_ASSETS.kitchen : STRUCTURE_ASSETS.wall) ??
-      'fort/wooden-wall'
     this.enqueueAsset(assetId)
     if (structure.kind === 'wall') {
       const pieces: THREE.Object3D[] = []
@@ -1221,7 +1200,7 @@ export class DebugRenderer {
       }
       for (const piece of pieces) root.add(piece)
     } else {
-      const kit = this.spawnKit(assetId)
+      const kit = this.spawnKit(assetId, structure.kind === 'gate' ? 4 : undefined)
       if (!kit) return
       const xs = structure.cells.map((cell) => cell.x)
       const zs = structure.cells.map((cell) => cell.z)
