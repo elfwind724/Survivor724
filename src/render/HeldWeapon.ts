@@ -9,28 +9,44 @@ const _offset = new THREE.Vector3()
 const _hold = new THREE.Quaternion()
 
 export interface HoldPose {
-  flip: boolean
   lift: number
   forward: number
   side: number
 }
 
 const HOLD_POSES: Record<string, HoldPose> = {
-  pistol: { flip: false, lift: 0.12, forward: 0.06, side: 0.02 },
-  revolver: { flip: false, lift: 0.12, forward: 0.06, side: 0.02 },
-  smg: { flip: true, lift: 0.12, forward: 0.07, side: 0.02 },
-  rifle: { flip: true, lift: 0.13, forward: 0.08, side: 0.02 },
-  shotgun: { flip: true, lift: 0.13, forward: 0.08, side: 0.02 },
-  sniper: { flip: true, lift: 0.13, forward: 0.09, side: 0.02 },
+  pistol: { lift: 0.02, forward: 0.05, side: 0.01 },
+  revolver: { lift: 0.02, forward: 0.05, side: 0.01 },
+  smg: { lift: 0.03, forward: 0.06, side: 0.01 },
+  rifle: { lift: 0.03, forward: 0.07, side: 0.01 },
+  shotgun: { lift: 0.03, forward: 0.07, side: 0.01 },
+  sniper: { lift: 0.03, forward: 0.08, side: 0.01 },
 }
 
 export function holdPose(weaponId: string): HoldPose {
-  return HOLD_POSES[weaponId] ?? { flip: true, lift: 0.12, forward: 0.07, side: 0.02 }
+  return HOLD_POSES[weaponId] ?? { lift: 0.03, forward: 0.06, side: 0.01 }
 }
 
-export function holdRotation(weaponId: string): THREE.Quaternion {
-  const flip = holdPose(weaponId).flip ? Math.PI : 0
-  return _hold.setFromEuler(new THREE.Euler(-Math.PI / 2, flip, Math.PI / 2, 'XYZ'))
+export function holdRotation(_weaponId: string): THREE.Quaternion {
+  return _hold.setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI / 2, 'XYZ'))
+}
+
+export function alignGunAxes(object: THREE.Object3D): void {
+  object.updateMatrixWorld(true)
+  let box = new THREE.Box3().setFromObject(object)
+  let size = box.getSize(new THREE.Vector3())
+  if (size.x >= size.y && size.x >= size.z) object.rotateY(-Math.PI / 2)
+  else if (size.y >= size.x && size.y >= size.z) object.rotateX(Math.PI / 2)
+  object.updateMatrixWorld(true)
+  box.setFromObject(object)
+  if (Math.abs(box.min.z) > box.max.z) object.rotateY(Math.PI)
+  object.updateMatrixWorld(true)
+  box.setFromObject(object)
+  size = box.getSize(new THREE.Vector3())
+  if (size.x > size.y) object.rotateZ(Math.PI / 2)
+  object.updateMatrixWorld(true)
+  box.setFromObject(object)
+  if (box.max.y > Math.abs(box.min.y)) object.rotateZ(Math.PI)
 }
 
 export function findHoldBone(root: THREE.Object3D): THREE.Object3D | null {
@@ -65,13 +81,14 @@ export function prepareHeldGun(source: THREE.Object3D): THREE.Group {
     object.visible = true
     if (object instanceof THREE.Mesh) object.geometry = object.geometry.clone()
   })
+  alignGunAxes(source)
   source.updateMatrixWorld(true)
   const box = new THREE.Box3().setFromObject(source)
   const size = box.getSize(new THREE.Vector3())
   const center = box.getCenter(new THREE.Vector3())
   const longest = Math.max(size.x, size.y, size.z)
   if (Number.isFinite(longest) && longest > 0.01) {
-    const grip = new THREE.Vector3(center.x, box.min.y + size.y * 0.38, center.z - size.z * 0.12)
+    const grip = new THREE.Vector3(center.x, box.min.y + size.y * 0.34, center.z - size.z * 0.08)
     source.position.sub(grip)
     source.position.multiplyScalar(1 / longest)
     source.scale.multiplyScalar(1 / longest)

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
-import { findHoldBone, heldGunLength, holdPose, prepareHeldGun, snapHeldGun } from '@/render/HeldWeapon'
+import { alignGunAxes, findHoldBone, heldGunLength, holdPose, prepareHeldGun, snapHeldGun } from '@/render/HeldWeapon'
 import { fitHeldGun, fitToHeight } from '@/render/ModelFit'
 
 describe('model fit', () => {
@@ -53,12 +53,14 @@ describe('model fit', () => {
     expect(world.distanceTo(new THREE.Vector3(-0.22, 1.04, 0.14))).toBeLessThan(0.35)
   })
 
-  it('flips long guns and lifts every grip off the hand', () => {
-    expect(holdPose('rifle').flip).toBe(true)
-    expect(holdPose('smg').flip).toBe(true)
-    expect(holdPose('sniper').flip).toBe(true)
-    expect(holdPose('pistol').flip).toBe(false)
-    expect(holdPose('rifle').lift).toBeGreaterThan(0.1)
-    expect(holdPose('pistol').lift).toBeGreaterThan(0.1)
+  it('keeps pistol grips low and turns a sideways shotgun barrel onto Z', () => {
+    expect(holdPose('pistol').lift).toBeLessThan(0.05)
+    expect(holdPose('rifle').lift).toBeLessThan(0.06)
+    const shotgun = new THREE.Mesh(new THREE.BoxGeometry(5, 0.8, 0.3))
+    alignGunAxes(shotgun)
+    shotgun.updateMatrixWorld(true)
+    const size = new THREE.Box3().setFromObject(shotgun).getSize(new THREE.Vector3())
+    expect(size.z).toBeGreaterThan(size.x)
+    expect(size.z).toBeGreaterThan(size.y)
   })
 })
