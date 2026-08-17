@@ -13,6 +13,9 @@ export class DebugRenderer {
   readonly renderer: THREE.WebGLRenderer
   orbitYaw = 0
   distance = 42
+  lookAtX = 0
+  lookAtZ = 0
+  followEnabled = true
   private readonly survivors = new Map<string, Marker>()
   private readonly structures = new Map<string, Marker>()
   private readonly extras: THREE.Object3D[] = []
@@ -81,6 +84,21 @@ export class DebugRenderer {
     this.orbitYaw += delta
   }
 
+  panBy(screenDx: number, screenDy: number): void {
+    this.followEnabled = false
+    const scale = this.distance * 0.0024
+    const forwardX = -Math.sin(this.orbitYaw)
+    const forwardZ = -Math.cos(this.orbitYaw)
+    const rightX = -forwardZ
+    const rightZ = forwardX
+    this.lookAtX += rightX * screenDx * scale - forwardX * screenDy * scale
+    this.lookAtZ += rightZ * screenDx * scale - forwardZ * screenDy * scale
+  }
+
+  recenter(): void {
+    this.followEnabled = true
+  }
+
   sync(world: WorldState): void {
     this.ensureStatic(world)
     this.syncZones(world)
@@ -129,15 +147,19 @@ export class DebugRenderer {
     for (const marker of this.survivors.values()) marker.mesh.visible = true
     this.camera.fov = 50
     this.camera.updateProjectionMatrix()
-    const target = new THREE.Vector3(focus.position.x, 0, focus.position.z)
+    if (this.followEnabled) {
+      this.lookAtX = focus.position.x
+      this.lookAtZ = focus.position.z
+    }
+    const target = new THREE.Vector3(this.lookAtX, 0, this.lookAtZ)
     const horiz = this.distance * 0.62
     const height = this.distance * 0.78
     const desired = new THREE.Vector3(
-      focus.position.x + Math.sin(this.orbitYaw) * horiz,
+      this.lookAtX + Math.sin(this.orbitYaw) * horiz,
       height,
-      focus.position.z + Math.cos(this.orbitYaw) * horiz,
+      this.lookAtZ + Math.cos(this.orbitYaw) * horiz,
     )
-    this.camera.position.lerp(desired, 0.18)
+    this.camera.position.lerp(desired, 0.22)
     this.camera.lookAt(target)
   }
 

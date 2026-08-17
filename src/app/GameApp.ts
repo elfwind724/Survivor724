@@ -29,7 +29,15 @@ export class GameApp {
   private zoneStart: { x: number; z: number } | null = null
   private lastClickAt = 0
   private lastClickId: string | null = null
-  private notice = '滚轮缩放 · Q/E 转镜头 · B墙 N门 K厨房 R拆除 · WASD 移动 · 双击接管'
+  private pointer: {
+    button: number
+    startX: number
+    startY: number
+    lastX: number
+    lastY: number
+    dragging: boolean
+  } | null = null
+  private notice = '左键拖移画面 · 右键拖转镜头 · 滚轮缩放 · 单击放置/选人 · B墙 N门 K厨房 R拆除'
 
   constructor(canvas: HTMLCanvasElement, hudRoot: HTMLElement, minimapCanvas: HTMLCanvasElement) {
     this.world = createInitialWorld()
@@ -41,7 +49,10 @@ export class GameApp {
     this.renderer.sync(this.world)
     this.refreshHud()
     this.minimap.render(this.world)
-    canvas.addEventListener('pointerdown', this.onWorldClick)
+    canvas.addEventListener('pointerdown', this.onPointerDown)
+    canvas.addEventListener('pointermove', this.onPointerMove)
+    canvas.addEventListener('pointerup', this.onPointerUp)
+    canvas.addEventListener('pointercancel', this.onPointerUp)
     canvas.addEventListener('wheel', this.onWheel, { passive: false })
     canvas.addEventListener('contextmenu', (event) => event.preventDefault())
     minimapCanvas.addEventListener('pointerdown', this.onMinimapDown)
@@ -121,6 +132,10 @@ export class GameApp {
     if (event.code === 'KeyN') this.buildMode = this.buildMode === 'gate' ? 'none' : 'gate'
     if (event.code === 'KeyK') this.buildMode = this.buildMode === 'kitchen' ? 'none' : 'kitchen'
     if (event.code === 'KeyR') this.buildMode = this.buildMode === 'demolish' ? 'none' : 'demolish'
+    if (event.code === 'KeyC') {
+      this.renderer.recenter()
+      this.notice = '镜头回到当前角色'
+    }
     if (event.code === 'KeyG') {
       toggleGates(this.world)
       this.notice = '已切换大门开闭'
@@ -136,8 +151,41 @@ export class GameApp {
     this.renderer.zoomBy(event.deltaY)
   }
 
-  private readonly onWorldClick = (event: PointerEvent): void => {
-    if (this.buildMode === 'demolish' && event.button === 0) {
+  private readonly onPointerDown = (event: PointerEvent): void => {
+    if (this.world.player.view === 'firstperson') return
+    this.pointer = {
+      button: event.button,
+      startX: event.clientX,
+      startY: event.clientY,
+      lastX: event.clientX,
+      lastY: event.clientY,
+      dragging: false,
+    }
+    event.currentTarget instanceof HTMLElement && event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  private readonly onPointerMove = (event: PointerEvent): void => {
+    if (!this.pointer || this.world.player.view === 'firstperson') return
+    const dx = event.clientX - this.pointer.lastX
+    const dy = event.clientY - this.pointer.lastY
+    const traveled = Math.hypot(event.clientX - this.pointer.startX, event.clientY - this.pointer.startY)
+    if (traveled > 6) this.pointer.dragging = true
+    this.pointer.lastX = event.clientX
+    this.pointer.lastY = event.clientY
+    if (!this.pointer.dragging) return
+    if (this.pointer.button === 2) this.renderer.rotateBy(dx * 0.007)
+    if (this.pointer.button === 0) this.renderer.panBy(-dx, -dy)
+  }
+
+  private readonly onPointerUp = (event: PointerEvent): void => {
+    const pointer = this.pointer
+    this.pointer = null
+    if (!pointer || pointer.dragging) return
+    this.handleClick(event, pointer.button)
+  }
+
+  private handleClick(event: PointerEvent, button: number): void {
+    if (button === 0 && this.buildMode === 'demolish') {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
       if (!hit) return
       const structure = structureAt(this.world, { x: hit.x, y: 0, z: hit.z })
@@ -146,20 +194,20 @@ export class GameApp {
         return
       }
       demolishStructure(this.world, structure.id)
-      this.notice = `已拆除 ${structure.definitionId}`
+      this.notice = `已拆除 ${structure.definitionId}，搬运工会来做剩下的蓝图`
       return
     }
 
-    if (this.buildMode !== 'none' && event.button === 0) {
+    if (button === 0 && this.buildMode !== 'none') {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
       if (!hit) return
       const cell = worldToCell(this.world.nav, { x: hit.x, y: 0, z: hit.z })
       const result = placeBlueprint(this.world, this.buildMode, cell.x, cell.z)
-      this.notice = result.ok ? `已放置${this.buildMode}蓝图` : `无法放置：${result.reason}`
+      this.notice = result.ok ? `已放置${this.buildMode}蓝图，搬山会来运材料` : `无法放置：${result.reason}`
       return
     }
 
-    if (event.button === 0) {
+    if (button === 0) {
       const id = this.renderer.pickSurvivor(this.world, event.clientX, event.clientY)
       if (!id) return
       const now = performance.now()
@@ -167,6 +215,7 @@ export class GameApp {
       this.lastClickAt = now
       this.lastClickId = id
       this.world.player.selectedId = id
+      this.renderer.recenter()
       if (doubleClick) {
         possessSurvivor(this.world, id)
         this.notice = `接管 ${findSurvivor(this.world, id)?.name ?? id}`
@@ -174,7 +223,7 @@ export class GameApp {
       return
     }
 
-    if (event.button === 2 && !this.world.player.controlledId && this.world.player.selectedId) {
+    if (button === 2 && !this.world.player.controlledId && this.world.player.selectedId) {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
       const survivor = findSurvivor(this.world, this.world.player.selectedId)
       if (!hit || !survivor) return

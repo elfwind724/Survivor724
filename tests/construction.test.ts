@@ -60,6 +60,23 @@ describe('construction and work zones', () => {
     expect(countItem(warehouse, 'wood')).toBe(before + 4)
   })
 
+  it('gives the hauler the next blueprint after the first wall is finished', () => {
+    const world = createInitialWorld()
+    simulate(world, 90)
+    expect(world.structures.some((structure) => structure.stage === 'complete' && structure.definitionId === 'wall')).toBe(true)
+
+    const cell = worldToCell(world.nav, { x: -4, y: 0, z: 8 })
+    const placed = placeBlueprint(world, 'kitchen', cell.x, cell.z)
+    expect(placed.ok).toBe(true)
+    expect(placed.structure).not.toBeNull()
+    simulate(world, 1)
+
+    const haul = world.jobs.find((job) => job.definitionId === 'haul' && job.targetId === placed.structure?.id)
+    expect(haul?.assigneeId).toBe('hauler')
+    const hauler = world.survivors.find((entry) => entry.id === 'hauler')
+    expect(hauler?.currentJobId).toBe(haul?.id)
+  })
+
   it('keeps a hunter inside the assigned work zone', () => {
     const world = createInitialWorld()
     setWorkZone(world, 'hunt', -40, -40, -20, -20)
