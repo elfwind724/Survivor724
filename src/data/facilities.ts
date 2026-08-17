@@ -91,7 +91,7 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
     id: 'quarters',
     label: '住房',
     kind: 'building',
-    width: 10,
+    width: 14,
     depth: 8,
     required: [
       { itemId: 'wood', count: 16 },

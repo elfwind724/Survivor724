@@ -63,10 +63,10 @@ export function seedOutdoorScenery(): DecorationState[] {
 
 export function isLifeBuilding(definitionId: string): boolean {
   return (
-    definitionId === 'kitchen' ||
-    definitionId === 'quarters' ||
-    definitionId === 'workshop' ||
-    definitionId === 'hall' ||
-    definitionId === 'warehouse'
+    definitionId !== 'wall' &&
+    definitionId !== 'gate' &&
+    definitionId !== 'watchtower' &&
+    definitionId !== 'bonfire' &&
+    definitionId !== 'brazier'
   )
 }

@@ -32,8 +32,19 @@ export function findFacility(world: WorldState, definitionId: string): Structure
   return world.structures.find((structure) => structure.definitionId === definitionId && structure.stage === 'complete')
 }
 
+export function homeQuarters(world: WorldState, survivor: SurvivorState): StructureState | undefined {
+  const cell = worldToCell(world.nav, survivor.homePosition)
+  const atHome = world.structures.find(
+    (structure) =>
+      structure.definitionId === 'quarters' &&
+      structure.stage === 'complete' &&
+      structure.cells.some((entry) => entry.x === cell.x && entry.z === cell.z),
+  )
+  return atHome ?? findFacility(world, 'quarters')
+}
+
 export function bedSpot(world: WorldState, survivor: SurvivorState): Vec3 {
-  const quarters = findFacility(world, 'quarters')
+  const quarters = homeQuarters(world, survivor)
   if (!quarters) return cloneVec3(survivor.homePosition)
   const beds = facilityBeds(world, quarters)
   const index = Math.max(0, world.survivors.findIndex((entry) => entry.id === survivor.id))
@@ -59,16 +70,16 @@ export function facilityBounds(world: WorldState, structure: StructureState): {
 
 export function facilityBeds(world: WorldState, structure: StructureState): Vec3[] {
   const bounds = facilityBounds(world, structure)
-  const inset = 1.6
+  const inset = 1.8
   const west = bounds.west + inset
   const east = bounds.east - inset
   const south = bounds.south + inset
   const north = bounds.north - inset
   const count = 5
-  const span = Math.max(0.8, east - west)
-  const z = south + (north - south) * 0.38
+  const span = Math.max(1, east - west)
+  const z = south + Math.min(2.2, (north - south) * 0.42)
   return Array.from({ length: count }, (_, index) => ({
-    x: west + (span * (index + 0.5)) / count,
+    x: west + ((index + 0.5) * span) / count,
     y: 0,
     z,
   }))
@@ -86,7 +97,7 @@ export function eatSpot(world: WorldState, kitchen: StructureState): Vec3 {
 
 export function enterFacility(world: WorldState, survivor: SurvivorState, structure: StructureState, spot: Vec3): void {
   survivor.indoorId = structure.id
-  if (distanceXZ(survivor.position, spot) < 0.35) survivor.position = cloneVec3(spot)
+  if (distanceXZ(survivor.position, spot) < 0.28) survivor.position = cloneVec3(spot)
   survivor.destination = null
   survivor.path = []
   survivor.pathTarget = null
@@ -141,8 +152,8 @@ export function interiorProps(world: WorldState, structure: StructureState): Int
       assetId: 'interior/bed-single',
       x: bed.x,
       z: bed.z,
-      yaw: Math.PI / 2,
-      scale: 0.58,
+      yaw: 0,
+      scale: 0.4,
     }))
     return [
       ...beds,

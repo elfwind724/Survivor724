@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { interiorProps, isCooking, isSleeping } from '@/base/FacilityLife'
+import { bedSpot, interiorProps, isCooking, isSleeping } from '@/base/FacilityLife'
 import { isLifeBuilding } from '@/data/outdoorScenery'
 import { assetById } from '@/data/assetIndex'
 import { equippedWeapon, WEAPONS } from '@/data/weapons'
@@ -313,9 +313,14 @@ export class DebugRenderer {
       const cooking = isCooking(world, survivor)
       const building = isBuildingNow(world, survivor)
       const bob = cooking || building ? 0.05 + Math.sin(world.time.daySeconds * 9) * 0.045 : 0
-      const standY = sleeping ? 0.52 : Math.max(0, survivor.position.y) + bob
-      marker.mesh.position.set(survivor.position.x, standY, survivor.position.z)
-      marker.mesh.rotation.set(sleeping ? Math.PI / 2 : 0, survivor.facingYaw, 0)
+      if (sleeping) {
+        const bed = bedSpot(world, survivor)
+        marker.mesh.position.set(bed.x, 0.48, bed.z)
+        marker.mesh.rotation.set(Math.PI / 2, 0, 0)
+      } else {
+        marker.mesh.position.set(survivor.position.x, Math.max(0, survivor.position.y) + bob, survivor.position.z)
+        marker.mesh.rotation.set(0, survivor.facingYaw, 0)
+      }
       this.driveRig(world, survivor, dt)
       kit?.updateMatrixWorld(true)
       this.syncHeldGun(survivor)
@@ -466,20 +471,21 @@ export class DebugRenderer {
     const open = world.showInteriors && isLifeBuilding(structure.definitionId)
     this.ensureInterior(world, structure, root)
     this.ensureOpenShell(world, structure, root)
+    const hasKit = root.children.some((child) => child.name === 'kit')
     for (const child of root.children) {
       if (child.name === 'interior' || child.name === 'steam' || child.name === 'open-shell') child.visible = open
-      if (child.name === 'kit') child.visible = !open
-      if (child instanceof THREE.Mesh && child.name !== 'kit') {
-        child.visible = open ? false : !root.children.some((entry) => entry.name === 'kit')
-      }
+      else if (child.name === 'kit') child.visible = !open
+      else if (child instanceof THREE.Mesh) child.visible = !open && !hasKit
     }
     if (structure.definitionId === 'kitchen') this.pulseKitchen(world, root, open)
   }
 
   private ensureInterior(world: WorldState, structure: StructureState, root: THREE.Object3D): void {
-    if (root.getObjectByName('interior')) return
+    const existing = root.getObjectByName('interior')
     const props = interiorProps(world, structure)
     if (props.length === 0) return
+    if (existing && existing.children.length >= props.length) return
+    if (existing) existing.removeFromParent()
     const group = new THREE.Group()
     group.name = 'interior'
     group.visible = true
@@ -487,10 +493,12 @@ export class DebugRenderer {
       this.enqueueAsset(prop.assetId)
       const kit = this.spawnKit(prop.assetId, prop.scale)
       if (!kit) continue
-      kit.position.x += prop.x
-      kit.position.y += 0.08
-      kit.position.z += prop.z
+      kit.position.set(0, 0, 0)
       kit.rotation.y = prop.yaw
+      kit.updateMatrixWorld(true)
+      const box = new THREE.Box3().setFromObject(kit)
+      const center = box.getCenter(new THREE.Vector3())
+      kit.position.set(prop.x - center.x, 0.08 - box.min.y, prop.z - center.z)
       group.add(kit)
     }
     if (group.children.length === 0) return
@@ -1133,7 +1141,8 @@ export class DebugRenderer {
     }
     this.kitted.set(structure.id, cellSig)
     for (const child of root.children) {
-      if (child.name !== 'kit') child.visible = false
+      if (child.name === 'kit' || child.name === 'interior' || child.name === 'open-shell' || child.name === 'steam') continue
+      child.visible = false
     }
   }
 

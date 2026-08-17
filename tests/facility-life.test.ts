@@ -47,10 +47,14 @@ describe('facility life', () => {
     const east = world.nav.originX + Math.max(...xs) + 1
     const south = world.nav.originZ + Math.min(...zs)
     const north = world.nav.originZ + Math.max(...zs) + 1
-    expect(bed.x).toBeGreaterThan(west + 1.2)
-    expect(bed.x).toBeLessThan(east - 1.2)
-    expect(bed.z).toBeGreaterThan(south + 1.2)
-    expect(bed.z).toBeLessThan(north - 1.2)
+    expect(bed.x).toBeGreaterThan(west + 1.5)
+    expect(bed.x).toBeLessThan(east - 1.5)
+    expect(bed.z).toBeGreaterThan(south + 1.5)
+    expect(bed.z).toBeLessThan(north - 1.5)
+    const beds = world.survivors.map((entry) => bedSpot(world, entry))
+    for (let i = 1; i < beds.length; i += 1) {
+      expect(Math.abs((beds[i]?.x ?? 0) - (beds[i - 1]?.x ?? 0))).toBeGreaterThan(1.6)
+    }
   })
 
   it('treats kitchen and quarters as open living buildings', () => {

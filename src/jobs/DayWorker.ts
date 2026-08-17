@@ -538,7 +538,7 @@ function stepRest(world: WorldState, survivor: SurvivorState, dt: number): void 
   }
   const quarters = world.structures.find((structure) => structure.definitionId === 'quarters' && structure.stage === 'complete')
   if (quarters) enterFacility(world, survivor, quarters, bed)
-  survivor.facingYaw = Math.PI / 2
+  survivor.facingYaw = 0
   survivor.destination = null
   survivor.path = []
   survivor.fatigue = Math.max(0, survivor.fatigue - 8 * dt)
