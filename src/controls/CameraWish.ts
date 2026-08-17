@@ -42,3 +42,15 @@ export function firstPersonWish(strafe: number, forward: number, yaw: number): {
 export function turnYaw(yaw: number, mouseDeltaX: number, sensitivity = 0.005): number {
   return yaw - mouseDeltaX * sensitivity
 }
+
+export function followCameraOffset(orbitYaw: number, distance: number, sidePull: number): { x: number; y: number; z: number } {
+  const side = Math.min(1, Math.max(0, sidePull))
+  const yaw = orbitYaw + side * Math.PI * 0.5
+  const horiz = distance * (0.62 + side * 0.22)
+  const height = distance * (0.78 - side * 0.5)
+  return {
+    x: Math.sin(yaw) * horiz,
+    y: height,
+    z: Math.cos(yaw) * horiz,
+  }
+}

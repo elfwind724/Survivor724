@@ -3,6 +3,7 @@ import { assetById } from '@/data/assetIndex'
 import { equippedWeapon, WEAPONS } from '@/data/weapons'
 import { STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '@/data/worldDressing'
 import { cellCenter } from '@/navigation/NavGrid'
+import { followCameraOffset } from '@/controls/CameraWish'
 import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, SurvivorState, WorldState } from '@/simulation/types'
 import { AssetLibrary } from './AssetLibrary'
@@ -29,6 +30,7 @@ export class DebugRenderer {
   readonly camera: THREE.PerspectiveCamera
   readonly renderer: THREE.WebGLRenderer
   orbitYaw = 0
+  sidePull = 0
   distance = 42
   lookAtX = 0
   lookAtZ = 0
@@ -136,6 +138,10 @@ export class DebugRenderer {
 
   rotateBy(delta: number): void {
     this.orbitYaw += delta
+  }
+
+  pullSideBy(screenDy: number): void {
+    this.sidePull = Math.min(1, Math.max(0, this.sidePull + screenDy * 0.008))
   }
 
   panBy(screenDx: number, screenDy: number): void {
@@ -313,12 +319,11 @@ export class DebugRenderer {
       this.lookAtZ = focus.position.z
     }
     const target = new THREE.Vector3(this.lookAtX, 0, this.lookAtZ)
-    const horiz = this.distance * 0.62
-    const height = this.distance * 0.78
+    const offset = followCameraOffset(this.orbitYaw, this.distance, this.sidePull)
     const desired = new THREE.Vector3(
-      this.lookAtX + Math.sin(this.orbitYaw) * horiz,
-      height,
-      this.lookAtZ + Math.cos(this.orbitYaw) * horiz,
+      this.lookAtX + offset.x,
+      offset.y,
+      this.lookAtZ + offset.z,
     )
     this.camera.position.lerp(desired, 0.22)
     this.camera.lookAt(target)

@@ -6,7 +6,32 @@ const _pos = new THREE.Vector3()
 const _quat = new THREE.Quaternion()
 const _parentQ = new THREE.Quaternion()
 const _offset = new THREE.Vector3()
-const HOLD_ROTATION = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI / 2, 'XYZ'))
+const _hold = new THREE.Quaternion()
+
+export interface HoldPose {
+  flip: boolean
+  lift: number
+  forward: number
+  side: number
+}
+
+const HOLD_POSES: Record<string, HoldPose> = {
+  pistol: { flip: false, lift: 0.12, forward: 0.06, side: 0.02 },
+  revolver: { flip: false, lift: 0.12, forward: 0.06, side: 0.02 },
+  smg: { flip: true, lift: 0.12, forward: 0.07, side: 0.02 },
+  rifle: { flip: true, lift: 0.13, forward: 0.08, side: 0.02 },
+  shotgun: { flip: true, lift: 0.13, forward: 0.08, side: 0.02 },
+  sniper: { flip: true, lift: 0.13, forward: 0.09, side: 0.02 },
+}
+
+export function holdPose(weaponId: string): HoldPose {
+  return HOLD_POSES[weaponId] ?? { flip: true, lift: 0.12, forward: 0.07, side: 0.02 }
+}
+
+export function holdRotation(weaponId: string): THREE.Quaternion {
+  const flip = holdPose(weaponId).flip ? Math.PI : 0
+  return _hold.setFromEuler(new THREE.Euler(-Math.PI / 2, flip, Math.PI / 2, 'XYZ'))
+}
 
 export function findHoldBone(root: THREE.Object3D): THREE.Object3D | null {
   for (const name of HOLD_NAMES) {
@@ -68,11 +93,12 @@ export function snapHeldGun(
   hand.updateWorldMatrix(true, false)
   hand.getWorldPosition(_pos)
   hand.getWorldQuaternion(_quat)
-  _offset.set(0.02, 0.08, 0.03).applyQuaternion(_quat)
+  const pose = holdPose(weaponId)
+  _offset.set(-pose.lift, pose.forward, pose.side).applyQuaternion(_quat)
   _pos.add(_offset)
   character.worldToLocal(_pos)
   gun.position.copy(_pos)
   character.getWorldQuaternion(_parentQ)
-  gun.quaternion.copy(_parentQ.invert().multiply(_quat).multiply(HOLD_ROTATION))
+  gun.quaternion.copy(_parentQ.invert().multiply(_quat).multiply(holdRotation(weaponId)))
   gun.scale.setScalar(heldGunLength(weaponId))
 }

@@ -298,7 +298,10 @@ export class GameApp {
     this.pointer.lastX = event.clientX
     this.pointer.lastY = event.clientY
     if (!this.pointer.dragging) return
-    if (this.pointer.button === 2) this.renderer.rotateBy(dx * 0.007)
+    if (this.pointer.button === 2) {
+      this.renderer.rotateBy(dx * 0.007)
+      this.renderer.pullSideBy(dy)
+    }
     if (this.pointer.button === 0 && !this.editor.getBrush()) this.renderer.panBy(-dx, -dy)
   }
 

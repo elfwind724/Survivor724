@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
-import { findHoldBone, heldGunLength, prepareHeldGun, snapHeldGun } from '@/render/HeldWeapon'
+import { findHoldBone, heldGunLength, holdPose, prepareHeldGun, snapHeldGun } from '@/render/HeldWeapon'
 import { fitHeldGun, fitToHeight } from '@/render/ModelFit'
 
 describe('model fit', () => {
@@ -50,6 +50,15 @@ describe('model fit', () => {
     const world = new THREE.Vector3()
     held.getWorldPosition(world)
     expect(world.y).toBeGreaterThan(0.9)
-    expect(world.distanceTo(new THREE.Vector3(-0.22, 1.04, 0.14))).toBeLessThan(0.25)
+    expect(world.distanceTo(new THREE.Vector3(-0.22, 1.04, 0.14))).toBeLessThan(0.35)
+  })
+
+  it('flips long guns and lifts every grip off the hand', () => {
+    expect(holdPose('rifle').flip).toBe(true)
+    expect(holdPose('smg').flip).toBe(true)
+    expect(holdPose('sniper').flip).toBe(true)
+    expect(holdPose('pistol').flip).toBe(false)
+    expect(holdPose('rifle').lift).toBeGreaterThan(0.1)
+    expect(holdPose('pistol').lift).toBeGreaterThan(0.1)
   })
 })

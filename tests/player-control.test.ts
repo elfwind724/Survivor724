@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cameraRelativeWish, firstPersonWish, lookXZ, turnYaw } from '@/controls/CameraWish'
+import { cameraRelativeWish, firstPersonWish, followCameraOffset, lookXZ, turnYaw } from '@/controls/CameraWish'
 import { cycleControlled, possessSurvivor, releaseControl } from '@/controls/PlayerControl'
 import { stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
@@ -16,6 +16,13 @@ describe('player control', () => {
 
     const facingSouth = firstPersonWish(1, 0, 0)
     expect(facingSouth.x).toBeLessThan(-0.9)
+  })
+
+  it('pulls the follow camera to a lower side view', () => {
+    const high = followCameraOffset(0, 42, 0)
+    const side = followCameraOffset(0, 42, 1)
+    expect(side.y).toBeLessThan(high.y)
+    expect(Math.abs(side.x)).toBeGreaterThan(Math.abs(high.x))
   })
 
   it('turns first-person look toward screen-right when the mouse moves right', () => {
