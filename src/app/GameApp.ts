@@ -57,7 +57,7 @@ export class GameApp {
     lastY: number
     dragging: boolean
   } | null = null
-  private notice = '点头像选人，双击接管 · 左键拖移 · 右键转镜头'
+  private notice = '点头像选人，双击接管 · Q/E 平移镜头 · 右键转镜头'
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -149,6 +149,11 @@ export class GameApp {
   }
 
   private readonly step = (dt: number): void => {
+    if (this.world.player.view === 'topdown') {
+      const speed = this.renderer.distance * 0.95
+      if (this.input.isDown('KeyQ')) this.renderer.nudgeLook(-speed * dt, 0)
+      if (this.input.isDown('KeyE')) this.renderer.nudgeLook(speed * dt, 0)
+    }
     stepWorld(this.world, dt, this.controlIntent())
   }
 
@@ -350,7 +355,7 @@ export class GameApp {
     const dx = event.clientX - this.pointer.lastX
     const dy = event.clientY - this.pointer.lastY
     const traveled = Math.hypot(event.clientX - this.pointer.startX, event.clientY - this.pointer.startY)
-    if (traveled > 6) this.pointer.dragging = true
+    if (traveled > 6 && this.pointer.button === 2) this.pointer.dragging = true
     this.pointer.lastX = event.clientX
     this.pointer.lastY = event.clientY
     if (!this.pointer.dragging) return
@@ -358,7 +363,6 @@ export class GameApp {
       this.renderer.rotateBy(-dx * 0.007)
       this.renderer.pullSideBy(dy)
     }
-    if (this.pointer.button === 0 && !this.editor.getBrush()) this.renderer.panBy(-dx, -dy)
   }
 
   private readonly onPointerUp = (event: PointerEvent): void => {

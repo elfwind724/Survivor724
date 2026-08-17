@@ -172,14 +172,17 @@ export class DebugRenderer {
   }
 
   panBy(screenDx: number, screenDy: number): void {
+    this.nudgeLook(screenDx * this.distance * 0.0024, -screenDy * this.distance * 0.0024)
+  }
+
+  nudgeLook(right: number, forward: number): void {
     this.followEnabled = false
-    const scale = this.distance * 0.0024
     const forwardX = -Math.sin(this.orbitYaw)
     const forwardZ = -Math.cos(this.orbitYaw)
     const rightX = -forwardZ
     const rightZ = forwardX
-    this.lookAtX += rightX * screenDx * scale - forwardX * screenDy * scale
-    this.lookAtZ += rightZ * screenDx * scale - forwardZ * screenDy * scale
+    this.lookAtX += rightX * right + forwardX * forward
+    this.lookAtZ += rightZ * right + forwardZ * forward
   }
 
   recenter(): void {
