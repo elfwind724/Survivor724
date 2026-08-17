@@ -25,5 +25,4 @@ export const CREATIVE_TABS: Array<{ id: 'all' | AssetCategory; label: string }> 
   { id: 'survival', label: '生存' },
   { id: 'food', label: '食物' },
   { id: 'guns', label: '枪械' },
-  { id: 'people', label: '人物' },
 ]

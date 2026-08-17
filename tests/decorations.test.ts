@@ -24,4 +24,10 @@ describe('map decorations', () => {
     const world = createInitialWorld()
     expect(placeDecoration(world, 'missing/nope', 0, 0)).toBeNull()
   })
+
+  it('does not place character models as decorations', () => {
+    const world = createInitialWorld()
+    expect(placeDecoration(world, 'people/man', 0, 0)).toBeNull()
+    expect(world.decorations).toHaveLength(0)
+  })
 })

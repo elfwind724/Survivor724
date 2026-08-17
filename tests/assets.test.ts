@@ -23,6 +23,10 @@ describe('asset catalog', () => {
   it('exposes creative tabs for every catalog category', () => {
     const tabIds = new Set(CREATIVE_TABS.map((tab) => tab.id))
     expect(tabIds.has('all')).toBe(true)
-    for (const entry of ASSET_INDEX) expect(tabIds.has(entry.category)).toBe(true)
+    expect(tabIds.has('people')).toBe(false)
+    for (const entry of ASSET_INDEX) {
+      if (entry.category === 'people') continue
+      expect(tabIds.has(entry.category)).toBe(true)
+    }
   })
 })

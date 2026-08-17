@@ -6,7 +6,7 @@ import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, WorldState } from '@/simulation/types'
 import { AssetLibrary } from './AssetLibrary'
 import { locomotionFromSpeed, pickCharacterClip, type Locomotion } from './CharacterClips'
-import { prepareKit, suggestedScale } from './ModelFit'
+import { fitToHeight, prepareKit, suggestedScale, SURVIVOR_HEIGHT } from './ModelFit'
 
 interface Marker {
   id: string
@@ -688,6 +688,11 @@ export class DebugRenderer {
     const entry = assetById(assetId)
     const kit = this.library.clone(assetId)
     if (!entry || !kit) return null
+    if (entry.category === 'people') {
+      fitToHeight(kit, SURVIVOR_HEIGHT)
+      kit.name = 'kit'
+      return kit
+    }
     return prepareKit(kit, scaleOverride ?? suggestedScale(entry))
   }
 

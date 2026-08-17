@@ -120,16 +120,16 @@ body,
 .hud-roster {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   pointer-events: auto;
 }
 
 .hud-card {
   display: flex;
-  gap: 8px;
-  width: 200px;
-  min-height: 76px;
-  padding: 6px 8px 7px;
+  gap: 6px;
+  width: 136px;
+  min-height: 48px;
+  padding: 4px 6px;
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -157,15 +157,17 @@ body,
 }
 
 .hud-face {
-  flex: 0 0 48px;
-  width: 48px;
-  height: 56px;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 34px;
   overflow: hidden;
   background: #221c16;
 }
 
 .hud-face svg {
   display: block;
+  width: 28px;
+  height: 34px;
 }
 
 .hud-meta {
@@ -177,17 +179,17 @@ body,
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 6px;
-  font-size: 15px;
-  line-height: 1.2;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.15;
 }
 
 .hud-meta small {
   display: block;
-  margin: 1px 0 5px;
+  margin: 0 0 2px;
   overflow: hidden;
   color: var(--hud-muted);
-  font-size: 14px;
+  font-size: 12px;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -202,21 +204,21 @@ body,
 
 .hud-bar {
   display: grid;
-  grid-template-columns: 18px 1fr;
+  grid-template-columns: 14px 1fr;
   align-items: center;
-  gap: 4px;
-  margin-top: 2px;
+  gap: 3px;
+  margin-top: 1px;
 }
 
 .hud-bar span {
   color: var(--hud-muted);
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1;
 }
 
 .hud-bar i {
   display: block;
-  height: 5px;
+  height: 3px;
   background: #2a241c;
 }
 
@@ -574,7 +576,7 @@ body,
 
 @media (max-width: 900px) {
   .hud-card {
-    width: 176px;
+    width: 124px;
   }
 
   #minimap {

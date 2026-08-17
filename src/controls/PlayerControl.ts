@@ -65,11 +65,7 @@ export function stepPlayerControl(world: WorldState, dt: number, intent: Control
   }
 
   moveWithCollision(world, survivor, intent.wishX, intent.wishZ, dt)
-  if (intent.faceX !== null && intent.faceZ !== null) {
-    const dx = intent.faceX - survivor.position.x
-    const dz = intent.faceZ - survivor.position.z
-    if (Math.hypot(dx, dz) > 0.05) survivor.facingYaw = Math.atan2(dx, dz)
-  } else if (intent.wishX !== 0 || intent.wishZ !== 0) {
+  if (intent.wishX !== 0 || intent.wishZ !== 0) {
     survivor.facingYaw = Math.atan2(intent.wishX, intent.wishZ)
   }
 }

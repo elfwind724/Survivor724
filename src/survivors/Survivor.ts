@@ -74,6 +74,7 @@ export function moveToward(survivor: SurvivorState, dt: number): boolean {
     return true
   }
 
+  survivor.facingYaw = Math.atan2(dx, dz)
   survivor.position.x += (dx / distance) * step
   survivor.position.z += (dz / distance) * step
   return false

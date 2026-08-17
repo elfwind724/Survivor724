@@ -18,7 +18,7 @@ export function placeDecoration(
   scale?: number,
 ): DecorationState | null {
   const entry = assetById(assetId)
-  if (!entry) return null
+  if (!entry || entry.category === 'people') return null
   const decoration: DecorationState = {
     id: `decor-${world.decorations.length + 1}-${entry.id.replaceAll('/', '-')}`,
     assetId,
@@ -60,15 +60,20 @@ export function loadDecorations(): DecorationState[] {
     if (!raw) return []
     const parsed = JSON.parse(raw) as DecorationState[]
     if (!Array.isArray(parsed)) return []
-    return parsed.filter(
+    const cleaned = parsed.filter(
       (entry) =>
         typeof entry?.id === 'string' &&
         typeof entry.assetId === 'string' &&
+        !entry.assetId.startsWith('people/') &&
         Number.isFinite(entry.x) &&
         Number.isFinite(entry.z) &&
         Number.isFinite(entry.yaw) &&
         Number.isFinite(entry.scale),
     )
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned))
+    }
+    return cleaned
   } catch {
     return []
   }

@@ -47,6 +47,16 @@ describe('player control', () => {
     expect(hunter.position.x).toBeLessThan(startX - 2)
   })
 
+  it('faces the key direction instead of the mouse in top-down', () => {
+    const world = createInitialWorld()
+    possessSurvivor(world, 'hunter')
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.facingYaw = 0
+    stepWorld(world, 1 / 30, { wishX: 1, wishZ: 0, faceX: hunter.position.x, faceZ: hunter.position.z + 20, yawDelta: 0 })
+    expect(hunter.facingYaw).toBeCloseTo(Math.PI / 2, 5)
+  })
+
   it('moves the possessed survivor with control intent and pauses their job AI', () => {
     const world = createInitialWorld()
     possessSurvivor(world, 'hunter')

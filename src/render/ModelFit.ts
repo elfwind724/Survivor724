@@ -1,11 +1,22 @@
 import * as THREE from 'three'
 import type { AssetEntry } from '@/data/assetIndex'
 
+export const SURVIVOR_HEIGHT = 1.85
+
 export function sitOnGround(object: THREE.Object3D): void {
   object.updateMatrixWorld(true)
   const box = new THREE.Box3().setFromObject(object)
   if (!Number.isFinite(box.min.y)) return
   object.position.y -= box.min.y
+}
+
+export function fitToHeight(object: THREE.Object3D, height: number): void {
+  object.updateMatrixWorld(true)
+  const box = new THREE.Box3().setFromObject(object)
+  const sizeY = box.max.y - box.min.y
+  if (!Number.isFinite(sizeY) || sizeY < 0.05) return
+  object.scale.multiplyScalar(height / sizeY)
+  sitOnGround(object)
 }
 
 export function suggestedScale(entry: AssetEntry): number {

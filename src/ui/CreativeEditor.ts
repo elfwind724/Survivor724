@@ -169,6 +169,7 @@ export class CreativeEditor {
   private visibleItems(): AssetEntry[] {
     const q = this.query.trim().toLowerCase()
     return ASSET_INDEX.filter((entry) => {
+      if (entry.category === 'people') return false
       if (this.tab !== 'all' && entry.category !== this.tab) return false
       if (!q) return true
       return entry.name.toLowerCase().includes(q) || entry.id.includes(q)
