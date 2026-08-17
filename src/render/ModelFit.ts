@@ -28,7 +28,10 @@ export function suggestedScale(entry: AssetEntry): number {
     return 0.2
   }
   if (entry.category === 'food') return 0.24
-  if (entry.category === 'interior') return 0.6
+  if (entry.category === 'interior') {
+    if (name.includes('light') || name.includes('cube')) return 1.4
+    return 0.75
+  }
   if (entry.category === 'survival') return 0.4
   if (entry.category === 'nature') return 1
   if (entry.category === 'natureClump') return name.includes('tree') ? 1.12 : 1.35

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { demolishStructure, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, structureAt, toggleGates } from '@/base/construction'
-import { decorationNear, placeDecoration, removeDecoration } from '@/base/decorations'
+import { decorationNear, placeDecoration, removeDecoration, snapDecor } from '@/base/decorations'
 import { facilityPreviewHeight } from '@/data/facilities'
 import { tryShoot } from '@/combat/Combat'
 import { setWorkZone } from '@/base/workZones'
@@ -133,8 +133,9 @@ export class GameApp {
   }
 
   private controlIntent() {
-    const right = this.input.axis('KeyD', 'KeyA')
-    const forward = this.input.axis('KeyW', 'KeyS')
+    const move = this.input.moveAxis()
+    const right = move.x
+    const forward = move.z
     const look = this.renderer.pickGround(this.input.mouseX, this.input.mouseY)
     if (this.world.player.view === 'firstperson') {
       return {
@@ -279,13 +280,14 @@ export class GameApp {
     this.pointer.lastY = event.clientY
     if (!this.pointer.dragging) return
     if (this.pointer.button === 2) this.renderer.rotateBy(dx * 0.007)
-    if (this.pointer.button === 0) this.renderer.panBy(-dx, -dy)
+    if (this.pointer.button === 0 && !this.editor.getBrush()) this.renderer.panBy(-dx, -dy)
   }
 
   private readonly onPointerUp = (event: PointerEvent): void => {
     const pointer = this.pointer
     this.pointer = null
-    if (!pointer || pointer.dragging) return
+    if (!pointer) return
+    if (pointer.dragging && !(this.editor.getBrush() && pointer.button === 0)) return
     this.handleClick(event, pointer.button)
   }
 
@@ -297,7 +299,8 @@ export class GameApp {
       if (!hit) return
       if (button === 0) {
         const placed = placeDecoration(this.world, brush.assetId, hit.x, hit.z, brush.yaw, brush.scale)
-        this.notice = placed ? `已放置 ${placed.assetId.split('/').pop()}` : '无法放置这个素材'
+        this.renderer.enqueueAsset(brush.assetId)
+        this.notice = placed ? `已放下 ${placed.assetId.split('/').pop()}` : '无法放置这个素材'
         return
       }
       if (button === 2) {
@@ -405,8 +408,8 @@ export class GameApp {
       }
       this.renderer.setDecorationPreview({
         assetId: brush.assetId,
-        x: hover.x,
-        z: hover.z,
+        x: snapDecor(hover.x),
+        z: snapDecor(hover.z),
         yaw: brush.yaw,
         scale: brush.scale,
       })

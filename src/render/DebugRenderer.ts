@@ -5,11 +5,23 @@ import { cellCenter } from '@/navigation/NavGrid'
 import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, WorldState } from '@/simulation/types'
 import { AssetLibrary } from './AssetLibrary'
+import { locomotionFromSpeed, pickCharacterClip, type Locomotion } from './CharacterClips'
 import { prepareKit, suggestedScale } from './ModelFit'
 
 interface Marker {
   id: string
   mesh: THREE.Object3D
+}
+
+interface CharacterRig {
+  mixer: THREE.AnimationMixer
+  idle: THREE.AnimationAction | null
+  walk: THREE.AnimationAction | null
+  run: THREE.AnimationAction | null
+  current: Locomotion
+  lastX: number
+  lastZ: number
+  displaySpeed: number
 }
 
 export class DebugRenderer {
@@ -35,7 +47,9 @@ export class DebugRenderer {
   private readonly dressingRoot = new THREE.Group()
   private readonly dressingMeshes = new Map<string, THREE.Object3D>()
   private readonly kitted = new Set<string>()
-  private decorPreview: THREE.Object3D | null = null
+  private decorPreview: THREE.Group | null = null
+  private readonly rigs = new Map<string, CharacterRig>()
+  private readonly clock = new THREE.Clock()
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
@@ -231,6 +245,7 @@ export class DebugRenderer {
   }
 
   sync(world: WorldState): void {
+    const dt = this.clock.getDelta()
     this.library.tick()
     this.ensureStatic(world)
     this.kitExtras()
@@ -248,16 +263,18 @@ export class DebugRenderer {
         marker = { id: survivor.id, mesh }
         this.survivors.set(survivor.id, marker)
       }
-      this.kitSurvivor(survivor.id, SURVIVOR_ASSETS[survivor.professionId] ?? 'people/adventurer')
+      this.kitSurvivor(survivor)
       const kit = marker.mesh.getObjectByName('kit')
-      marker.mesh.position.set(survivor.position.x, kit ? 0 : 1.1, survivor.position.z)
+      marker.mesh.position.set(survivor.position.x, 0, survivor.position.z)
       marker.mesh.rotation.y = survivor.facingYaw
+      this.driveRig(survivor, dt)
       const fallback = marker.mesh.getObjectByName('fallback')
       if (fallback instanceof THREE.Mesh && fallback.material instanceof THREE.MeshLambertMaterial) {
         const controlled = world.player.controlledId === survivor.id
         const selected = world.player.selectedId === survivor.id
         fallback.material.color.set(controlled ? 0xf0d27a : selected ? 0xd8c4a0 : 0xc4b39a)
         fallback.visible = !kit
+        fallback.position.y = 0.9
       }
     }
     this.updateCamera(world)
@@ -508,35 +525,32 @@ export class DebugRenderer {
       return
     }
     this.enqueueAsset(pose.assetId)
-    if (this.decorPreview?.userData.previewId === pose.assetId) {
-      this.decorPreview.position.x = pose.x
-      this.decorPreview.position.z = pose.z
-      this.decorPreview.rotation.y = pose.yaw
-      return
+    if (!this.decorPreview) {
+      const group = new THREE.Group()
+      group.name = 'decor-preview'
+      const frame = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(1.2, 1.4, 1.2)),
+        new THREE.LineBasicMaterial({ color: 0x7ad0ff, depthTest: false }),
+      )
+      frame.position.y = 0.7
+      frame.name = 'ghost-frame'
+      frame.renderOrder = 30
+      group.add(frame)
+      this.scene.add(group)
+      this.decorPreview = group
     }
-    if (this.decorPreview) this.scene.remove(this.decorPreview)
-    const kit = this.spawnKit(pose.assetId, pose.scale)
-    if (!kit) {
-      this.decorPreview = null
-      return
-    }
-    kit.userData.previewId = pose.assetId
-    kit.position.x += pose.x
-    kit.position.z += pose.z
-    kit.rotation.y = pose.yaw
-    kit.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return
-      const materials = Array.isArray(object.material) ? object.material : [object.material]
-      for (const material of materials) {
-        if (material instanceof THREE.Material) {
-          material.transparent = true
-          material.opacity = 0.45
-          material.depthWrite = false
-        }
+    this.decorPreview.position.set(pose.x, 0, pose.z)
+    this.decorPreview.rotation.y = pose.yaw
+    const existing = this.decorPreview.getObjectByName('kit')
+    if (existing?.userData.previewId !== pose.assetId) {
+      if (existing) this.decorPreview.remove(existing)
+      const kit = this.spawnKit(pose.assetId, pose.scale)
+      if (kit) {
+        kit.userData.previewId = pose.assetId
+        ghostMaterial(kit)
+        this.decorPreview.add(kit)
       }
-    })
-    this.decorPreview = kit
-    this.scene.add(kit)
+    }
   }
 
   private syncDressing(world: WorldState): void {
@@ -576,12 +590,49 @@ export class DebugRenderer {
     return group
   }
 
-  private kitSurvivor(survivorId: string, assetId: string): void {
-    const marker = this.survivors.get(survivorId)
+  private kitSurvivor(survivor: { id: string; professionId: string; position: { x: number; z: number } }): void {
+    const marker = this.survivors.get(survivor.id)
+    const assetId = SURVIVOR_ASSETS[survivor.professionId] ?? 'people/adventurer'
+    this.enqueueAsset(assetId)
     if (!marker || marker.mesh.getObjectByName('kit')) return
-    const kit = this.spawnKit(assetId)
+    const kit = this.spawnKit(assetId, 1)
     if (!kit) return
     marker.mesh.add(kit)
+    const mixer = new THREE.AnimationMixer(kit)
+    const clips = this.library.clips(assetId)
+    const idleClip = pickCharacterClip(clips, 'idle')
+    const walkClip = pickCharacterClip(clips, 'walk')
+    const runClip = pickCharacterClip(clips, 'run')
+    const idle = idleClip ? mixer.clipAction(idleClip) : null
+    idle?.play()
+    this.rigs.set(survivor.id, {
+      mixer,
+      idle,
+      walk: walkClip ? mixer.clipAction(walkClip) : null,
+      run: runClip ? mixer.clipAction(runClip) : null,
+      current: 'idle',
+      lastX: survivor.position.x,
+      lastZ: survivor.position.z,
+      displaySpeed: 0,
+    })
+  }
+
+  private driveRig(survivor: { id: string; position: { x: number; z: number } }, dt: number): void {
+    const rig = this.rigs.get(survivor.id)
+    if (!rig) return
+    const speed = Math.hypot(survivor.position.x - rig.lastX, survivor.position.z - rig.lastZ) / Math.max(dt, 1 / 120)
+    rig.lastX = survivor.position.x
+    rig.lastZ = survivor.position.z
+    rig.displaySpeed = speed > 0.2 ? speed : rig.displaySpeed * Math.exp(-dt * 12)
+    const next = locomotionFromSpeed(rig.displaySpeed)
+    if (next !== rig.current) {
+      const previous = rig[rig.current]
+      const incoming = rig[next]
+      previous?.fadeOut(0.12)
+      incoming?.reset().fadeIn(0.12).play()
+      rig.current = next
+    }
+    rig.mixer.update(dt)
   }
 
   private kitStructure(world: WorldState, structure: StructureState, root: THREE.Object3D): void {
@@ -647,6 +698,19 @@ export class DebugRenderer {
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(width, height, false)
   }
+}
+
+function ghostMaterial(root: THREE.Object3D): void {
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return
+    const materials = Array.isArray(object.material) ? object.material : [object.material]
+    for (const material of materials) {
+      if (!(material instanceof THREE.Material)) continue
+      material.transparent = true
+      material.opacity = 0.4
+      material.depthWrite = false
+    }
+  })
 }
 
 function wallYaw(structure: StructureState, cell: GridCell): number {

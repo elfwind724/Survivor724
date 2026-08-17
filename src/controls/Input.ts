@@ -24,6 +24,15 @@ export class Input {
     return (this.isDown(positive) ? 1 : 0) + (this.isDown(negative) ? -1 : 0)
   }
 
+  moveAxis(): { x: number; z: number } {
+    const x = this.axis('KeyD', 'KeyA') + this.axis('ArrowRight', 'ArrowLeft')
+    const z = this.axis('KeyW', 'KeyS') + this.axis('ArrowUp', 'ArrowDown')
+    return {
+      x: Math.max(-1, Math.min(1, x)),
+      z: Math.max(-1, Math.min(1, z)),
+    }
+  }
+
   consumeMouseDeltaX(): number {
     const value = this.mouseDeltaX
     this.mouseDeltaX = 0
@@ -31,7 +40,7 @@ export class Input {
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (event.code === 'Tab') event.preventDefault()
+    if (event.code === 'Tab' || event.code.startsWith('Arrow')) event.preventDefault()
     this.down.add(event.code)
   }
 

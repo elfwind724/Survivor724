@@ -1,10 +1,16 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js'
 import { assetById, assetUrl, type AssetEntry } from '@/data/assetIndex'
+
+interface AssetTemplate {
+  scene: THREE.Object3D
+  clips: THREE.AnimationClip[]
+}
 
 export class AssetLibrary {
   private readonly loader = new GLTFLoader()
-  private readonly templates = new Map<string, THREE.Object3D>()
+  private readonly templates = new Map<string, AssetTemplate>()
   private readonly failed = new Set<string>()
   private readonly loading = new Map<string, Promise<THREE.Object3D | null>>()
   private readonly queue: string[] = []
@@ -13,6 +19,10 @@ export class AssetLibrary {
 
   has(id: string): boolean {
     return this.templates.has(id)
+  }
+
+  clips(id: string): THREE.AnimationClip[] {
+    return this.templates.get(id)?.clips ?? []
   }
 
   enqueue(ids: Iterable<string>): void {
@@ -31,13 +41,14 @@ export class AssetLibrary {
 
   clone(id: string): THREE.Object3D | null {
     const template = this.templates.get(id)
-    return template ? template.clone(true) : null
+    if (!template) return null
+    return SkeletonUtils.clone(template.scene)
   }
 
   async load(id: string): Promise<THREE.Object3D | null> {
     if (this.failed.has(id)) return null
     const ready = this.templates.get(id)
-    if (ready) return ready
+    if (ready) return ready.scene
     const pending = this.loading.get(id)
     if (pending) return pending
     const entry = assetById(id)
@@ -50,8 +61,7 @@ export class AssetLibrary {
     this.inflight += 1
     try {
       const scene = await job
-      if (scene) this.templates.set(id, scene)
-      else this.failed.add(id)
+      if (!scene) this.failed.add(id)
       return scene
     } finally {
       this.inflight -= 1
@@ -70,6 +80,7 @@ export class AssetLibrary {
           object.receiveShadow = true
         }
       })
+      this.templates.set(entry.id, { scene: root, clips: gltf.animations.slice() })
       return root
     } catch {
       return null
