@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { ASSET_INDEX, assetById, assetUrl, assetsIn } from '@/data/assetIndex'
-import { reservedPeopleIds, SURVIVOR_ASSETS, STRUCTURE_ASSETS, unusedDressingIds, worldDressing } from '@/data/worldDressing'
+import { CREATIVE_TABS, SURVIVOR_ASSETS, STRUCTURE_ASSETS } from '@/data/worldDressing'
 
-describe('asset catalog and world dressing', () => {
+describe('asset catalog', () => {
   it('indexes real glbs by readable names and skips mac resource forks', () => {
     expect(ASSET_INDEX.length).toBeGreaterThan(300)
     expect(ASSET_INDEX.some((entry) => entry.file.includes('/._') || entry.name.startsWith('._'))).toBe(false)
@@ -20,11 +20,9 @@ describe('asset catalog and world dressing', () => {
     expect(assetById(STRUCTURE_ASSETS.warehouse)?.name).toBe('Storage House')
   })
 
-  it('places every non-reserved asset at least once', () => {
-    const poses = worldDressing()
-    expect(poses.length).toBeGreaterThan(200)
-    expect(poses.every((pose) => Number.isFinite(pose.x) && Number.isFinite(pose.z))).toBe(true)
-    expect(unusedDressingIds()).toEqual([])
-    expect(reservedPeopleIds().length).toBeGreaterThan(0)
+  it('exposes creative tabs for every catalog category', () => {
+    const tabIds = new Set(CREATIVE_TABS.map((tab) => tab.id))
+    expect(tabIds.has('all')).toBe(true)
+    for (const entry of ASSET_INDEX) expect(tabIds.has(entry.category)).toBe(true)
   })
 })

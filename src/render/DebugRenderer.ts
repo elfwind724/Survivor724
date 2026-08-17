@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { assetById } from '@/data/assetIndex'
-import { STRUCTURE_ASSETS, SURVIVOR_ASSETS, worldDressing, type DressingPose } from '@/data/worldDressing'
+import { STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '@/data/worldDressing'
 import { cellCenter } from '@/navigation/NavGrid'
 import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, WorldState } from '@/simulation/types'
@@ -32,10 +32,10 @@ export class DebugRenderer {
   private preview: THREE.Group | null = null
   private previewKey = ''
   private readonly library = new AssetLibrary()
-  private readonly dressing: DressingPose[] = worldDressing()
   private readonly dressingRoot = new THREE.Group()
-  private readonly dressingPlaced = new Set<string>()
+  private readonly dressingMeshes = new Map<string, THREE.Object3D>()
   private readonly kitted = new Set<string>()
+  private decorPreview: THREE.Object3D | null = null
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
@@ -234,7 +234,7 @@ export class DebugRenderer {
     this.library.tick()
     this.ensureStatic(world)
     this.kitExtras()
-    this.syncDressing()
+    this.syncDressing(world)
     this.syncLighting(world)
     this.syncZones(world)
     this.syncStructures(world)
@@ -492,20 +492,74 @@ export class DebugRenderer {
       'nature/pine',
       'nature/tree',
     ]
-    this.library.enqueue(this.dressing.map((pose) => pose.assetId))
     return ids
   }
 
-  private syncDressing(): void {
-    for (const pose of this.dressing) {
-      if (this.dressingPlaced.has(pose.id)) continue
-      const object = this.spawnKit(pose.assetId, pose.scale)
-      if (!object) continue
-      object.position.x += pose.x
-      object.position.z += pose.z
-      object.rotation.y = pose.yaw
-      this.dressingRoot.add(object)
-      this.dressingPlaced.add(pose.id)
+  enqueueAsset(id: string): void {
+    this.library.enqueue([id])
+  }
+
+  setDecorationPreview(pose: { assetId: string; x: number; z: number; yaw: number; scale: number } | null): void {
+    if (!pose) {
+      if (this.decorPreview) {
+        this.scene.remove(this.decorPreview)
+        this.decorPreview = null
+      }
+      return
+    }
+    this.enqueueAsset(pose.assetId)
+    if (this.decorPreview?.userData.previewId === pose.assetId) {
+      this.decorPreview.position.x = pose.x
+      this.decorPreview.position.z = pose.z
+      this.decorPreview.rotation.y = pose.yaw
+      return
+    }
+    if (this.decorPreview) this.scene.remove(this.decorPreview)
+    const kit = this.spawnKit(pose.assetId, pose.scale)
+    if (!kit) {
+      this.decorPreview = null
+      return
+    }
+    kit.userData.previewId = pose.assetId
+    kit.position.x += pose.x
+    kit.position.z += pose.z
+    kit.rotation.y = pose.yaw
+    kit.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return
+      const materials = Array.isArray(object.material) ? object.material : [object.material]
+      for (const material of materials) {
+        if (material instanceof THREE.Material) {
+          material.transparent = true
+          material.opacity = 0.45
+          material.depthWrite = false
+        }
+      }
+    })
+    this.decorPreview = kit
+    this.scene.add(kit)
+  }
+
+  private syncDressing(world: WorldState): void {
+    const seen = new Set<string>()
+    for (const pose of world.decorations) {
+      seen.add(pose.id)
+      this.enqueueAsset(pose.assetId)
+      let mesh = this.dressingMeshes.get(pose.id)
+      if (!mesh) {
+        const kit = this.spawnKit(pose.assetId, pose.scale)
+        if (!kit) continue
+        this.dressingRoot.add(kit)
+        this.dressingMeshes.set(pose.id, kit)
+        mesh = kit
+      }
+      mesh.position.x = pose.x
+      mesh.position.z = pose.z
+      mesh.rotation.y = pose.yaw
+    }
+    for (const [id, mesh] of this.dressingMeshes) {
+      if (seen.has(id)) continue
+      this.dressingRoot.remove(mesh)
+      this.dressingMeshes.delete(id)
     }
   }
 

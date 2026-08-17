@@ -5,11 +5,12 @@ const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas')
 const hud = document.querySelector<HTMLElement>('#game-hud')
 const minimap = document.querySelector<HTMLCanvasElement>('#minimap')
 const buildMenu = document.querySelector<HTMLElement>('#build-menu')
+const creative = document.querySelector<HTMLElement>('#creative-editor')
 const defenseBar = document.querySelector<HTMLElement>('#defense-bar')
 
-if (!canvas || !hud || !minimap || !buildMenu || !defenseBar) {
+if (!canvas || !hud || !minimap || !buildMenu || !creative || !defenseBar) {
   throw new Error('Missing required layout roots')
 }
 
-const app = new GameApp(canvas, hud, minimap, buildMenu, defenseBar)
+const app = new GameApp(canvas, hud, minimap, buildMenu, creative, defenseBar)
 app.start()

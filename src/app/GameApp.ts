@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { demolishStructure, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, structureAt, toggleGates } from '@/base/construction'
+import { decorationNear, placeDecoration, removeDecoration } from '@/base/decorations'
 import { facilityPreviewHeight } from '@/data/facilities'
 import { tryShoot } from '@/combat/Combat'
 import { setWorkZone } from '@/base/workZones'
@@ -15,6 +16,7 @@ import { createInitialWorld } from '@/simulation/WorldState'
 import type { GridCell, WorldState } from '@/simulation/types'
 import { reinforceSector } from '@/combat/Defense'
 import { BuildMenu } from '@/ui/BuildMenu'
+import { CreativeEditor } from '@/ui/CreativeEditor'
 import { GameHud } from '@/ui/GameHud'
 import { DefenseBar } from '@/ui/DefenseBar'
 import { Minimap } from '@/ui/Minimap'
@@ -26,6 +28,7 @@ export class GameApp {
   private readonly hud: GameHud
   private readonly minimap: Minimap
   private readonly buildMenu: BuildMenu
+  private readonly editor: CreativeEditor
   private readonly defenseBar: DefenseBar
   private readonly input = new Input()
   private readonly loop: GameLoop
@@ -49,6 +52,7 @@ export class GameApp {
     hudRoot: HTMLElement,
     minimapCanvas: HTMLCanvasElement,
     buildMenuRoot: HTMLElement,
+    editorRoot: HTMLElement,
     defenseRoot: HTMLElement,
   ) {
     this.world = createInitialWorld()
@@ -64,6 +68,7 @@ export class GameApp {
     this.minimap = new Minimap(minimapCanvas)
     this.buildMenu = new BuildMenu(buildMenuRoot, (selected) => {
       this.wallAnchor = null
+      if (selected) this.editor.clearBrush()
       this.notice = selected === 'demolish'
         ? '拆除：单击建筑'
         : selected === 'wall'
@@ -71,6 +76,14 @@ export class GameApp {
           : selected
             ? '已选择，移动鼠标看边框，再单击放置'
             : '已取消建造'
+    })
+    this.editor = new CreativeEditor(editorRoot, () => {
+      const brush = this.editor.getBrush()
+      if (brush) {
+        this.buildMenu.clear()
+        this.renderer.enqueueAsset(brush.assetId)
+        this.notice = '左键放置 · 右键拆除装饰 · R 旋转 · -/= 缩放 · I 打开创造栏'
+      }
     })
     this.defenseBar = new DefenseBar(defenseRoot, (sector) => {
       this.notice = `增援${sector}，守夜的人会往那边靠` 
@@ -155,6 +168,16 @@ export class GameApp {
       if (id) possessSurvivor(this.world, id)
     }
     if (event.code === 'Escape') {
+      if (this.editor.isOpen()) {
+        this.editor.close()
+        this.notice = '已关闭创造栏'
+        return
+      }
+      if (this.editor.getBrush()) {
+        this.editor.clearBrush()
+        this.notice = '已放下手中素材'
+        return
+      }
       if (this.buildMenu.getSelected() || this.buildMenu.isOpen()) {
         this.wallAnchor = null
         this.buildMenu.clear()
@@ -173,6 +196,26 @@ export class GameApp {
       this.world.player.view = this.world.player.view === 'firstperson' ? 'topdown' : 'firstperson'
     }
     if (event.code === 'KeyB') this.buildMenu.toggle()
+    if (event.code === 'KeyI') this.editor.toggle()
+    if (event.code === 'KeyR' && this.editor.getBrush()) {
+      this.editor.rotate(event.shiftKey ? -Math.PI / 2 : Math.PI / 2)
+      this.notice = '已旋转手中素材'
+    }
+    if ((event.code === 'Equal' || event.code === 'NumpadAdd') && this.editor.getBrush()) {
+      this.editor.nudgeScale(1.15)
+      this.notice = '放大装饰'
+    }
+    if ((event.code === 'Minus' || event.code === 'NumpadSubtract') && this.editor.getBrush()) {
+      this.editor.nudgeScale(1 / 1.15)
+      this.notice = '缩小装饰'
+    }
+    if (event.code.startsWith('Digit') && (this.editor.isOpen() || this.editor.getBrush())) {
+      const index = Number(event.code.slice(5)) - 1
+      if (index >= 0 && index <= 8) {
+        this.editor.pickHotbar(index)
+        return
+      }
+    }
     if (event.code === 'KeyC') {
       this.renderer.recenter()
       this.notice = '镜头回到当前角色'
@@ -247,6 +290,29 @@ export class GameApp {
   }
 
   private handleClick(event: PointerEvent, button: number): void {
+    if (this.editor.isOpen()) return
+    const brush = this.editor.getBrush()
+    if (brush) {
+      const hit = this.renderer.pickGround(event.clientX, event.clientY)
+      if (!hit) return
+      if (button === 0) {
+        const placed = placeDecoration(this.world, brush.assetId, hit.x, hit.z, brush.yaw, brush.scale)
+        this.notice = placed ? `已放置 ${placed.assetId.split('/').pop()}` : '无法放置这个素材'
+        return
+      }
+      if (button === 2) {
+        const target = decorationNear(this.world, hit.x, hit.z)
+        if (!target) {
+          this.notice = '附近没有装饰'
+          return
+        }
+        removeDecoration(this.world, target.id)
+        this.notice = '已拆除装饰'
+        return
+      }
+      return
+    }
+
     const buildMode = this.buildMenu.getSelected()
     if (button === 0 && buildMode === 'demolish') {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
@@ -329,6 +395,25 @@ export class GameApp {
   }
 
   private updateBuildPreview(): void {
+    const brush = this.editor.getBrush()
+    if (brush && this.world.player.view !== 'firstperson' && !this.editor.isOpen()) {
+      const hover = this.renderer.pickGround(this.input.mouseX, this.input.mouseY)
+      this.renderer.clearBuildPreview()
+      if (!hover) {
+        this.renderer.setDecorationPreview(null)
+        return
+      }
+      this.renderer.setDecorationPreview({
+        assetId: brush.assetId,
+        x: hover.x,
+        z: hover.z,
+        yaw: brush.yaw,
+        scale: brush.scale,
+      })
+      return
+    }
+    this.renderer.setDecorationPreview(null)
+
     const selected = this.buildMenu.getSelected()
     if (!selected || selected === 'demolish' || this.world.player.view === 'firstperson') {
       this.renderer.clearBuildPreview()
@@ -353,7 +438,7 @@ export class GameApp {
   }
 
   private fireIfPossessed(): void {
-    if (this.buildMenu.getSelected()) return
+    if (this.buildMenu.getSelected() || this.editor.getBrush()) return
     const self = this.world.player.controlledId ? findSurvivor(this.world, this.world.player.controlledId) : undefined
     if (!self) return
     if (tryShoot(this.world, self)) this.notice = `射击 · 剩弹 ${self.ammo}`

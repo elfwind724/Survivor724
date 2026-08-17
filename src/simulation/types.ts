@@ -174,6 +174,15 @@ export interface JobRecord {
   assigneeId: string | null
 }
 
+export interface DecorationState {
+  id: string
+  assetId: string
+  x: number
+  z: number
+  yaw: number
+  scale: number
+}
+
 export interface WorldState {
   time: TimeState
   survivors: SurvivorState[]
@@ -192,6 +201,7 @@ export interface WorldState {
   lastPhase: DayPhase
   nightSpawnedDay: number
   defenseSectors: DefenseSector[]
+  decorations: DecorationState[]
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

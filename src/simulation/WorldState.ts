@@ -1,4 +1,5 @@
 import { createCompleteStructure, placeBlueprint } from '@/base/construction'
+import { loadDecorations } from '@/base/decorations'
 import { createWorkZone } from '@/base/workZones'
 import { createDeer } from '@/combat/Combat'
 import { createDefenseSectors } from '@/combat/Defense'
@@ -168,6 +169,7 @@ export function createInitialWorld(): WorldState {
     lastPhase: 'dawn',
     nightSpawnedDay: 0,
     defenseSectors: createDefenseSectors(),
+    decorations: loadDecorations(),
   }
 
   seedBaseWalls(world)
