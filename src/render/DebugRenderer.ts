@@ -1,12 +1,13 @@
 import * as THREE from 'three'
 import { assetById } from '@/data/assetIndex'
+import { equippedWeapon, WEAPONS } from '@/data/weapons'
 import { STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '@/data/worldDressing'
 import { cellCenter } from '@/navigation/NavGrid'
 import { BASE } from '@/simulation/baseLayout'
-import type { GridCell, StructureState, WorldState } from '@/simulation/types'
+import type { GridCell, StructureState, SurvivorState, WorldState } from '@/simulation/types'
 import { AssetLibrary } from './AssetLibrary'
 import { locomotionFromSpeed, pickCharacterClip, type Locomotion } from './CharacterClips'
-import { fitToHeight, prepareKit, suggestedScale, SURVIVOR_HEIGHT } from './ModelFit'
+import { fitHeldGun, fitToHeight, prepareKit, suggestedScale, SURVIVOR_HEIGHT } from './ModelFit'
 
 interface Marker {
   id: string
@@ -38,6 +39,8 @@ export class DebugRenderer {
   private readonly extras: THREE.Object3D[] = []
   private readonly enemies = new Map<string, Marker>()
   private readonly wildlife = new Map<string, Marker>()
+  private readonly projectiles = new Map<string, Marker>()
+  private viewGun: THREE.Object3D | null = null
   private zones: THREE.Object3D[] = []
   private readonly hemi: THREE.HemisphereLight
   private readonly sun: THREE.DirectionalLight
@@ -264,6 +267,7 @@ export class DebugRenderer {
         this.survivors.set(survivor.id, marker)
       }
       this.kitSurvivor(survivor)
+      this.syncHeldGun(survivor)
       const kit = marker.mesh.getObjectByName('kit')
       marker.mesh.position.set(survivor.position.x, 0, survivor.position.z)
       marker.mesh.rotation.y = survivor.facingYaw
@@ -277,6 +281,8 @@ export class DebugRenderer {
         fallback.position.y = 0.9
       }
     }
+    this.syncProjectiles(world)
+    this.syncViewGun(world)
     this.updateCamera(world)
   }
 
@@ -556,6 +562,7 @@ export class DebugRenderer {
       'survival/tent',
       'nature/pine',
       'nature/tree',
+      ...WEAPONS.map((weapon) => weapon.assetId),
     ]
     return ids
   }
@@ -636,6 +643,95 @@ export class DebugRenderer {
     fallback.castShadow = true
     group.add(fallback)
     return group
+  }
+
+  private syncHeldGun(survivor: SurvivorState): void {
+    const marker = this.survivors.get(survivor.id)
+    if (!marker) return
+    const weapon = equippedWeapon(survivor)
+    const want = weapon?.assetId ?? ''
+    const existing = marker.mesh.getObjectByName('held-gun')
+    if (existing && existing.userData.weaponAsset === want) {
+      this.poseHeldGun(marker.mesh, existing)
+      return
+    }
+    if (existing) this.disposeObject(existing)
+    if (!weapon) return
+    this.enqueueAsset(weapon.assetId)
+    const gun = this.library.clone(weapon.assetId)
+    if (!gun) return
+    fitHeldGun(gun)
+    gun.name = 'held-gun'
+    gun.userData.weaponAsset = weapon.assetId
+    marker.mesh.add(gun)
+    this.poseHeldGun(marker.mesh, gun)
+  }
+
+  private poseHeldGun(root: THREE.Object3D, gun: THREE.Object3D): void {
+    const kit = root.getObjectByName('kit')
+    const hand = kit ? findHoldBone(kit) : null
+    if (hand) {
+      if (gun.parent !== hand) hand.add(gun)
+      gun.position.set(0.04, 0.1, 0.08)
+      gun.rotation.set(-Math.PI / 2, 0, Math.PI / 2)
+      return
+    }
+    if (gun.parent !== root) root.add(gun)
+    gun.position.set(0.34, 1.12, 0.36)
+    gun.rotation.set(0.08, 0, -0.18)
+  }
+
+  private syncViewGun(world: WorldState): void {
+    const self = world.player.view === 'firstperson' && world.player.controlledId
+      ? world.survivors.find((entry) => entry.id === world.player.controlledId)
+      : undefined
+    const weapon = self ? equippedWeapon(self) : undefined
+    const want = weapon?.assetId ?? ''
+    if (this.viewGun && this.viewGun.userData.weaponAsset === want) {
+      this.viewGun.visible = Boolean(weapon)
+      return
+    }
+    if (this.viewGun) {
+      this.camera.remove(this.viewGun)
+      this.disposeObject(this.viewGun)
+      this.viewGun = null
+    }
+    if (!weapon) return
+    this.enqueueAsset(weapon.assetId)
+    const gun = this.library.clone(weapon.assetId)
+    if (!gun) return
+    fitHeldGun(gun)
+    gun.name = 'view-gun'
+    gun.userData.weaponAsset = weapon.assetId
+    gun.position.set(0.28, -0.22, -0.52)
+    gun.rotation.set(0.1, Math.PI, 0)
+    this.camera.add(gun)
+    this.viewGun = gun
+  }
+
+  private syncProjectiles(world: WorldState): void {
+    const seen = new Set<string>()
+    for (const shot of world.projectiles) {
+      seen.add(shot.id)
+      let marker = this.projectiles.get(shot.id)
+      if (!marker) {
+        const mesh = new THREE.Mesh(
+          new THREE.CapsuleGeometry(0.035, 0.28, 3, 6),
+          new THREE.MeshBasicMaterial({ color: tracerColor(shot.weaponId) }),
+        )
+        mesh.rotation.x = Math.PI / 2
+        this.scene.add(mesh)
+        marker = { id: shot.id, mesh }
+        this.projectiles.set(shot.id, marker)
+      }
+      marker.mesh.position.set(shot.position.x, shot.position.y || 1.15, shot.position.z)
+      marker.mesh.lookAt(shot.position.x + shot.velocity.x, 1.15, shot.position.z + shot.velocity.z)
+    }
+    for (const [id, marker] of this.projectiles) {
+      if (seen.has(id)) continue
+      this.disposeObject(marker.mesh)
+      this.projectiles.delete(id)
+    }
   }
 
   private kitSurvivor(survivor: { id: string; professionId: string; position: { x: number; z: number } }): void {
@@ -769,6 +865,25 @@ function ghostMaterial(root: THREE.Object3D): void {
       material.depthWrite = false
     }
   })
+}
+
+function findHoldBone(root: THREE.Object3D): THREE.Object3D | null {
+  let found: THREE.Object3D | null = null
+  root.traverse((object) => {
+    if (found) return
+    const name = object.name.toLowerCase().replace(/[:._\s-]/g, '')
+    if (name.includes('righthand') || name.endsWith('handr') || name === 'rhand') found = object
+  })
+  return found
+}
+
+function tracerColor(weaponId: string): number {
+  if (weaponId === 'shotgun') return 0xe07a4a
+  if (weaponId === 'smg') return 0x8ec8e8
+  if (weaponId === 'sniper') return 0xf4f0c8
+  if (weaponId === 'revolver') return 0xe8b86d
+  if (weaponId === 'pistol') return 0xf0d27a
+  return 0xd8e07a
 }
 
 function wallYaw(structure: StructureState, cell: GridCell): number {

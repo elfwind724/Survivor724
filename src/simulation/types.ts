@@ -127,6 +127,8 @@ export interface SurvivorState {
   fireCooldown: number
   nightPostId: string | null
   downed: boolean
+  level: number
+  xp: number
   attributes: SurvivorAttributes
   equipment: EquipmentLoadout
 }
@@ -155,6 +157,16 @@ export interface WildlifeState {
   position: Vec3
   health: number
   alive: boolean
+}
+
+export interface ProjectileState {
+  id: string
+  ownerId: string
+  weaponId: string
+  position: Vec3
+  velocity: Vec3
+  damage: number
+  remaining: number
 }
 
 export type DefenseSectorId = 'north' | 'east' | 'west' | 'south'
@@ -222,6 +234,7 @@ export interface WorldState {
   nightSpawnedDay: number
   defenseSectors: DefenseSector[]
   decorations: DecorationState[]
+  projectiles: ProjectileState[]
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

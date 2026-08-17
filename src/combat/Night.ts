@@ -1,10 +1,12 @@
 import { repairStructure } from '@/base/construction'
 import { NIGHT_HORDE } from '@/data/enemies'
+import { equippedWeapon } from '@/data/weapons'
 import { countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { cellCenter } from '@/navigation/NavGrid'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { BASE } from '@/simulation/baseLayout'
 import { distanceXZ, type NightPost, type StructureState, type SurvivorState, type WorldState } from '@/simulation/types'
+import { equipItem } from '@/survivors/Equipment'
 import { beginTravel, followTravel } from '@/navigation/Travel'
 import { createEnemy, tryShoot } from './Combat'
 
@@ -34,6 +36,7 @@ export function stepNightCycle(world: WorldState): void {
     spawnHorde(world)
     assignNightPosts(world)
     issueNightAmmo(world)
+    issueNightGuns(world)
     world.nightSpawnedDay = world.time.dayIndex
   }
   if (phase === 'dawn' && world.lastPhase !== 'dawn') {
@@ -179,6 +182,16 @@ function restockNightAmmo(world: WorldState, survivor: SurvivorState, dt: number
   const post = world.nightPosts.find((entry) => entry.id === survivor.nightPostId)
   if (post) beginTravel(world, survivor, post.position)
   return true
+}
+
+function issueNightGuns(world: WorldState): void {
+  const order = ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'sniper']
+  for (const survivor of world.survivors) {
+    if (survivor.downed || equippedWeapon(survivor)) continue
+    for (const gun of order) {
+      if (equipItem(world, survivor, gun)) break
+    }
+  }
 }
 
 function issueNightAmmo(world: WorldState): void {

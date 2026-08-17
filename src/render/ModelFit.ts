@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { AssetEntry } from '@/data/assetIndex'
 
 export const SURVIVOR_HEIGHT = 2.8
+export const HELD_GUN_LENGTH = 0.82
 
 export function sitOnGround(object: THREE.Object3D): void {
   object.updateMatrixWorld(true)
@@ -56,6 +57,15 @@ export function suggestedScale(entry: AssetEntry): number {
     return 5.6
   }
   return 1
+}
+
+export function fitHeldGun(object: THREE.Object3D): void {
+  object.updateMatrixWorld(true)
+  const box = new THREE.Box3().setFromObject(object)
+  const size = box.getSize(new THREE.Vector3())
+  const longest = Math.max(size.x, size.y, size.z)
+  if (!Number.isFinite(longest) || longest < 0.01) return
+  object.scale.multiplyScalar(HELD_GUN_LENGTH / longest)
 }
 
 export function prepareKit(object: THREE.Object3D, scale: number): THREE.Object3D {

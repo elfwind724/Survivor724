@@ -719,6 +719,66 @@ body,
   background: var(--hud-brass);
 }
 
+.sheet-level {
+  margin: 0 0 10px;
+}
+
+.sheet-level div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sheet-level strong {
+  font-size: 14px;
+}
+
+.sheet-level small {
+  color: var(--hud-muted);
+  font-size: 12px;
+}
+
+.sheet-level i {
+  display: block;
+  height: 5px;
+  margin-top: 4px;
+  background: #2a241c;
+}
+
+.sheet-level b {
+  display: block;
+  height: 100%;
+  background: #8fa86a;
+}
+
+.sheet-fire {
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid var(--hud-line);
+  background: #1a1612;
+}
+
+.sheet-fire strong {
+  display: block;
+  font-size: 15px;
+}
+
+.sheet-fire span {
+  color: var(--hud-muted);
+  font-size: 12px;
+}
+
+.sheet-fire ul {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--hud-muted);
+  font-size: 12px;
+}
+
 .sheet-picker {
   margin-top: 10px;
   padding-top: 8px;

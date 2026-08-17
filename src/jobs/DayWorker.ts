@@ -1,5 +1,6 @@
 import { completeStructure, findStructure, materialsMet, sitePosition, stillNeeded } from '@/base/construction'
 import { derivedStats } from '@/data/equipment'
+import { weaponById } from '@/data/weapons'
 import { clearJobTools, syncToolsToEquipment } from '@/survivors/Equipment'
 import { harvestWildlife, tryShoot } from '@/combat/Combat'
 import { nodeAllowedForSurvivor } from '@/base/workZones'
@@ -76,6 +77,10 @@ export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: nu
   }
 }
 
+function hasJobToolsToReturn(survivor: SurvivorState): boolean {
+  return survivor.carriedTools.some((tool) => !weaponById(tool))
+}
+
 function isInterruptible(state: SurvivorState['workerState'], category: 'field' | 'base' | 'defense'): boolean {
   if (state !== 'TravelToTarget' && state !== 'Work' && state !== 'CollectOutput') return false
   return category === 'field' || category === 'base'
@@ -83,7 +88,7 @@ function isInterruptible(state: SurvivorState['workerState'], category: 'field' 
 
 function startNextAction(world: WorldState, survivor: SurvivorState): void {
   if (!isWorkPhase(world.time.phase)) {
-    if (survivor.carriedTools.length > 0) {
+    if (hasJobToolsToReturn(survivor)) {
       goToLocker(world, survivor, 'ReturnEquipment')
       return
     }
@@ -172,7 +177,7 @@ function stepAcquire(world: WorldState, survivor: SurvivorState, dt: number): vo
     }
     survivor.carriedTools.push(tool)
   }
-  syncToolsToEquipment(survivor)
+  syncToolsToEquipment(world, survivor)
 
   survivor.blockedReason = null
   startNextAction(world, survivor)
@@ -408,7 +413,8 @@ function stepDeposit(world: WorldState, survivor: SurvivorState): void {
 
   if (survivor.blockedReason !== 'missing_tool') survivor.blockedReason = null
   if (isReturnPhase(world.time.phase)) {
-    goToLocker(world, survivor, 'ReturnEquipment')
+    if (hasJobToolsToReturn(survivor)) goToLocker(world, survivor, 'ReturnEquipment')
+    else goHome(world, survivor)
     return
   }
   startNextAction(world, survivor)
@@ -417,12 +423,19 @@ function stepDeposit(world: WorldState, survivor: SurvivorState): void {
 function stepReturnEquipment(world: WorldState, survivor: SurvivorState, dt: number): void {
   if (!followTravel(world, survivor, dt)) return
   const locker = findContainer(world, 'tool_locker')
-  if (locker) {
-    const lockerInv = inventoryOf(world.inventories, locker.inventoryId)
-    for (const tool of survivor.carriedTools) addItem(lockerInv, tool, 1)
+  const lockerInv = locker ? inventoryOf(world.inventories, locker.inventoryId) : undefined
+  const kept: string[] = []
+  const returned: string[] = []
+  for (const tool of survivor.carriedTools) {
+    if (weaponById(tool)) {
+      kept.push(tool)
+      if (!survivor.equipment.weapon) survivor.equipment.weapon = tool
+      continue
+    }
+    if (lockerInv) addItem(lockerInv, tool, 1)
+    returned.push(tool)
   }
-  const returned = [...survivor.carriedTools]
-  survivor.carriedTools = []
+  survivor.carriedTools = kept
   clearJobTools(survivor, returned)
   goHome(world, survivor)
 }

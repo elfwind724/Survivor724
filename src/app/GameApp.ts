@@ -3,6 +3,7 @@ import { demolishAt, interactGate, placeBlueprint, placeWallLine, previewPlaceme
 import { decorationNear, placeDecoration, removeDecoration, snapDecor } from '@/base/decorations'
 import { facilityPreviewHeight } from '@/data/facilities'
 import { tryShoot } from '@/combat/Combat'
+import { equippedWeapon, fireProfile } from '@/data/weapons'
 import { setWorkZone } from '@/base/workZones'
 import { cameraRelativeWish } from '@/controls/CameraWish'
 import { Input } from '@/controls/Input'
@@ -468,7 +469,12 @@ export class GameApp {
     if (this.buildMenu.getSelected() || this.editor.getBrush()) return
     const self = this.world.player.controlledId ? findSurvivor(this.world, this.world.player.controlledId) : undefined
     if (!self) return
-    if (tryShoot(this.world, self)) this.notice = `射击 · 剩弹 ${self.ammo}`
+    if (tryShoot(this.world, self)) {
+      const gun = fireProfile(self).weapon
+      this.notice = `射击 · ${gun?.label ?? '枪'} · 剩弹 ${self.ammo}`
+      return
+    }
+    if (!equippedWeapon(self)) this.notice = '没有装备枪械'
     else if (self.ammo <= 0) this.notice = '没有弹药'
   }
 

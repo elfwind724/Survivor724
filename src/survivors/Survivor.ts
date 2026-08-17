@@ -17,6 +17,8 @@ type SurvivorDraft = Omit<
   | 'fireCooldown'
   | 'nightPostId'
   | 'downed'
+  | 'level'
+  | 'xp'
   | 'hunger'
   | 'thirst'
   | 'attributes'
@@ -36,6 +38,8 @@ type SurvivorDraft = Omit<
   fireCooldown?: number
   nightPostId?: string | null
   downed?: boolean
+  level?: number
+  xp?: number
   hunger?: number
   thirst?: number
   attributes?: SurvivorAttributes
@@ -60,6 +64,8 @@ export function createSurvivor(input: SurvivorDraft): SurvivorState {
     fireCooldown: input.fireCooldown ?? 0,
     nightPostId: input.nightPostId ?? null,
     downed: input.downed ?? false,
+    level: input.level ?? 1,
+    xp: input.xp ?? 0,
     hunger: input.hunger ?? 80,
     thirst: input.thirst ?? 80,
     attributes: input.attributes ?? defaultAttributes(input.professionId),

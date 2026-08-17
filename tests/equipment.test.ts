@@ -17,6 +17,16 @@ describe('survivor equipment and attributes', () => {
     expect(hunter.moveSpeed).toBeCloseTo(stats.moveSpeed, 5)
   })
 
+  it('lists distinct locker guns on the weapon slot', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    expect(equipItem(world, hunter, 'shotgun')).toBe(true)
+    expect(hunter.equipment.weapon).toBe('shotgun')
+    expect(equipItem(world, hunter, 'sniper')).toBe(true)
+    expect(hunter.equipment.weapon).toBe('sniper')
+  })
+
   it('equips a warehouse pistol onto the weapon slot and can take it off', () => {
     const world = createInitialWorld()
     const hunter = world.survivors.find((entry) => entry.id === 'hunter')

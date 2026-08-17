@@ -1,4 +1,4 @@
-import { harvestWildlife, stepEnemies, stepRevive, stepWildlife, tickCooldowns } from '@/combat/Combat'
+import { harvestWildlife, stepEnemies, stepProjectiles, stepRevive, stepWildlife, tickCooldowns } from '@/combat/Combat'
 import { stepNightCycle, stepNightDefender } from '@/combat/Night'
 import { type ControlIntent, stepPlayerControl } from '@/controls/PlayerControl'
 import { stepDayWorker } from '@/jobs/DayWorker'
@@ -27,6 +27,7 @@ export function stepWorld(world: WorldState, dt: number, intent: ControlIntent |
     if (nightWatch) stepNightDefender(world, survivor, dt)
     else stepDayWorker(world, survivor, dt)
   }
+  stepProjectiles(world, dt)
   stepEnemies(world, dt)
   stepWildlife(world, dt)
   stepRevive(world, dt)

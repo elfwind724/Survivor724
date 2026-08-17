@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { createEnemy, tryShoot } from '@/combat/Combat'
+import { createEnemy, stepProjectiles, tryShoot } from '@/combat/Combat'
 import { reinforceSector } from '@/combat/Defense'
 import { assignedRescuer, stepNightCycle } from '@/combat/Night'
+import { fireProfile } from '@/data/weapons'
 import { duskWarningLevel } from '@/simulation/TimeSystem'
 import { cellCenter } from '@/navigation/NavGrid'
 import { stepWorld } from '@/simulation/SimStep'
@@ -9,21 +10,106 @@ import { possessSurvivor } from '@/controls/PlayerControl'
 import { skipSeconds } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { findSurvivor } from '@/simulation/EntityRegistry'
+import { equipItem } from '@/survivors/Equipment'
+import { grantXp } from '@/survivors/Progress'
+
+function flyShots(world: ReturnType<typeof createInitialWorld>, seconds = 0.5): void {
+  const dt = 1 / 30
+  for (let i = 0; i < Math.round(seconds / dt); i += 1) stepProjectiles(world, dt)
+}
 
 describe('combat and night', () => {
-  it('lets a possessed survivor shoot an enemy standing in front', () => {
+  it('spawns a rifle projectile that hits after travel time', () => {
     const world = createInitialWorld()
     possessSurvivor(world, 'hunter')
     const hunter = findSurvivor(world, 'hunter')
     if (!hunter) throw new Error('missing hunter')
     hunter.facingYaw = 0
     hunter.ammo = 10
+    hunter.equipment.weapon = 'rifle'
     hunter.carriedTools = ['rifle']
     world.enemies.push(createEnemy('wanderer', { x: hunter.position.x, y: 0, z: hunter.position.z + 6 }, 'dummy'))
     const before = world.enemies[0]?.health ?? 0
     expect(tryShoot(world, hunter)).toBe(true)
+    expect(world.projectiles).toHaveLength(1)
+    expect(world.enemies[0]?.health ?? 0).toBe(before)
+    flyShots(world, 0.2)
     expect(world.enemies[0]?.health ?? 0).toBeLessThan(before)
     expect(hunter.ammo).toBe(9)
+    expect(world.projectiles).toHaveLength(0)
+  })
+
+  it('splits shotgun pellets and keeps other guns as single shots', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.ammo = 20
+    hunter.facingYaw = 0
+    hunter.equipment.weapon = 'shotgun'
+    expect(tryShoot(world, hunter)).toBe(true)
+    expect(world.projectiles).toHaveLength(6)
+    hunter.fireCooldown = 0
+    hunter.equipment.weapon = 'smg'
+    world.projectiles = []
+    expect(tryShoot(world, hunter)).toBe(true)
+    expect(world.projectiles).toHaveLength(1)
+    expect(fireProfile(hunter).cooldown).toBeLessThan(0.2)
+    hunter.fireCooldown = 0
+    hunter.equipment.weapon = 'sniper'
+    world.projectiles = []
+    const sniper = fireProfile(hunter)
+    expect(sniper.range).toBeGreaterThan(40)
+    expect(sniper.damage).toBeGreaterThan(40)
+    expect(tryShoot(world, hunter)).toBe(true)
+    expect(world.projectiles[0]?.velocity.x !== 0 || (world.projectiles[0]?.velocity.z ?? 0) > 80).toBe(true)
+  })
+
+  it('lets a survivor equip a locker gun and refuses to fire without one', () => {
+    const world = createInitialWorld()
+    const fisher = findSurvivor(world, 'fisher')
+    if (!fisher) throw new Error('missing fisher')
+    fisher.ammo = 6
+    fisher.equipment.weapon = null
+    fisher.carriedTools = []
+    expect(tryShoot(world, fisher)).toBe(false)
+    expect(equipItem(world, fisher, 'revolver')).toBe(true)
+    expect(fisher.equipment.weapon).toBe('revolver')
+    expect(tryShoot(world, fisher)).toBe(true)
+    expect(world.projectiles[0]?.weaponId).toBe('revolver')
+  })
+
+  it('levels a survivor and makes the same gun hit harder and farther', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.equipment.weapon = 'rifle'
+    const before = fireProfile(hunter)
+    expect(hunter.level).toBe(1)
+    grantXp(hunter, 400)
+    expect(hunter.level).toBeGreaterThan(1)
+    const after = fireProfile(hunter)
+    expect(after.damage).toBeGreaterThan(before.damage)
+    expect(after.range).toBeGreaterThan(before.range)
+    expect(after.cooldown).toBeLessThan(before.cooldown)
+    expect(after.spread).toBeLessThan(before.spread)
+  })
+
+  it('grants experience when a flying shot kills', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.facingYaw = 0
+    hunter.ammo = 10
+    hunter.equipment.weapon = 'sniper'
+    hunter.xp = 0
+    hunter.level = 1
+    world.enemies.push(createEnemy('runner', { x: hunter.position.x, y: 0, z: hunter.position.z + 4 }, 'xp-dummy'))
+    const runner = world.enemies[0]
+    if (runner) runner.health = 20
+    expect(tryShoot(world, hunter)).toBe(true)
+    flyShots(world, 0.2)
+    expect(world.enemies.find((entry) => entry.id === 'xp-dummy')).toBeUndefined()
+    expect(hunter.xp).toBeGreaterThan(0)
   })
 
   it('spawns a night horde once per night and posts defenders', () => {

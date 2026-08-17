@@ -30,13 +30,17 @@ export function createInitialWorld(): WorldState {
     { itemId: 'boots', count: 2 },
     { itemId: 'pistol', count: 1 },
   ])
-  const lockerInv = createInventory('inv-locker', 20, [
+  const lockerInv = createInventory('inv-locker', 28, [
     { itemId: 'rifle', count: 1 },
     { itemId: 'hunting_knife', count: 1 },
     { itemId: 'rod', count: 1 },
     { itemId: 'crowbar', count: 1 },
     { itemId: 'hammer', count: 1 },
-    { itemId: 'pistol', count: 1 },
+    { itemId: 'pistol', count: 4 },
+    { itemId: 'revolver', count: 1 },
+    { itemId: 'smg', count: 1 },
+    { itemId: 'shotgun', count: 1 },
+    { itemId: 'sniper', count: 1 },
   ])
 
   const forest = vec3(55, 0, -20)
@@ -176,6 +180,7 @@ export function createInitialWorld(): WorldState {
     nightSpawnedDay: 0,
     defenseSectors: createDefenseSectors(),
     decorations: loadDecorations(),
+    projectiles: [],
   }
 
   seedBaseWalls(world)

@@ -25,12 +25,13 @@ export function dressProfession(survivor: SurvivorState): void {
   applyEquipmentStats(survivor)
 }
 
-export function syncToolsToEquipment(survivor: SurvivorState): void {
+export function syncToolsToEquipment(world: WorldState, survivor: SurvivorState): void {
   for (const tool of survivor.carriedTools) {
     const item = equipmentById(tool)
-    if (item && (item.slot === 'weapon' || item.slot === 'tool')) {
-      survivor.equipment[item.slot] = tool
-    }
+    if (!item || (item.slot !== 'weapon' && item.slot !== 'tool')) continue
+    const current = survivor.equipment[item.slot]
+    if (current && current !== tool) stowItem(world, survivor, current)
+    survivor.equipment[item.slot] = tool
   }
   applyEquipmentStats(survivor)
 }

@@ -1,5 +1,7 @@
 import { derivedStats, EQUIP_SLOTS, equipmentById } from '@/data/equipment'
+import { fireProfile, weaponById } from '@/data/weapons'
 import { availableForSlot, equipItem, unequipSlot } from '@/survivors/Equipment'
+import { xpToNext } from '@/survivors/Progress'
 import { findSurvivor } from '@/simulation/EntityRegistry'
 import type { EquipSlot, SurvivorState, WorldState } from '@/simulation/types'
 import { survivorPortrait } from './GameHud'
@@ -86,19 +88,27 @@ export class CharacterSheet {
 
 function sheetKey(world: WorldState, survivor: SurvivorState, pick: EquipSlot | null): string {
   const stats = derivedStats(survivor.attributes, survivor.equipment)
+  const fire = fireProfile(survivor)
   return [
     survivor.id,
     pick ?? '-',
     survivor.health,
+    survivor.level,
+    survivor.xp,
+    survivor.ammo,
     survivor.moveSpeed.toFixed(2),
     Object.values(survivor.equipment).join(','),
     `${stats.total.strength}/${stats.total.agility}/${stats.total.constitution}/${stats.total.intelligence}`,
+    `${fire.weapon?.id ?? '-'}:${fire.damage}:${fire.cooldown.toFixed(2)}:${fire.range.toFixed(1)}`,
     world.inventories['inv-warehouse']?.items.map((item) => `${item.itemId}:${item.count}`).join(',') ?? '',
+    world.inventories['inv-locker']?.items.map((item) => `${item.itemId}:${item.count}`).join(',') ?? '',
   ].join('|')
 }
 
 function renderSheet(world: WorldState, survivor: SurvivorState, pick: EquipSlot | null): string {
   const stats = derivedStats(survivor.attributes, survivor.equipment)
+  const fire = fireProfile(survivor)
+  const next = xpToNext(survivor.level)
   const slots = EQUIP_SLOTS.map((slot) => {
     const worn = survivor.equipment[slot.id]
     const item = worn ? equipmentById(worn) : undefined
@@ -110,8 +120,8 @@ function renderSheet(world: WorldState, survivor: SurvivorState, pick: EquipSlot
   }).join('')
   const attrs = (
     [
-      ['力量', stats.total.strength, survivor.attributes.strength, `攻击 ${stats.attackPower}`],
-      ['敏捷', stats.total.agility, survivor.attributes.agility, `攻速 ${stats.attackCooldown.toFixed(2)}秒 · 移速 ${stats.moveSpeed.toFixed(1)}`],
+      ['力量', stats.total.strength, survivor.attributes.strength, fire.weapon ? `枪伤 ${fire.damage}` : `徒手 ${stats.attackPower}`],
+      ['敏捷', stats.total.agility, survivor.attributes.agility, `射速 ${fire.weapon ? fire.cooldown.toFixed(2) : stats.attackCooldown.toFixed(2)}秒 · 移速 ${stats.moveSpeed.toFixed(1)}`],
       ['体质', stats.total.constitution, survivor.attributes.constitution, `生命 ${Math.ceil(survivor.health)}/${stats.maxHealth} · 防御 ${stats.defense}`],
       ['智力', stats.total.intelligence, survivor.attributes.intelligence, `设施 ${stats.workRate.toFixed(2)}倍`],
     ] as const
@@ -138,8 +148,10 @@ function renderSheet(world: WorldState, survivor: SurvivorState, pick: EquipSlot
           .filter((entry) => entry[1])
           .map(([key, value]) => `${attrShort(key)}+${value}`)
           .join(' ')
+        const gun = weaponById(item.id)
+        const extra = gun ? `伤${gun.damage} 距${gun.range} ${gun.pellets > 1 ? `${gun.pellets}弹` : ''}` : bonus || '无加成'
         return `<button type="button" class="sheet-item${on}" data-equip="${item.id}">
-          <strong>${item.label}</strong><span>${bonus || '无加成'}</span>
+          <strong>${item.label}</strong><span>${extra}</span>
         </button>`
       })
       .join('')
@@ -154,19 +166,43 @@ function renderSheet(world: WorldState, survivor: SurvivorState, pick: EquipSlot
     <div class="sheet">
       <header class="sheet-head">
         <strong>${survivor.name}</strong>
-        <span>${JOB_LABEL[survivor.professionId] ?? survivor.professionId}</span>
+        <span>${JOB_LABEL[survivor.professionId] ?? survivor.professionId} · ${survivor.level}级</span>
         <button type="button" data-close>关闭</button>
       </header>
+      <div class="sheet-level">
+        <div><strong>${survivor.level} 级</strong><small>${survivor.xp}/${next} 经验</small></div>
+        <i><b style="width:${Math.max(4, Math.min(100, (survivor.xp / next) * 100))}%"></b></i>
+      </div>
       <div class="sheet-body">
         <div class="sheet-doll">
           ${slots}
           <div class="sheet-avatar">${survivorPortrait(survivor)}</div>
         </div>
-        <div class="sheet-stats">${attrs}</div>
+        <div class="sheet-stats">
+          ${attrs}
+          ${renderFireCard(fire, survivor.ammo)}
+        </div>
       </div>
       ${picker}
     </div>
   `
+}
+
+function renderFireCard(fire: ReturnType<typeof fireProfile>, ammo: number): string {
+  if (!fire.weapon) {
+    return `<div class="sheet-fire"><strong>未装备枪械</strong><span>去武器栏或工具柜换枪</span></div>`
+  }
+  return `<div class="sheet-fire">
+    <strong>${fire.weapon.label}</strong>
+    <span>弹药 ${ammo} · ${fire.pellets > 1 ? `${fire.pellets}弹丸` : '单发'}</span>
+    <ul>
+      <li>伤害 ${fire.damage}</li>
+      <li>间隔 ${fire.cooldown.toFixed(2)}秒</li>
+      <li>射程 ${fire.range.toFixed(0)}米</li>
+      <li>弹速 ${fire.speed.toFixed(0)}</li>
+      <li>散布 ${(fire.spread * 100).toFixed(1)}</li>
+    </ul>
+  </div>`
 }
 
 function attrShort(key: string): string {
