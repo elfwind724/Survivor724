@@ -102,6 +102,30 @@ export function prepareHeldGun(source: THREE.Object3D): THREE.Group {
   return holder
 }
 
+const _tip = new THREE.Vector3()
+const _grip = new THREE.Vector3()
+const _axis = new THREE.Vector3()
+const _center = new THREE.Vector3()
+
+export function barrelTipWorld(gun: THREE.Object3D): { tip: THREE.Vector3; dir: THREE.Vector3 } {
+  gun.updateWorldMatrix(true, true)
+  gun.getWorldPosition(_grip)
+  _axis.set(0, 0, 1).transformDirection(gun.matrixWorld)
+  if (_axis.lengthSq() < 1e-8) _axis.set(0, 0, 1)
+  else _axis.normalize()
+  const box = new THREE.Box3().setFromObject(gun)
+  box.getCenter(_center)
+  const size = box.getSize(_tip)
+  const reach = Math.max(size.x, size.y, size.z) * 0.5
+  const ahead = _center.clone().addScaledVector(_axis, reach)
+  const behind = _center.clone().addScaledVector(_axis, -reach)
+  if (behind.distanceToSquared(_grip) > ahead.distanceToSquared(_grip)) {
+    _axis.negate()
+    return { tip: behind, dir: _axis.clone() }
+  }
+  return { tip: ahead, dir: _axis.clone() }
+}
+
 export function snapHeldGun(
   character: THREE.Object3D,
   hand: THREE.Object3D,

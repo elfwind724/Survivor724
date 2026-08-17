@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
-import { alignGunAxes, findHoldBone, heldGunLength, holdPose, prepareHeldGun, snapHeldGun } from '@/render/HeldWeapon'
+import { alignGunAxes, barrelTipWorld, findHoldBone, heldGunLength, holdPose, prepareHeldGun, snapHeldGun } from '@/render/HeldWeapon'
 import { fitHeldGun, fitToHeight } from '@/render/ModelFit'
 
 describe('model fit', () => {
@@ -64,5 +64,16 @@ describe('model fit', () => {
     const size = new THREE.Box3().setFromObject(shotgun).getSize(new THREE.Vector3())
     expect(size.z).toBeGreaterThan(size.x)
     expect(size.z).toBeGreaterThan(size.y)
+  })
+
+  it('finds the barrel tip in front of the grip for a long gun', () => {
+    const gun = new THREE.Group()
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 2))
+    mesh.position.z = 1
+    gun.add(mesh)
+    gun.updateMatrixWorld(true)
+    const barrel = barrelTipWorld(gun)
+    expect(barrel.dir.z).toBeGreaterThan(0.9)
+    expect(barrel.tip.z).toBeGreaterThan(1.6)
   })
 })

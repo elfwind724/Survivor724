@@ -67,19 +67,28 @@ export function fireProfile(survivor: SurvivorState) {
   return { weapon, damage, cooldown, range, speed, spread, pellets: weapon.pellets, ammoCost: weapon.ammoCost, muzzle: weapon.muzzle }
 }
 
+const HOLD_ALONG: Record<string, number> = {
+  pistol: 0.24,
+  revolver: 0.24,
+  smg: 0.26,
+  rifle: 0.28,
+  shotgun: 0.28,
+  sniper: 0.3,
+}
+
 export function muzzleOrigin(survivor: SurvivorState): { x: number; y: number; z: number } {
   const profile = fireProfile(survivor)
   const lookX = Math.sin(survivor.facingYaw)
   const lookZ = Math.cos(survivor.facingYaw)
   const rightX = lookZ
   const rightZ = -lookX
-  const barrel = profile.weapon?.muzzle ?? 0.2
-  const forward = 0.78 + barrel
+  const weaponId = profile.weapon?.id ?? ''
+  const along = 0.72 + (HOLD_ALONG[weaponId] ?? 0.24) + (profile.weapon?.muzzle ?? 0.2)
   const side = -0.28
   return {
-    x: survivor.position.x + lookX * forward + rightX * side,
+    x: survivor.position.x + lookX * along + rightX * side,
     y: 2.06,
-    z: survivor.position.z + lookZ * forward + rightZ * side,
+    z: survivor.position.z + lookZ * along + rightZ * side,
   }
 }
 

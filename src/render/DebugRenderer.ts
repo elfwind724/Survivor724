@@ -8,7 +8,7 @@ import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, SurvivorState, WorldState } from '@/simulation/types'
 import { AssetLibrary } from './AssetLibrary'
 import { pickArmedPose, pickCharacterClip, type CharacterPose } from './CharacterClips'
-import { findHoldBone, prepareHeldGun, snapHeldGun } from './HeldWeapon'
+import { barrelTipWorld, findHoldBone, prepareHeldGun, snapHeldGun } from './HeldWeapon'
 import { fitToHeight, prepareKit, suggestedScale, SURVIVOR_HEIGHT } from './ModelFit'
 
 interface Marker {
@@ -670,6 +670,7 @@ export class DebugRenderer {
     const gun = prepareHeldGun(raw)
     gun.name = 'held-gun'
     gun.userData.weaponAsset = weapon.assetId
+    gun.userData.weaponId = weapon.id
     snapHeldGun(marker.mesh, hand, gun, weapon.id)
   }
 
@@ -703,9 +704,7 @@ export class DebugRenderer {
 
   private syncProjectiles(world: WorldState): void {
     const seen = new Set<string>()
-    const muzzle = new THREE.Vector3()
     const dir = new THREE.Vector3()
-    const grip = new THREE.Vector3()
     for (const shot of world.projectiles) {
       seen.add(shot.id)
       let marker = this.projectiles.get(shot.id)
@@ -720,14 +719,12 @@ export class DebugRenderer {
       }
       const gun = this.heldGunOf(shot.ownerId)
       const traveled = Math.max(0, shot.range - shot.remaining)
+      const speed = Math.hypot(shot.velocity.x, shot.velocity.y, shot.velocity.z)
       if (gun) {
-        gun.getWorldPosition(grip)
-        muzzle.set(0, 0, 0.92)
-        gun.localToWorld(muzzle)
-        dir.copy(muzzle).sub(grip)
-        if (dir.lengthSq() < 1e-6) dir.set(shot.velocity.x, 0, shot.velocity.z)
-        dir.normalize()
-        marker.mesh.position.copy(muzzle).addScaledVector(dir, traveled)
+        const barrel = barrelTipWorld(gun)
+        if (speed > 0.01) dir.set(shot.velocity.x / speed, shot.velocity.y / speed, shot.velocity.z / speed)
+        else dir.copy(barrel.dir)
+        marker.mesh.position.copy(barrel.tip).addScaledVector(dir, traveled)
         marker.mesh.lookAt(
           marker.mesh.position.x + dir.x,
           marker.mesh.position.y + dir.y,
