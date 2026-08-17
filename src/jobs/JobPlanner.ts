@@ -32,6 +32,15 @@ export function planJobs(world: WorldState): void {
 
   for (const survivor of world.survivors) {
     if (hasActiveJob(world, survivor.currentJobId, survivor.id)) continue
+    if (survivor.dayAssignment === 'build') {
+      const wreck = world.jobs.find(
+        (entry) => entry.definitionId === 'demolish' && (entry.assigneeId === null || entry.assigneeId === survivor.id) && jobIsActive(world, entry),
+      )
+      if (wreck) {
+        assignJob(world, wreck.id, survivor.id)
+        continue
+      }
+    }
     if (survivor.dayAssignment !== 'cook' && survivor.dayAssignment !== 'build') continue
     if (survivor.dayAssignment === 'build' && world.survivors.some((entry) => entry.dayAssignment === 'cook' && !entry.downed)) {
       continue
@@ -45,15 +54,23 @@ export function planJobs(world: WorldState): void {
 
 function planConstructionJobs(world: WorldState): void {
   for (const structure of world.structures) {
+    if (structure.stage === 'demolishing') {
+      removeJobs(world, 'haul', structure.id)
+      removeJobs(world, 'build', structure.id)
+      ensureJob(world, 'demolish', structure.id)
+      continue
+    }
     if (structure.stage === 'complete') continue
     if (materialsMet(world, structure)) {
       structure.stage = 'building'
       removeJobs(world, 'haul', structure.id)
+      removeJobs(world, 'demolish', structure.id)
       ensureJob(world, 'build', structure.id)
       continue
     }
     if (structure.stage === 'blueprint') structure.stage = 'hauling'
     removeJobs(world, 'build', structure.id)
+    removeJobs(world, 'demolish', structure.id)
     ensureJob(world, 'haul', structure.id)
   }
 }
@@ -106,9 +123,13 @@ function cookHasWork(world: WorldState): boolean {
 
 function jobIsActive(world: WorldState, job: JobRecord): boolean {
   if (job.definitionId === 'cook') return cookHasWork(world)
+  if (job.definitionId === 'demolish') {
+    const wreck = findStructure(world, job.targetId)
+    return !!wreck && wreck.stage === 'demolishing'
+  }
   if (job.definitionId !== 'haul' && job.definitionId !== 'build') return true
   const structure = findStructure(world, job.targetId)
-  if (!structure || structure.stage === 'complete') return false
+  if (!structure || structure.stage === 'complete' || structure.stage === 'demolishing') return false
   if (job.definitionId === 'build') return materialsMet(world, structure)
   return !materialsMet(world, structure)
 }
@@ -119,7 +140,7 @@ function hasActiveJob(world: WorldState, jobId: string | null, survivorId: strin
   return !!job && job.assigneeId === survivorId && jobIsActive(world, job)
 }
 
-function ensureJob(world: WorldState, definitionId: 'haul' | 'build', targetId: string): void {
+function ensureJob(world: WorldState, definitionId: 'haul' | 'build' | 'demolish', targetId: string): void {
   const existing = world.jobs.find((job) => job.definitionId === definitionId && job.targetId === targetId)
   if (existing) return
   world.jobs.push(createJob({
@@ -130,6 +151,6 @@ function ensureJob(world: WorldState, definitionId: 'haul' | 'build', targetId: 
   }))
 }
 
-function removeJobs(world: WorldState, definitionId: 'haul' | 'build', targetId: string): void {
+function removeJobs(world: WorldState, definitionId: 'haul' | 'build' | 'demolish', targetId: string): void {
   world.jobs = world.jobs.filter((job) => !(job.definitionId === definitionId && job.targetId === targetId))
 }

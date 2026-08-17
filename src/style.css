@@ -320,6 +320,18 @@ body,
   white-space: nowrap;
 }
 
+.build-tag.is-wreck {
+  border-color: #c44a32;
+  background: #3a1612;
+  color: #ffb0a0;
+}
+
+.build-tag.is-hp {
+  border-color: #c9a227;
+  background: #2f2610;
+  color: #f0d789;
+}
+
 .cr-thumb {
   display: block;
   width: 100%;

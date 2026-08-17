@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { structureNear } from '@/base/construction'
 import { bedSpot, interiorProps, isCooking, isSleeping } from '@/base/FacilityLife'
 import { isLifeBuilding, TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { assetById } from '@/data/assetIndex'
@@ -127,11 +128,7 @@ export class DebugRenderer {
   pickStructure(world: WorldState, clientX: number, clientY: number): string | null {
     const hit = this.pickGround(clientX, clientY)
     if (!hit) return null
-    const cell = worldToCell(world.nav, { x: hit.x, y: 0, z: hit.z })
-    const structure = world.structures.find((entry) =>
-      entry.cells.some((item) => item.x === cell.x && item.z === cell.z),
-    )
-    return structure?.id ?? null
+    return structureNear(world, { x: hit.x, y: 0, z: hit.z }, 4.5)?.id ?? null
   }
 
   worldToScreen(x: number, y: number, z: number): { x: number; y: number } | null {
@@ -411,6 +408,7 @@ export class DebugRenderer {
       this.kitStructure(world, structure, marker.mesh, cellSig)
       this.styleStructure(marker.mesh, structure)
       this.styleFacilityLife(world, structure, marker.mesh)
+      this.syncWreckMarker(world, structure, marker.mesh)
     }
     for (const [id, marker] of this.structures) {
       if (seen.has(id)) continue
@@ -442,10 +440,19 @@ export class DebugRenderer {
     if (structure.kind === 'gate') this.styleGateKit(root, structure)
     const meshes = root instanceof THREE.Mesh ? [root] : root.children
     for (const mesh of meshes) {
-      if (mesh.name === 'kit' || mesh.parent?.name === 'kit') continue
+      if (mesh.name === 'kit' || mesh.parent?.name === 'kit' || mesh.name === 'wreck') continue
       if (!(mesh instanceof THREE.Mesh) || !(mesh.material instanceof THREE.MeshLambertMaterial)) continue
       const material = mesh.material
       const baseHeight = typeof mesh.userData.baseHeight === 'number' ? mesh.userData.baseHeight : 2.6
+      if (structure.stage === 'demolishing') {
+        material.color.set(0xc44a32)
+        material.opacity = 0.5
+        material.transparent = true
+        mesh.scale.y = 0.28
+        mesh.position.y = 0.36
+        mesh.visible = !hasKit
+        continue
+      }
       if (structure.stage !== 'complete') {
         material.color.set(0x3d7ea6)
         material.opacity = 0.45
@@ -471,7 +478,17 @@ export class DebugRenderer {
   }
 
   private styleFacilityLife(world: WorldState, structure: StructureState, root: THREE.Object3D): void {
-    if (structure.kind !== 'building' || structure.stage !== 'complete') return
+    if (structure.kind !== 'building') return
+    if (structure.stage === 'demolishing') {
+      const hasKit = root.children.some((child) => child.name === 'kit')
+      for (const child of root.children) {
+        if (child.name === 'interior' || child.name === 'open-shell' || child.name === 'steam') child.visible = false
+        else if (child.name === 'kit' || child.name === 'wreck') child.visible = true
+        else if (child instanceof THREE.Mesh) child.visible = !hasKit
+      }
+      return
+    }
+    if (structure.stage !== 'complete') return
     const open = world.showInteriors && isLifeBuilding(structure.definitionId)
     this.ensureInterior(world, structure, root)
     this.ensureOpenShell(world, structure, root)
@@ -482,6 +499,79 @@ export class DebugRenderer {
       else if (child instanceof THREE.Mesh) child.visible = !open && !hasKit
     }
     if (structure.definitionId === 'kitchen') this.pulseKitchen(world, root, open)
+  }
+
+  private syncWreckMarker(world: WorldState, structure: StructureState, root: THREE.Object3D): void {
+    const existing = root.getObjectByName('wreck')
+    if (structure.stage !== 'demolishing') {
+      if (!existing) return
+      existing.removeFromParent()
+      this.disposeObject(existing)
+      return
+    }
+    if (existing) {
+      existing.visible = true
+      return
+    }
+    root.add(this.createWreckMarker(world, structure))
+  }
+
+  private createWreckMarker(world: WorldState, structure: StructureState): THREE.Group {
+    const group = new THREE.Group()
+    group.name = 'wreck'
+    const color = 0xe24a32
+    const positions: number[] = []
+    const height = structure.kind === 'building' ? 4.6 : 2.8
+    for (const cell of structure.cells) {
+      this.pushCellFrame(world, cell, height, positions)
+      const fill = new THREE.Mesh(
+        new THREE.PlaneGeometry(world.nav.cellSize * 0.92, world.nav.cellSize * 0.92),
+        new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.28,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        }),
+      )
+      const center = cellCenter(world.nav, cell)
+      fill.rotation.x = -Math.PI / 2
+      fill.position.set(center.x, 0.09, center.z)
+      fill.renderOrder = 19
+      group.add(fill)
+    }
+    const xs = structure.cells.map((cell) => cell.x)
+    const zs = structure.cells.map((cell) => cell.z)
+    if (xs.length > 0 && zs.length > 0) {
+      const mid = cellCenter(world.nav, {
+        x: (Math.min(...xs) + Math.max(...xs)) / 2,
+        z: (Math.min(...zs) + Math.max(...zs)) / 2,
+      })
+      const span = Math.max(Math.max(...xs) - Math.min(...xs) + 1, Math.max(...zs) - Math.min(...zs) + 1)
+      const arm = Math.max(1.2, Math.min(3.6, span * 0.38))
+      const barMat = new THREE.MeshBasicMaterial({ color: 0xff5a3c, depthTest: false })
+      const barGeo = new THREE.BoxGeometry(arm * 2, 0.16, 0.22)
+      const left = new THREE.Mesh(barGeo, barMat)
+      const right = new THREE.Mesh(barGeo, barMat.clone())
+      left.position.set(mid.x, height + 0.35, mid.z)
+      right.position.set(mid.x, height + 0.35, mid.z)
+      left.rotation.y = Math.PI / 4
+      right.rotation.y = -Math.PI / 4
+      left.renderOrder = 22
+      right.renderOrder = 22
+      group.add(left, right)
+    }
+    if (positions.length > 0) {
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+      const lines = new THREE.LineSegments(
+        geometry,
+        new THREE.LineBasicMaterial({ color: 0xff8a7a, depthTest: false }),
+      )
+      lines.renderOrder = 21
+      group.add(lines)
+    }
+    return group
   }
 
   private ensureInterior(world: WorldState, structure: StructureState, root: THREE.Object3D): void {

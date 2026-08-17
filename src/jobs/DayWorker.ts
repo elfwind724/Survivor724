@@ -1,4 +1,4 @@
-import { completeStructure, findStructure, materialsMet, sitePosition, stillNeeded } from '@/base/construction'
+import { completeStructure, findStructure, finishDemolish, materialsMet, sitePosition, stillNeeded } from '@/base/construction'
 import { bedSpot, cookSpot, eatSpot, enterFacility, tryEnterAfterArrival } from '@/base/FacilityLife'
 import { derivedStats } from '@/data/equipment'
 import { weaponById } from '@/data/weapons'
@@ -61,6 +61,7 @@ export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: nu
       break
     case 'Work':
       if (definition?.id === 'build') stepBuild(world, survivor, dt)
+      else if (definition?.id === 'demolish') stepDemolish(world, survivor, dt)
       else stepWork(world, survivor, dt)
       break
     case 'CollectOutput':
@@ -157,9 +158,17 @@ function startNextAction(world: WorldState, survivor: SurvivorState): void {
     return
   }
 
-  if (definition.id === 'build') {
+  if (definition.id === 'build' || definition.id === 'demolish') {
     const structure = findStructure(world, job.targetId)
-    if (!structure || structure.stage === 'complete' || !materialsMet(world, structure)) {
+    if (!structure) {
+      goHome(world, survivor)
+      return
+    }
+    if (definition.id === 'build' && (structure.stage === 'complete' || !materialsMet(world, structure))) {
+      goHome(world, survivor)
+      return
+    }
+    if (definition.id === 'demolish' && structure.stage !== 'demolishing') {
       goHome(world, survivor)
       return
     }
@@ -393,6 +402,20 @@ function stepHaulDeposit(world: WorldState, survivor: SurvivorState): void {
     return
   }
   startNextAction(world, survivor)
+}
+
+function stepDemolish(world: WorldState, survivor: SurvivorState, dt: number): void {
+  const job = currentJob(world, survivor)
+  const structure = job ? findStructure(world, job.targetId) : undefined
+  if (!structure || structure.stage !== 'demolishing') {
+    goHome(world, survivor)
+    return
+  }
+  structure.buildElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate
+  if (structure.buildElapsed >= structure.buildDuration) {
+    finishDemolish(world, structure)
+    goHome(world, survivor)
+  }
 }
 
 function stepBuild(world: WorldState, survivor: SurvivorState, dt: number): void {

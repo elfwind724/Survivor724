@@ -152,6 +152,15 @@ export function buildProgress(structure: { stage: string; buildElapsed: number; 
   return Math.max(0, Math.min(100, Math.round((structure.buildElapsed / structure.buildDuration) * 100)))
 }
 
+export function demolishDuration(cellCount: number): number {
+  return 2.2 + Math.min(4, Math.max(1, cellCount) * 0.18)
+}
+
+export function durabilityPercent(structure: { hp: number; maxHp: number }): number {
+  if (structure.maxHp <= 0) return 0
+  return Math.max(0, Math.min(100, Math.round((structure.hp / structure.maxHp) * 100)))
+}
+
 export function footprintCells(definition: FacilityDefinition, originX: number, originZ: number): GridCell[] {
   const cells: GridCell[] = []
   for (let x = 0; x < definition.width; x += 1) {

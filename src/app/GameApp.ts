@@ -1,7 +1,7 @@
 import * as THREE from 'three'
-import { demolishAt, findStructure, interactGate, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, structureAt } from '@/base/construction'
+import { demolishTarget, findStructure, interactGate, markDemolishAt, placeBlueprint, placeWallLine, previewPlacement, previewWallLine } from '@/base/construction'
 import { decorationNear, placeDecoration, removeDecoration, snapDecor } from '@/base/decorations'
-import { buildProgress, facilityLabel, facilityPreviewHeight } from '@/data/facilities'
+import { buildProgress, durabilityPercent, facilityLabel, facilityPreviewHeight } from '@/data/facilities'
 import { cellCenter } from '@/navigation/NavGrid'
 import { reloadWeapon, tryShoot } from '@/combat/Combat'
 import { equippedWeapon, fireProfile } from '@/data/weapons'
@@ -95,7 +95,7 @@ export class GameApp {
       this.wallAnchor = null
       if (selected) this.editor.clearBrush()
       this.notice = selected === 'demolish'
-        ? '拆除：单击建筑'
+        ? '拆除：点建筑打上拆除标记，工匠会过来拆'
         : selected === 'wall'
           ? '围墙：先点起点，再点终点，中间自动连成一条'
           : selected
@@ -402,10 +402,12 @@ export class GameApp {
     if (button === 0 && buildMode === 'demolish') {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
       if (!hit) return
-      const structure = structureAt(this.world, { x: hit.x, y: 0, z: hit.z })
-      if (structure) {
-        const result = demolishAt(this.world, { x: hit.x, y: 0, z: hit.z })
-        this.notice = result?.removed === 'cell' ? '已拆除这一格墙' : `已拆除 ${structure.definitionId}`
+      const marked = markDemolishAt(this.world, { x: hit.x, y: 0, z: hit.z })
+      if (marked) {
+        const name = facilityLabel(marked.structure.definitionId)
+        this.notice = marked.result === 'cancelled'
+          ? `已取消拆除 ${name}`
+          : `已标记拆除 ${name}，工匠会过来拆`
         return
       }
       const decor = decorationNear(this.world, hit.x, hit.z, 2.4)
@@ -519,13 +521,27 @@ export class GameApp {
     this.renderer.setDecorationPreview(null)
 
     const selected = this.buildMenu.getSelected()
-    if (!selected || selected === 'demolish' || this.world.player.view === 'firstperson') {
+    if (!selected || this.world.player.view === 'firstperson') {
       this.renderer.clearBuildPreview()
       return
     }
     const hit = this.renderer.pickGround(this.input.mouseX, this.input.mouseY)
     if (!hit) {
       this.renderer.clearBuildPreview()
+      return
+    }
+    if (selected === 'demolish') {
+      const target = demolishTarget(this.world, { x: hit.x, y: 0, z: hit.z })
+      if (!target) {
+        this.renderer.clearBuildPreview()
+        return
+      }
+      this.renderer.setBuildPreview(
+        this.world,
+        target.cells,
+        false,
+        facilityPreviewHeight(target.structure.definitionId),
+      )
       return
     }
     const cell = worldToCell(this.world.nav, { x: hit.x, y: 0, z: hit.z })
@@ -558,7 +574,13 @@ export class GameApp {
     const structure = id ? this.world.structures.find((entry) => entry.id === id) : undefined
     if (structure) {
       const name = facilityLabel(structure.definitionId)
-      const progress = structure.stage === 'complete' ? '' : ` · ${structure.stage === 'blueprint' || structure.stage === 'hauling' ? '蓝图' : '建造中'} ${buildProgress(structure)}%`
+      const demolishMode = this.buildMenu.getSelected() === 'demolish'
+      const hp = structure.kind === 'wall' || structure.kind === 'gate' ? ` · 耐久 ${durabilityPercent(structure)}%` : ''
+      const progress = structure.stage === 'complete'
+        ? `${hp}${demolishMode ? ' · 点击标记拆除' : ''}`
+        : structure.stage === 'demolishing'
+          ? ` · 拆除 ${buildProgress(structure)}%`
+          : ` · ${structure.stage === 'blueprint' || structure.stage === 'hauling' ? '蓝图' : '建造中'} ${buildProgress(structure)}%`
       this.tip.textContent = `${name}${progress}`
       this.tip.style.left = `${this.input.mouseX + 14}px`
       this.tip.style.top = `${this.input.mouseY + 16}px`
@@ -569,16 +591,23 @@ export class GameApp {
 
     const bits: string[] = []
     for (const entry of this.world.structures) {
-      if (entry.stage === 'complete' || !entry.cells[0]) continue
+      if (!entry.cells[0]) continue
+      const showBuild = entry.stage !== 'complete'
+      const showHp = entry.stage === 'complete' && (entry.kind === 'wall' || entry.kind === 'gate') && entry.hp < entry.maxHp
+      if (!showBuild && !showHp) continue
       const mid = cellCenter(this.world.nav, {
         x: entry.cells.reduce((sum, cell) => sum + cell.x, 0) / entry.cells.length,
         z: entry.cells.reduce((sum, cell) => sum + cell.z, 0) / entry.cells.length,
       })
       const screen = this.renderer.worldToScreen(mid.x, 2.4, mid.z)
       if (!screen) continue
-      bits.push(
-        `<span class="build-tag" style="left:${screen.x}px;top:${screen.y}px">${facilityLabel(entry.definitionId)} ${buildProgress(entry)}%</span>`,
-      )
+      const text = entry.stage === 'demolishing'
+        ? `拆除 ${facilityLabel(entry.definitionId)} ${buildProgress(entry)}%`
+        : showBuild
+          ? `${facilityLabel(entry.definitionId)} ${buildProgress(entry)}%`
+          : `耐久 ${durabilityPercent(entry)}%`
+      const klass = entry.stage === 'demolishing' ? 'build-tag is-wreck' : showHp ? 'build-tag is-hp' : 'build-tag'
+      bits.push(`<span class="${klass}" style="left:${screen.x}px;top:${screen.y}px">${text}</span>`)
     }
     this.labels.innerHTML = bits.join('')
   }

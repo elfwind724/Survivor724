@@ -1,5 +1,5 @@
 import { decorationNear, removeDecoration } from '@/base/decorations'
-import { facilityDefinition, footprintCells, wallLineDuration } from '@/data/facilities'
+import { demolishDuration, facilityDefinition, footprintCells, wallLineDuration } from '@/data/facilities'
 import { addItem, countItem, createInventory, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
 import type { GridCell, StructureState, Vec3, WorldState } from '@/simulation/types'
@@ -73,6 +73,65 @@ export function interactGate(world: WorldState, position: Vec3): StructureState 
   return gate
 }
 
+export function markDemolish(world: WorldState, structure: StructureState): 'marked' | 'cancelled' {
+  if (structure.stage === 'demolishing') {
+    structure.stage = 'complete'
+    structure.buildElapsed = structure.buildDuration
+    world.jobs = world.jobs.filter((job) => !(job.definitionId === 'demolish' && job.targetId === structure.id))
+    for (const survivor of world.survivors) {
+      if (survivor.currentJobId?.startsWith('demolish-') && survivor.currentJobId.includes(structure.id)) {
+        survivor.currentJobId = null
+        survivor.workerState = 'RestOrNextJob'
+      }
+    }
+    markNavDirty(world)
+    return 'cancelled'
+  }
+  if (structure.stage !== 'complete') {
+    demolishStructure(world, structure.id, true)
+    return 'marked'
+  }
+  structure.stage = 'demolishing'
+  structure.buildElapsed = 0
+  structure.buildDuration = demolishDuration(structure.cells.length)
+  markNavDirty(world)
+  return 'marked'
+}
+
+export function markDemolishAt(
+  world: WorldState,
+  point: Vec3,
+): { result: 'marked' | 'cancelled'; structure: StructureState } | null {
+  const target = demolishTarget(world, point)
+  if (!target) return null
+  const structure =
+    target.structure.kind === 'wall' &&
+    target.structure.stage === 'complete' &&
+    target.structure.cells.length > 1 &&
+    target.cells[0]
+      ? extractWallCell(world, target.structure, target.cells[0])
+      : target.structure
+  if (!structure) return null
+  return { result: markDemolish(world, structure), structure }
+}
+
+export function demolishTarget(
+  world: WorldState,
+  point: Vec3,
+): { structure: StructureState; cells: GridCell[] } | undefined {
+  const structure = structureNear(world, point, 4.5)
+  if (!structure) return undefined
+  if (structure.kind === 'wall' && structure.cells.length > 1 && structure.stage === 'complete') {
+    const cell = nearestStructureCell(world, structure, point)
+    return cell ? { structure, cells: [cell] } : { structure, cells: structure.cells }
+  }
+  return { structure, cells: structure.cells }
+}
+
+export function finishDemolish(world: WorldState, structure: StructureState): void {
+  demolishStructure(world, structure.id, true)
+}
+
 export function demolishAt(world: WorldState, point: Vec3, refund = true): { removed: 'cell' | 'structure'; structureId: string } | null {
   const cell = worldToCell(world.nav, point)
   const structure = world.structures.find((entry) =>
@@ -108,7 +167,7 @@ export function demolishStructure(world: WorldState, structureId: string, refund
     const site = inventoryOf(world.inventories, structure.inventoryId)
     for (const item of site.items) addItem(stock, item.itemId, item.count)
     site.items = []
-    if (refund && structure.stage === 'complete') {
+    if (refund && (structure.stage === 'complete' || structure.stage === 'demolishing')) {
       for (const item of structure.required) addItem(stock, item.itemId, item.count)
     }
   }
@@ -141,6 +200,93 @@ export function structureAt(world: WorldState, point: Vec3): StructureState | un
   return world.structures.find((structure) =>
     structure.cells.some((entry) => entry.x === cell.x && entry.z === cell.z),
   )
+}
+
+export function structureNear(world: WorldState, point: Vec3, radius = 3.8): StructureState | undefined {
+  let best: StructureState | undefined
+  let bestScore = radius
+  for (const structure of world.structures) {
+    const dist = distanceToStructure(world, structure, point)
+    const score = dist + (structure.kind === 'building' ? 0 : 1.25)
+    if (score < bestScore) {
+      best = structure
+      bestScore = score
+    }
+  }
+  return best
+}
+
+function visualPad(structure: StructureState): number {
+  if (structure.kind !== 'building') return 0
+  if (structure.definitionId === 'watchtower') return 0.8
+  if (structure.definitionId === 'bonfire' || structure.definitionId === 'brazier') return 0.4
+  return 2.6
+}
+
+function distanceToStructure(world: WorldState, structure: StructureState, point: Vec3): number {
+  if (structure.cells.length === 0) return Number.POSITIVE_INFINITY
+  const half = world.nav.cellSize * 0.5
+  const pad = visualPad(structure)
+  let minX = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let minZ = Number.POSITIVE_INFINITY
+  let maxZ = Number.NEGATIVE_INFINITY
+  for (const cell of structure.cells) {
+    const center = cellCenter(world.nav, cell)
+    minX = Math.min(minX, center.x - half)
+    maxX = Math.max(maxX, center.x + half)
+    minZ = Math.min(minZ, center.z - half)
+    maxZ = Math.max(maxZ, center.z + half)
+  }
+  const left = minX - pad
+  const right = maxX + pad
+  const south = minZ - pad
+  const north = maxZ + pad
+  const dx = point.x < left ? left - point.x : point.x > right ? point.x - right : 0
+  const dz = point.z < south ? south - point.z : point.z > north ? point.z - north : 0
+  return Math.hypot(dx, dz)
+}
+
+function nearestStructureCell(world: WorldState, structure: StructureState, point: Vec3): GridCell | undefined {
+  let best: GridCell | undefined
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const cell of structure.cells) {
+    const center = cellCenter(world.nav, cell)
+    const distance = Math.hypot(center.x - point.x, center.z - point.z)
+    if (distance < bestDistance) {
+      best = cell
+      bestDistance = distance
+    }
+  }
+  return best
+}
+
+function extractWallCell(world: WorldState, structure: StructureState, cell: GridCell): StructureState | null {
+  if (structure.kind !== 'wall' || structure.cells.length <= 1) return structure
+  structure.cells = structure.cells.filter((entry) => entry.x !== cell.x || entry.z !== cell.z)
+  if (structure.required[0] && structure.required[0].itemId === 'wood') {
+    structure.required[0].count = Math.max(1, structure.cells.length)
+  }
+  const id = `structure-${world.structures.length + 1}-wall`
+  const inventory = createInventory(`inv-${id}`, 40)
+  world.inventories[inventory.id] = inventory
+  const extracted: StructureState = {
+    id,
+    definitionId: 'wall',
+    kind: 'wall',
+    cells: [cell],
+    stage: 'complete',
+    inventoryId: inventory.id,
+    required: [{ itemId: 'wood', count: 1 }],
+    buildElapsed: structure.buildDuration,
+    buildDuration: structure.buildDuration,
+    open: false,
+    hp: structure.hp,
+    maxHp: structure.maxHp,
+  }
+  world.structures.push(extracted)
+  markNavDirty(world)
+  return extracted
 }
 
 /** Axis-aligned L: walk X first, then Z. Diagonal walls leave 4-connected gaps. */

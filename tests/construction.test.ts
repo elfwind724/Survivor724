@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { createCompleteStructure, demolishAt, demolishStructure, interactGate, lineCells, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, setGateOpen } from '@/base/construction'
-import { buildProgress, FACILITY_DEFINITIONS, facilityLabel, wallLineDuration } from '@/data/facilities'
+import { createCompleteStructure, demolishAt, demolishStructure, interactGate, lineCells, markDemolish, markDemolishAt, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, setGateOpen, structureNear } from '@/base/construction'
+import { buildProgress, durabilityPercent, FACILITY_DEFINITIONS, facilityLabel, wallLineDuration } from '@/data/facilities'
 import { setWorkZone } from '@/base/workZones'
 import { countItem } from '@/inventory/Inventory'
-import { worldToCell } from '@/navigation/NavGrid'
+import { cellCenter, worldToCell } from '@/navigation/NavGrid'
 import { BASE } from '@/simulation/WorldState'
 import { stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
@@ -237,5 +237,80 @@ describe('construction and work zones', () => {
       const cell = worldToCell(world.nav, post.position)
       expect(world.nav.blocked[cell.z * world.nav.width + cell.x]).toBe(0)
     }
+  })
+
+  it('prefers a house over the palisade when the click is on the wall beside it', () => {
+    const world = createInitialWorld()
+    const west = worldToCell(world.nav, { x: BASE.west, y: 0, z: 0 })
+    const house = createCompleteStructure(world, 'kitchen', west.x + 1, west.z)
+    const wallPoint = cellCenter(world.nav, west)
+    expect(structureNear(world, wallPoint, 4.5)?.id).toBe(house.id)
+    const marked = markDemolishAt(world, wallPoint)
+    expect(marked?.structure.id).toBe(house.id)
+    expect(house.stage).toBe('demolishing')
+    expect(world.structures.some((entry) => entry.kind === 'wall' && entry.cells.some((cell) => cell.x === west.x && cell.z === west.z))).toBe(true)
+  })
+
+  it('cancels a demolish mark and leaves the house standing', () => {
+    const world = createInitialWorld()
+    const house = world.structures.find((entry) => entry.definitionId === 'kitchen' && entry.stage === 'complete')
+    if (!house) throw new Error('missing kitchen')
+    expect(markDemolish(world, house)).toBe('marked')
+    expect(house.stage).toBe('demolishing')
+    expect(markDemolish(world, house)).toBe('cancelled')
+    expect(house.stage).toBe('complete')
+    expect(world.structures.some((entry) => entry.id === house.id)).toBe(true)
+  })
+
+  it('sends a builder to finish a marked house and refunds materials', () => {
+    const world = createInitialWorld()
+    const seed = world.structures.find((entry) => entry.stage !== 'complete')
+    if (seed) demolishStructure(world, seed.id)
+    for (const survivor of world.survivors) {
+      if (survivor.id === 'builder') continue
+      survivor.dayAssignment = null
+      survivor.currentJobId = null
+      survivor.workerState = 'Rest'
+    }
+    world.jobs = world.jobs.filter((job) => job.definitionId === 'demolish')
+    const house = world.structures.find((entry) => entry.definitionId === 'kitchen' && entry.stage === 'complete')
+    const warehouse = world.inventories['inv-warehouse']
+    if (!house || !warehouse) throw new Error('missing kitchen')
+    const wood = countItem(warehouse, 'wood')
+    const scrap = countItem(warehouse, 'scrap')
+    expect(markDemolish(world, house)).toBe('marked')
+    simulate(world, 80)
+    expect(world.structures.some((entry) => entry.id === house.id)).toBe(false)
+    expect(countItem(warehouse, 'wood')).toBe(wood + 16)
+    expect(countItem(warehouse, 'scrap')).toBe(scrap + 4)
+  })
+
+  it('marks only the clicked cell on a finished wall line', () => {
+    const world = createInitialWorld()
+    const start = worldToCell(world.nav, { x: -10, y: 0, z: 14 })
+    const end = worldToCell(world.nav, { x: 10, y: 0, z: 14 })
+    const placed = placeWallLine(world, start, end)
+    const wall = placed.structure
+    if (!wall) throw new Error('missing wall line')
+    wall.stage = 'complete'
+    wall.buildElapsed = wall.buildDuration
+    const before = wall.cells.length
+    const mid = wall.cells[Math.floor(before / 2)]
+    if (!mid) throw new Error('missing mid cell')
+    const point = cellCenter(world.nav, mid)
+    const marked = markDemolishAt(world, point)
+    expect(marked?.result).toBe('marked')
+    expect(wall.cells).toHaveLength(before - 1)
+    expect(marked?.structure.cells).toEqual([mid])
+    expect(marked?.structure.stage).toBe('demolishing')
+  })
+
+  it('reports wall durability as a percent', () => {
+    const world = createInitialWorld()
+    const wall = world.structures.find((entry) => entry.kind === 'wall' && entry.stage === 'complete')
+    if (!wall) throw new Error('missing wall')
+    expect(durabilityPercent(wall)).toBe(100)
+    wall.hp = Math.round(wall.maxHp * 0.4)
+    expect(durabilityPercent(wall)).toBe(40)
   })
 })
