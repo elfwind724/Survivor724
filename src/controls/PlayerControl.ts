@@ -1,3 +1,4 @@
+import { firstPersonWish, turnYaw } from '@/controls/CameraWish'
 import { isBlocked, worldToCell } from '@/navigation/NavGrid'
 import { findSurvivor } from '@/simulation/EntityRegistry'
 import type { SurvivorState, WorldState } from '@/simulation/types'
@@ -57,12 +58,9 @@ export function stepPlayerControl(world: WorldState, dt: number, intent: Control
   if (!survivor) return
 
   if (world.player.view === 'firstperson') {
-    survivor.facingYaw += intent.yawDelta
-    const sin = Math.sin(survivor.facingYaw)
-    const cos = Math.cos(survivor.facingYaw)
-    const wishX = intent.wishX * cos + intent.wishZ * sin
-    const wishZ = -intent.wishX * sin + intent.wishZ * cos
-    moveWithCollision(world, survivor, wishX, wishZ, dt)
+    survivor.facingYaw = turnYaw(survivor.facingYaw, intent.yawDelta)
+    const wish = firstPersonWish(intent.wishX, intent.wishZ, survivor.facingYaw)
+    moveWithCollision(world, survivor, wish.x, wish.z, dt)
     return
   }
 

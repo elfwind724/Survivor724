@@ -80,7 +80,7 @@ export class GameApp {
         wishZ: forward,
         faceX: null,
         faceZ: null,
-        yawDelta: this.input.consumeMouseDeltaX() * 0.005,
+        yawDelta: this.input.consumeMouseDeltaX(),
       }
     }
 

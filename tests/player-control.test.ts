@@ -1,15 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import { cameraRelativeWish } from '@/controls/CameraWish'
+import { cameraRelativeWish, firstPersonWish, lookXZ, turnYaw } from '@/controls/CameraWish'
 import { cycleControlled, possessSurvivor, releaseControl } from '@/controls/PlayerControl'
 import { stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { findSurvivor } from '@/simulation/EntityRegistry'
 
 describe('player control', () => {
-  it('maps D to screen-right when the camera looks north', () => {
-    const wish = cameraRelativeWish(1, 0, 0, -1)
-    expect(wish.x).toBeGreaterThan(0.9)
-    expect(Math.abs(wish.z)).toBeLessThan(0.1)
+  it('maps D to screen-right in top-down and first-person', () => {
+    const north = cameraRelativeWish(1, 0, 0, -1)
+    expect(north.x).toBeGreaterThan(0.9)
+    expect(Math.abs(north.z)).toBeLessThan(0.1)
+
+    const facingNorth = firstPersonWish(1, 0, Math.PI)
+    expect(facingNorth.x).toBeGreaterThan(0.9)
+
+    const facingSouth = firstPersonWish(1, 0, 0)
+    expect(facingSouth.x).toBeLessThan(-0.9)
+  })
+
+  it('turns first-person look toward screen-right when the mouse moves right', () => {
+    const yaw = turnYaw(0, 20)
+    const look = lookXZ(yaw)
+    expect(look.x).toBeLessThan(0)
   })
 
   it('takes over an existing survivor instead of creating a new character', () => {
@@ -19,6 +31,20 @@ describe('player control', () => {
     expect(world.survivors.length).toBe(before)
     expect(world.player.controlledId).toBe('hunter')
     expect(findSurvivor(world, 'hunter')?.currentJobId).toBe('job-hunt')
+  })
+
+  it('strafes first-person D toward screen-right', () => {
+    const world = createInitialWorld()
+    possessSurvivor(world, 'hunter')
+    world.player.view = 'firstperson'
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.facingYaw = 0
+    const startX = hunter.position.x
+    for (let i = 0; i < 30; i += 1) {
+      stepWorld(world, 1 / 30, { wishX: 1, wishZ: 0, faceX: null, faceZ: null, yawDelta: 0 })
+    }
+    expect(hunter.position.x).toBeLessThan(startX - 2)
   })
 
   it('moves the possessed survivor with control intent and pauses their job AI', () => {
