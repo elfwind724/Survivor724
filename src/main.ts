@@ -2,7 +2,7 @@ import { GameApp } from '@/app/GameApp'
 import './style.css'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas')
-const hud = document.querySelector<HTMLElement>('#debug-hud')
+const hud = document.querySelector<HTMLElement>('#game-hud')
 const minimap = document.querySelector<HTMLCanvasElement>('#minimap')
 const buildMenu = document.querySelector<HTMLElement>('#build-menu')
 const defenseBar = document.querySelector<HTMLElement>('#defense-bar')

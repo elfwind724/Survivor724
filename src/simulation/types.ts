@@ -89,6 +89,8 @@ export interface SurvivorState {
   homePosition: Vec3
   moveSpeed: number
   health: number
+  hunger: number
+  thirst: number
   fatigue: number
   morale: number
   inventoryId: string

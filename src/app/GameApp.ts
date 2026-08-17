@@ -15,7 +15,7 @@ import { createInitialWorld } from '@/simulation/WorldState'
 import type { GridCell, WorldState } from '@/simulation/types'
 import { reinforceSector } from '@/combat/Defense'
 import { BuildMenu } from '@/ui/BuildMenu'
-import { DebugHud } from '@/ui/DebugHud'
+import { GameHud } from '@/ui/GameHud'
 import { DefenseBar } from '@/ui/DefenseBar'
 import { Minimap } from '@/ui/Minimap'
 import { GameLoop } from './GameLoop'
@@ -23,7 +23,7 @@ import { GameLoop } from './GameLoop'
 export class GameApp {
   private readonly world: WorldState
   private readonly renderer: DebugRenderer
-  private readonly hud: DebugHud
+  private readonly hud: GameHud
   private readonly minimap: Minimap
   private readonly buildMenu: BuildMenu
   private readonly defenseBar: DefenseBar
@@ -42,7 +42,7 @@ export class GameApp {
     lastY: number
     dragging: boolean
   } | null = null
-  private notice = '打开建造菜单选设施，再单击地面放置 · 左键拖移 · 右键转镜头 · 滚轮缩放'
+  private notice = '点头像选人，双击接管 · 左键拖移 · 右键转镜头'
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -53,7 +53,14 @@ export class GameApp {
   ) {
     this.world = createInitialWorld()
     this.renderer = new DebugRenderer(canvas)
-    this.hud = new DebugHud(hudRoot)
+    this.hud = new GameHud(hudRoot, ({ id, kind }) => {
+      this.world.player.selectedId = id
+      this.renderer.recenter()
+      if (kind === 'possess') {
+        possessSurvivor(this.world, id)
+        this.notice = `接管 ${findSurvivor(this.world, id)?.name ?? id}`
+      }
+    })
     this.minimap = new Minimap(minimapCanvas)
     this.buildMenu = new BuildMenu(buildMenuRoot, (selected) => {
       this.wallAnchor = null
@@ -354,6 +361,6 @@ export class GameApp {
   }
 
   private refreshHud(): void {
-    this.hud.render(this.world, this.notice, this.buildMenu.getSelected() ?? 'none', this.zoneJob)
+    this.hud.render(this.world, this.notice)
   }
 }

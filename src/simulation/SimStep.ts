@@ -4,6 +4,7 @@ import { type ControlIntent, stepPlayerControl } from '@/controls/PlayerControl'
 import { stepDayWorker } from '@/jobs/DayWorker'
 import { planJobs } from '@/jobs/JobPlanner'
 import { rebuildNav } from '@/navigation/NavGrid'
+import { stepVitals } from '@/survivors/Vitals'
 import { advanceTime } from './TimeSystem'
 import type { WorldState } from './types'
 
@@ -27,6 +28,7 @@ export function stepWorld(world: WorldState, dt: number, intent: ControlIntent |
   stepEnemies(world, dt)
   stepWildlife(world, dt)
   stepRevive(world, dt)
+  stepVitals(world, dt)
 }
 
 export function skipSeconds(world: WorldState, seconds: number): void {

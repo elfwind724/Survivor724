@@ -16,6 +16,8 @@ type SurvivorDraft = Omit<
   | 'fireCooldown'
   | 'nightPostId'
   | 'downed'
+  | 'hunger'
+  | 'thirst'
 > & {
   destination?: Vec3 | null
   homePosition?: Vec3
@@ -31,6 +33,8 @@ type SurvivorDraft = Omit<
   fireCooldown?: number
   nightPostId?: string | null
   downed?: boolean
+  hunger?: number
+  thirst?: number
 }
 
 export function createSurvivor(input: SurvivorDraft): SurvivorState {
@@ -51,6 +55,8 @@ export function createSurvivor(input: SurvivorDraft): SurvivorState {
     fireCooldown: input.fireCooldown ?? 0,
     nightPostId: input.nightPostId ?? null,
     downed: input.downed ?? false,
+    hunger: input.hunger ?? 80,
+    thirst: input.thirst ?? 80,
   }
 }
 

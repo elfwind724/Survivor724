@@ -27,6 +27,32 @@ export function secondsUntilDusk(world: WorldState): number {
   return Math.max(0, DAY_END - world.time.daySeconds)
 }
 
+export function phaseLabel(phase: DayPhase): string {
+  if (phase === 'dawn') return '黎明'
+  if (phase === 'day') return '白昼'
+  if (phase === 'dusk') return '黄昏'
+  if (phase === 'night') return '夜间'
+  return '清场'
+}
+
+export function formatMmSs(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds))
+  const minutes = Math.floor(total / 60)
+  const rest = total % 60
+  return `${minutes}:${rest.toString().padStart(2, '0')}`
+}
+
+export function hudTimeCaption(world: WorldState): string {
+  if (world.time.phase === 'dawn' || world.time.phase === 'day') {
+    return `距黄昏 ${formatMmSs(secondsUntilDusk(world))}`
+  }
+  if (world.time.phase === 'dusk') return '日落回营'
+  if (world.time.phase === 'night') {
+    return world.enemies.length > 0 ? `尸潮 ${world.enemies.length}` : '夜间值守'
+  }
+  return '清场休整'
+}
+
 export function duskStatus(etaSeconds: number, remaining: number): 'green' | 'yellow' | 'red' {
   if (remaining <= 0) return 'red'
   if (etaSeconds <= remaining * 0.55) return 'green'
