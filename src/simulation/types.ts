@@ -80,6 +80,24 @@ export interface InventoryState {
   items: ItemStack[]
 }
 
+export type EquipSlot = 'hat' | 'clothes' | 'gloves' | 'shoes' | 'weapon' | 'tool'
+
+export interface SurvivorAttributes {
+  strength: number
+  agility: number
+  constitution: number
+  intelligence: number
+}
+
+export interface EquipmentLoadout {
+  hat: string | null
+  clothes: string | null
+  gloves: string | null
+  shoes: string | null
+  weapon: string | null
+  tool: string | null
+}
+
 export interface SurvivorState {
   id: string
   name: string
@@ -109,6 +127,8 @@ export interface SurvivorState {
   fireCooldown: number
   nightPostId: string | null
   downed: boolean
+  attributes: SurvivorAttributes
+  equipment: EquipmentLoadout
 }
 
 export type CameraView = 'topdown' | 'firstperson'

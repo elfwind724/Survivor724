@@ -136,7 +136,8 @@ describe('simulation layer', () => {
     }
 
     expect(world.time.dayIndex).toBeGreaterThanOrEqual(4)
-    expect(maxJump).toBeLessThanOrEqual(3.2 * DT + 1e-6)
+    const topSpeed = Math.max(...world.survivors.map((survivor) => survivor.moveSpeed))
+    expect(maxJump).toBeLessThanOrEqual(topSpeed * DT + 1e-6)
 
     const warehouse = world.inventories['inv-warehouse']
     if (!warehouse) throw new Error('missing warehouse')

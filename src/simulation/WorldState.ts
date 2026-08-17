@@ -7,6 +7,7 @@ import { rebuildNightPosts } from '@/combat/Night'
 import { createInventory } from '@/inventory/Inventory'
 import { createJob } from '@/jobs/JobBoard'
 import { createNavGrid, rebuildNav, worldToCell } from '@/navigation/NavGrid'
+import { dressProfession } from '@/survivors/Equipment'
 import { createSurvivor } from '@/survivors/Survivor'
 import { createTimeState } from './TimeSystem'
 import { BASE } from './baseLayout'
@@ -24,6 +25,10 @@ export function createInitialWorld(): WorldState {
     { itemId: 'wood', count: 80 },
     { itemId: 'scrap', count: 24 },
     { itemId: 'ammo', count: 80 },
+    { itemId: 'jacket', count: 2 },
+    { itemId: 'work_cap', count: 1 },
+    { itemId: 'boots', count: 2 },
+    { itemId: 'pistol', count: 1 },
   ])
   const lockerInv = createInventory('inv-locker', 20, [
     { itemId: 'rifle', count: 1 },
@@ -31,6 +36,7 @@ export function createInitialWorld(): WorldState {
     { itemId: 'rod', count: 1 },
     { itemId: 'crowbar', count: 1 },
     { itemId: 'hammer', count: 1 },
+    { itemId: 'pistol', count: 1 },
   ])
 
   const forest = vec3(55, 0, -20)
@@ -173,6 +179,7 @@ export function createInitialWorld(): WorldState {
   }
 
   seedBaseWalls(world)
+  for (const survivor of world.survivors) dressProfession(survivor)
   const blueprintCell = worldToCell(world.nav, vec3(16, 0, 4))
   placeBlueprint(world, 'wall', blueprintCell.x, blueprintCell.z)
   rebuildNightPosts(world)

@@ -1,5 +1,6 @@
 import { damageStructure } from '@/base/construction'
 import { ENEMY_DEFINITIONS } from '@/data/enemies'
+import { derivedStats } from '@/data/equipment'
 import { weaponForTools } from '@/data/weapons'
 import { addItem, inventoryOf } from '@/inventory/Inventory'
 import { cellCenter, isBlocked, worldToCell } from '@/navigation/NavGrid'
@@ -19,11 +20,12 @@ export function tickCooldowns(world: WorldState, dt: number): void {
 export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
   if (survivor.downed || survivor.fireCooldown > 0 || survivor.ammo <= 0) return false
   const weapon = weaponForTools(survivor.carriedTools)
-  survivor.fireCooldown = weapon.cooldown
+  const stats = derivedStats(survivor.attributes, survivor.equipment)
+  survivor.fireCooldown = Math.min(weapon.cooldown, stats.attackCooldown)
   survivor.ammo -= 1
   const hit = rayHit(world, survivor.position, survivor.facingYaw, weapon.range)
   if (hit?.kind === 'enemy') {
-    hit.enemy.health -= weapon.damage
+    hit.enemy.health -= stats.attackPower
     if (hit.enemy.health <= 0) world.enemies = world.enemies.filter((entry) => entry.id !== hit.enemy.id)
   }
   if (hit?.kind === 'wildlife') {
@@ -56,7 +58,8 @@ export function stepEnemies(world: WorldState, dt: number): void {
     const definition = ENEMY_DEFINITIONS[enemy.kind]
     if (prey && distance <= definition.attackRange) {
       if (enemy.attackCooldown <= 0 && !prey.downed) {
-        prey.health -= definition.damage
+        const defense = derivedStats(prey.attributes, prey.equipment).defense
+        prey.health -= Math.max(1, definition.damage - defense)
         enemy.attackCooldown = definition.attackCooldown
         if (prey.health <= 0) {
           prey.health = 0

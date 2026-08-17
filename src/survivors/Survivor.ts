@@ -1,4 +1,5 @@
-import { cloneVec3, type SurvivorState, type Vec3 } from '@/simulation/types'
+import { defaultAttributes, emptyLoadout } from '@/data/equipment'
+import { cloneVec3, type EquipmentLoadout, type SurvivorAttributes, type SurvivorState, type Vec3 } from '@/simulation/types'
 
 type SurvivorDraft = Omit<
   SurvivorState,
@@ -18,6 +19,8 @@ type SurvivorDraft = Omit<
   | 'downed'
   | 'hunger'
   | 'thirst'
+  | 'attributes'
+  | 'equipment'
 > & {
   destination?: Vec3 | null
   homePosition?: Vec3
@@ -35,6 +38,8 @@ type SurvivorDraft = Omit<
   downed?: boolean
   hunger?: number
   thirst?: number
+  attributes?: SurvivorAttributes
+  equipment?: EquipmentLoadout
 }
 
 export function createSurvivor(input: SurvivorDraft): SurvivorState {
@@ -57,6 +62,8 @@ export function createSurvivor(input: SurvivorDraft): SurvivorState {
     downed: input.downed ?? false,
     hunger: input.hunger ?? 80,
     thirst: input.thirst ?? 80,
+    attributes: input.attributes ?? defaultAttributes(input.professionId),
+    equipment: input.equipment ?? emptyLoadout(),
   }
 }
 

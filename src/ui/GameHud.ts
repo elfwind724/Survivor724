@@ -148,7 +148,7 @@ function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
     live: world.player.controlledId === survivor.id,
     downed: survivor.downed,
     ammo: world.player.controlledId === survivor.id ? survivor.ammo : null,
-    portrait: portraitSvg(survivor),
+    portrait: survivorPortrait(survivor),
     bars: [
       { key: 'hp', label: '血', value: clampVital(survivor.health) },
       { key: 'hunger', label: '饥', value: clampVital(survivor.hunger) },
@@ -216,7 +216,7 @@ function escapeHtml(value: string): string {
   })
 }
 
-function portraitSvg(survivor: SurvivorState): string {
+export function survivorPortrait(survivor: SurvivorState): string {
   const skin = survivor.professionId === 'fisher' ? '#c9a07a' : survivor.professionId === 'scavenger' ? '#b38864' : '#d4aa84'
   const hair = survivor.professionId === 'builder' ? '#5a4634' : survivor.professionId === 'hauler' ? '#2b241c' : '#1d1813'
   const cloth =

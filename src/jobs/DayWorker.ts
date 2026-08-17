@@ -1,4 +1,6 @@
 import { completeStructure, findStructure, materialsMet, sitePosition, stillNeeded } from '@/base/construction'
+import { derivedStats } from '@/data/equipment'
+import { clearJobTools, syncToolsToEquipment } from '@/survivors/Equipment'
 import { harvestWildlife, tryShoot } from '@/combat/Combat'
 import { nodeAllowedForSurvivor } from '@/base/workZones'
 import { WORK_SECONDS, jobDefinition } from '@/data/jobs'
@@ -156,6 +158,7 @@ function stepAcquire(world: WorldState, survivor: SurvivorState, dt: number): vo
     }
     survivor.carriedTools.push(tool)
   }
+  syncToolsToEquipment(survivor)
 
   survivor.blockedReason = null
   startNextAction(world, survivor)
@@ -198,7 +201,7 @@ function stepWork(world: WorldState, survivor: SurvivorState, dt: number): void 
       return
     }
   }
-  survivor.workElapsed += dt
+  survivor.workElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate
   if (survivor.workElapsed >= WORK_SECONDS) {
     survivor.workElapsed = 0
     survivor.workerState = 'CollectOutput'
@@ -308,7 +311,7 @@ function stepBuild(world: WorldState, survivor: SurvivorState, dt: number): void
   }
 
   structure.stage = 'building'
-  structure.buildElapsed += dt
+  structure.buildElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate
   if (structure.buildElapsed >= structure.buildDuration) {
     completeStructure(world, structure)
     goHome(world, survivor)
@@ -360,7 +363,9 @@ function stepReturnEquipment(world: WorldState, survivor: SurvivorState, dt: num
     const lockerInv = inventoryOf(world.inventories, locker.inventoryId)
     for (const tool of survivor.carriedTools) addItem(lockerInv, tool, 1)
   }
+  const returned = [...survivor.carriedTools]
   survivor.carriedTools = []
+  clearJobTools(survivor, returned)
   goHome(world, survivor)
 }
 

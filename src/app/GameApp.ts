@@ -16,6 +16,7 @@ import { createInitialWorld } from '@/simulation/WorldState'
 import type { GridCell, WorldState } from '@/simulation/types'
 import { reinforceSector } from '@/combat/Defense'
 import { BuildMenu } from '@/ui/BuildMenu'
+import { CharacterSheet } from '@/ui/CharacterSheet'
 import { CreativeEditor } from '@/ui/CreativeEditor'
 import { GameHud } from '@/ui/GameHud'
 import { DefenseBar } from '@/ui/DefenseBar'
@@ -26,6 +27,7 @@ export class GameApp {
   private readonly world: WorldState
   private readonly renderer: DebugRenderer
   private readonly hud: GameHud
+  private readonly sheet: CharacterSheet
   private readonly minimap: Minimap
   private readonly buildMenu: BuildMenu
   private readonly editor: CreativeEditor
@@ -50,6 +52,7 @@ export class GameApp {
   constructor(
     canvas: HTMLCanvasElement,
     hudRoot: HTMLElement,
+    sheetRoot: HTMLElement,
     minimapCanvas: HTMLCanvasElement,
     buildMenuRoot: HTMLElement,
     editorRoot: HTMLElement,
@@ -60,11 +63,13 @@ export class GameApp {
     this.hud = new GameHud(hudRoot, ({ id, kind }) => {
       this.world.player.selectedId = id
       this.renderer.recenter()
+      this.sheet.open(id)
       if (kind === 'possess') {
         possessSurvivor(this.world, id)
         this.notice = `接管 ${findSurvivor(this.world, id)?.name ?? id}`
       }
     })
+    this.sheet = new CharacterSheet(sheetRoot)
     this.minimap = new Minimap(minimapCanvas)
     this.buildMenu = new BuildMenu(buildMenuRoot, (selected) => {
       this.wallAnchor = null
@@ -169,6 +174,11 @@ export class GameApp {
       if (id) possessSurvivor(this.world, id)
     }
     if (event.code === 'Escape') {
+      if (this.sheet.isOpen()) {
+        this.sheet.close()
+        this.notice = '已关闭人物面板'
+        return
+      }
       if (this.editor.isOpen()) {
         this.editor.close()
         this.notice = '已关闭创造栏'
@@ -456,5 +466,6 @@ export class GameApp {
 
   private refreshHud(): void {
     this.hud.render(this.world, this.notice)
+    this.sheet.render(this.world)
   }
 }
