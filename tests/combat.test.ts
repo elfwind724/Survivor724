@@ -208,6 +208,35 @@ describe('combat and night', () => {
     expect(world.enemies.length).toBe(count)
   })
 
+  it('auto locks and fires for a possessed survivor without a click', () => {
+    const world = createInitialWorld()
+    possessSurvivor(world, 'hunter')
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.equipment.weapon = 'rifle'
+    hunter.ammo = 10
+    hunter.facingYaw = Math.PI
+    world.enemies.push(createEnemy('wanderer', { x: hunter.position.x, y: 0, z: hunter.position.z + 6 }, 'auto-lock'))
+    stepWorld(world, 1 / 30)
+    expect(world.projectiles.length).toBeGreaterThan(0)
+    expect(hunter.facingYaw).toBeCloseTo(0, 1)
+  })
+
+  it('keeps auto-aim on the enemy while the player walks sideways', () => {
+    const world = createInitialWorld()
+    possessSurvivor(world, 'hunter')
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.equipment.weapon = 'rifle'
+    hunter.ammo = 10
+    const enemy = createEnemy('wanderer', { x: hunter.position.x, y: 0, z: hunter.position.z + 8 }, 'side-lock')
+    world.enemies.push(enemy)
+    stepWorld(world, 1 / 30, { wishX: 1, wishZ: 0, faceX: null, faceZ: null, yawDelta: 0 })
+    const expected = Math.atan2(enemy.position.x - hunter.position.x, enemy.position.z - hunter.position.z)
+    expect(hunter.facingYaw).toBeCloseTo(expected, 5)
+    expect(Math.abs(hunter.facingYaw - Math.PI / 2)).toBeGreaterThan(0.4)
+  })
+
   it('puts a night watcher on the tower top and locks onto an enemy', () => {
     const world = createInitialWorld()
     const hunter = findSurvivor(world, 'hunter')

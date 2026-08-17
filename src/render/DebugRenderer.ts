@@ -362,7 +362,7 @@ export class DebugRenderer {
     for (const marker of this.survivors.values()) marker.mesh.visible = true
     this.camera.fov = 50
     this.camera.updateProjectionMatrix()
-    if (this.followEnabled) {
+    if (this.followEnabled || world.player.controlledId) {
       this.lookAtX = focus.position.x
       this.lookAtZ = focus.position.z
     }

@@ -1,4 +1,4 @@
-import { harvestWildlife, stepEnemies, stepProjectiles, stepRevive, stepWildlife, tickCooldowns } from '@/combat/Combat'
+import { autoCombat, harvestWildlife, stepEnemies, stepProjectiles, stepRevive, stepWildlife, tickCooldowns } from '@/combat/Combat'
 import { stepNightCycle, stepNightDefender } from '@/combat/Night'
 import { type ControlIntent, stepPlayerControl } from '@/controls/PlayerControl'
 import { stepDayWorker } from '@/jobs/DayWorker'
@@ -16,10 +16,13 @@ export function stepWorld(world: WorldState, dt: number, intent: ControlIntent |
   stepNightCycle(world)
   planJobs(world)
   tickCooldowns(world, dt)
-  if (intent && world.player.controlledId) {
+  if (world.player.controlledId) {
     const self = world.survivors.find((entry) => entry.id === world.player.controlledId)
-    stepPlayerControl(world, dt, intent)
-    if (self) harvestWildlife(world, self)
+    if (intent) stepPlayerControl(world, dt, intent)
+    if (self) {
+      harvestWildlife(world, self)
+      autoCombat(world, self)
+    }
   }
   const nightWatch = world.time.phase === 'night'
   for (const survivor of world.survivors) {

@@ -151,9 +151,14 @@ export class GameApp {
 
   private readonly step = (dt: number): void => {
     if (this.world.player.view === 'topdown') {
-      const speed = this.renderer.distance * 0.95
-      if (this.input.isDown('KeyQ')) this.renderer.nudgeLook(-speed * dt, 0)
-      if (this.input.isDown('KeyE')) this.renderer.nudgeLook(speed * dt, 0)
+      if (this.world.player.controlledId) {
+        if (this.input.isDown('KeyQ')) this.renderer.rotateBy(-dt * 1.6)
+        if (this.input.isDown('KeyE')) this.renderer.rotateBy(dt * 1.6)
+      } else {
+        const speed = this.renderer.distance * 0.95
+        if (this.input.isDown('KeyQ')) this.renderer.nudgeLook(-speed * dt, 0)
+        if (this.input.isDown('KeyE')) this.renderer.nudgeLook(speed * dt, 0)
+      }
     }
     stepWorld(this.world, dt, this.controlIntent())
   }
@@ -200,11 +205,16 @@ export class GameApp {
     if (event.code === 'Tab') {
       event.preventDefault()
       cycleControlled(this.world)
+      this.renderer.recenter()
       this.notice = `当前：${this.world.player.controlledId ?? this.world.player.selectedId ?? '无人'}`
     }
     if (event.code === 'Enter') {
       const id = this.world.player.selectedId
-      if (id) possessSurvivor(this.world, id)
+      if (id) {
+        possessSurvivor(this.world, id)
+        this.renderer.recenter()
+        this.notice = `接管 ${findSurvivor(this.world, id)?.name ?? id}`
+      }
     }
     if (event.code === 'Escape') {
       if (this.sheet.isOpen()) {

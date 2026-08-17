@@ -9,7 +9,7 @@ import { TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { distanceXZ, type NightPost, type StructureState, type SurvivorState, type WorldState } from '@/simulation/types'
 import { equipItem } from '@/survivors/Equipment'
 import { beginTravel, followTravel } from '@/navigation/Travel'
-import { createEnemy, tryShoot } from './Combat'
+import { autoCombat, createEnemy, nearestLivingEnemy } from './Combat'
 
 export const TOWER_RANGE_BONUS = 16
 
@@ -90,7 +90,7 @@ export function stepNightCycle(world: WorldState): void {
 export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt: number): void {
   if (survivor.downed) return
   if (restockNightAmmo(world, survivor, dt)) return
-  const closeThreat = nearestEnemy(world, survivor.position, 10)
+  const closeThreat = nearestLivingEnemy(world, survivor.position, 10)
   if (!closeThreat && rescueDowned(world, survivor, dt)) return
   if (!closeThreat && repairDamagedWall(world, survivor, dt)) return
   const post = world.nightPosts.find((entry) => entry.id === survivor.nightPostId) ?? assignOnePost(world, survivor)
@@ -99,6 +99,7 @@ export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt
     survivor.position.y = 0
     if (!survivor.destination) beginTravel(world, survivor, post.position)
     followTravel(world, survivor, dt)
+    autoCombat(world, survivor)
     return
   }
 
@@ -106,14 +107,7 @@ export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt
   survivor.destination = null
   survivor.path = []
 
-  const enemy = nearestEnemy(world, survivor.position, 30 + watchRangeBonus(world, survivor))
-  if (enemy) {
-    const dx = enemy.position.x - survivor.position.x
-    const dz = enemy.position.z - survivor.position.z
-    survivor.facingYaw = Math.atan2(dx, dz)
-    tryShoot(world, survivor)
-    return
-  }
+  if (autoCombat(world, survivor)) return
   survivor.facingYaw = post.facingYaw
 }
 
@@ -277,17 +271,4 @@ function issueNightAmmo(world: WorldState): void {
   }
 }
 
-function nearestEnemy(world: WorldState, from: { x: number; z: number }, range: number) {
-  let best = world.enemies[0]
-  let bestDist = range
-  let found = false
-  for (const enemy of world.enemies) {
-    const distance = Math.hypot(enemy.position.x - from.x, enemy.position.z - from.z)
-    if (distance < bestDist) {
-      best = enemy
-      bestDist = distance
-      found = true
-    }
-  }
-  return found ? best : undefined
-}
+

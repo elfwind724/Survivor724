@@ -67,6 +67,34 @@ export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
   return true
 }
 
+export function nearestLivingEnemy(
+  world: WorldState,
+  from: { x: number; z: number },
+  range: number,
+): EnemyState | undefined {
+  let best: EnemyState | undefined
+  let bestDist = range
+  for (const enemy of world.enemies) {
+    if (enemy.health <= 0) continue
+    const distance = Math.hypot(enemy.position.x - from.x, enemy.position.z - from.z)
+    if (distance < bestDist) {
+      best = enemy
+      bestDist = distance
+    }
+  }
+  return best
+}
+
+export function autoCombat(world: WorldState, survivor: SurvivorState): boolean {
+  if (survivor.downed) return false
+  const profile = fireProfile(survivor)
+  if (!profile.weapon) return false
+  const enemy = nearestLivingEnemy(world, survivor.position, profile.range + towerRangeBonus(world, survivor))
+  if (!enemy) return false
+  survivor.facingYaw = Math.atan2(enemy.position.x - survivor.position.x, enemy.position.z - survivor.position.z)
+  return tryShoot(world, survivor)
+}
+
 export function towerRangeBonus(world: WorldState, survivor: SurvivorState): number {
   const post = world.nightPosts.find((entry) => entry.id === survivor.nightPostId)
   if (!post || post.rangeBonus <= 0) return 0
