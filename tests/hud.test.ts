@@ -40,7 +40,7 @@ describe('game hud', () => {
     expect(model.weapon?.ammoMax).toBe(12)
     expect(model.weapon?.cooldown).toBeCloseTo(0.5, 5)
     const html = renderHudHtml(model)
-    expect(html).toContain('7/12')
+    expect(html).toContain('∞')
     expect(html).toContain('hud-cd')
   })
 

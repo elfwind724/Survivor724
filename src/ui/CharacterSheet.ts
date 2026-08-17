@@ -1,5 +1,5 @@
 import { derivedStats, EQUIP_SLOTS, equipmentById } from '@/data/equipment'
-import { fireProfile, magazineSize, weaponById } from '@/data/weapons'
+import { fireProfile, INFINITE_AMMO, magazineSize, weaponById } from '@/data/weapons'
 import { availableForSlot, equipItem, unequipSlot } from '@/survivors/Equipment'
 import { xpToNext } from '@/survivors/Progress'
 import { findSurvivor } from '@/simulation/EntityRegistry'
@@ -194,7 +194,7 @@ function renderFireCard(fire: ReturnType<typeof fireProfile>, ammo: number): str
   }
   return `<div class="sheet-fire">
     <strong>${fire.weapon.label}</strong>
-    <span>弹药 ${ammo}/${magazineSize(fire.weapon.id)} · ${fire.pellets > 1 ? `${fire.pellets}弹丸` : '单发'}</span>
+    <span>弹药 ${INFINITE_AMMO ? '无限' : `${ammo}/${magazineSize(fire.weapon.id)}`} · ${fire.pellets > 1 ? `${fire.pellets}弹丸` : '单发'}</span>
     <ul>
       <li>伤害 ${fire.damage}</li>
       <li>间隔 ${fire.cooldown.toFixed(2)}秒</li>

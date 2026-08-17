@@ -2,7 +2,7 @@ import { damageStructure } from '@/base/construction'
 import { ENEMY_DEFINITIONS } from '@/data/enemies'
 import { derivedStats } from '@/data/equipment'
 import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
-import { equippedWeapon, fireProfile, magazineSize, muzzleOrigin, readMag, writeMag } from '@/data/weapons'
+import { equippedWeapon, fireProfile, INFINITE_AMMO, magazineSize, muzzleOrigin, readMag, writeMag } from '@/data/weapons'
 import { cellCenter, isBlocked, worldToCell } from '@/navigation/NavGrid'
 import { lookXZ } from '@/controls/CameraWish'
 import { findContainer } from '@/simulation/EntityRegistry'
@@ -29,11 +29,13 @@ export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
   if (survivor.downed || survivor.fireCooldown > 0) return false
   const profile = fireProfile(survivor)
   if (!profile.weapon || profile.pellets <= 0) return false
-  const mag = readMag(survivor, profile.weapon.id)
-  if (mag < profile.ammoCost) return false
+  if (!INFINITE_AMMO) {
+    const mag = readMag(survivor, profile.weapon.id)
+    if (mag < profile.ammoCost) return false
+    writeMag(survivor, profile.weapon.id, mag - profile.ammoCost)
+  }
   survivor.fireCooldown = profile.cooldown
   survivor.fireCooldownMax = profile.cooldown
-  writeMag(survivor, profile.weapon.id, mag - profile.ammoCost)
   const aimJitter = (unitNoise(`${survivor.id}:${world.time.daySeconds.toFixed(2)}`) * 2 - 1) * profile.spread
   const origin = muzzleOrigin(survivor)
   for (let index = 0; index < profile.pellets; index += 1) {

@@ -35,7 +35,7 @@ describe('combat and night', () => {
     expect(world.enemies[0]?.health ?? 0).toBe(before)
     flyShots(world, 0.2)
     expect(world.enemies[0]?.health ?? 0).toBeLessThan(before)
-    expect(hunter.ammo).toBe(9)
+    expect(hunter.ammo).toBe(10)
     expect(world.projectiles).toHaveLength(0)
   })
 
@@ -95,12 +95,13 @@ describe('combat and night', () => {
     hunter.ammo = 0
     hunter.weaponAmmo.rifle = 0
     hunter.fireCooldown = 0
-    expect(tryShoot(world, hunter)).toBe(false)
+    expect(tryShoot(world, hunter)).toBe(true)
+    expect(hunter.ammo).toBe(0)
     expect(equipItem(world, hunter, 'pistol')).toBe(true)
     expect(hunter.ammo).toBe(3)
     hunter.fireCooldown = 0
     expect(tryShoot(world, hunter)).toBe(true)
-    expect(hunter.ammo).toBe(2)
+    expect(hunter.ammo).toBe(3)
   })
 
   it('reloads the current gun from warehouse ammo without touching other magazines', () => {

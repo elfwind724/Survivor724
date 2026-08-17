@@ -1,5 +1,5 @@
 import { countItem } from '@/inventory/Inventory'
-import { equippedWeapon, magazineSize, readMag } from '@/data/weapons'
+import { equippedWeapon, INFINITE_AMMO, magazineSize, readMag } from '@/data/weapons'
 import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
 import type { SurvivorState, WorldState } from '@/simulation/types'
 import { clampVital } from '@/survivors/Vitals'
@@ -192,7 +192,7 @@ function renderCard(card: HudCard): string {
     })
     .join('')
   const ammo = card.ammo !== null
-    ? `<em class="hud-ammo">${card.ammo}/${card.ammoMax}</em>`
+    ? `<em class="hud-ammo">${INFINITE_AMMO ? '∞' : `${card.ammo}/${card.ammoMax}`}</em>`
     : ''
   return `<button type="button" class="hud-card ${flags}" data-survivor="${card.id}">
     <span class="hud-face" aria-hidden="true">${card.portrait}</span>
@@ -225,13 +225,13 @@ function cooldownRatio(survivor: SurvivorState): number {
 
 function renderWeaponHud(weapon: HudModel['weapon']): string {
   if (!weapon) return ''
-  const empty = weapon.ammo <= 0 ? ' is-empty' : ''
+  const empty = !INFINITE_AMMO && weapon.ammo <= 0 ? ' is-empty' : ''
   const cooling = weapon.cooldown > 0.02 ? ' is-cd' : ''
   return `<div class="hud-weapon${empty}${cooling}">
     <span class="hud-cd" style="--t:${weapon.cooldown.toFixed(3)}" aria-hidden="true"></span>
     <div>
       <strong>${escapeHtml(weapon.name)}</strong>
-      <em>${weapon.ammo}/${weapon.ammoMax}</em>
+      <em>${INFINITE_AMMO ? '∞' : `${weapon.ammo}/${weapon.ammoMax}`}</em>
     </div>
   </div>`
 }

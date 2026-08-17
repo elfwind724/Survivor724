@@ -97,6 +97,7 @@ export function weaponForTools(tools: string[]): WeaponDefinition {
 }
 
 export const WEAPON_SWAP_COOLDOWN = 0.4
+export const INFINITE_AMMO = true
 
 export function magazineSize(weaponId: string): number {
   if (weaponId === 'pistol') return 12

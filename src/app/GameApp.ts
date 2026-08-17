@@ -491,11 +491,10 @@ export class GameApp {
     if (!self) return
     if (tryShoot(this.world, self)) {
       const gun = fireProfile(self).weapon
-      this.notice = `射击 · ${gun?.label ?? '枪'} · ${self.ammo}发`
+      this.notice = `射击 · ${gun?.label ?? '枪'}`
       return
     }
     if (!equippedWeapon(self)) this.notice = '没有装备枪械'
-    else if (self.ammo <= 0) this.notice = '没有弹药'
   }
 
   private refreshHud(): void {
