@@ -15,12 +15,12 @@ export interface HoldPose {
 }
 
 const HOLD_POSES: Record<string, HoldPose> = {
-  pistol: { lift: 0.02, forward: 0.12, side: 0.01 },
-  revolver: { lift: 0.02, forward: 0.12, side: 0.01 },
-  smg: { lift: 0.03, forward: 0.13, side: 0.01 },
-  rifle: { lift: 0.03, forward: 0.14, side: 0.01 },
-  shotgun: { lift: 0.03, forward: 0.14, side: 0.01 },
-  sniper: { lift: 0.03, forward: 0.15, side: 0.01 },
+  pistol: { lift: 0.02, forward: 0.24, side: 0.01 },
+  revolver: { lift: 0.02, forward: 0.24, side: 0.01 },
+  smg: { lift: 0.03, forward: 0.26, side: 0.01 },
+  rifle: { lift: 0.03, forward: 0.28, side: 0.01 },
+  shotgun: { lift: 0.03, forward: 0.28, side: 0.01 },
+  sniper: { lift: 0.03, forward: 0.3, side: 0.01 },
 }
 
 export function holdPose(weaponId: string): HoldPose {
