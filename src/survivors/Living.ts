@@ -1,4 +1,4 @@
-import { sitePosition } from '@/base/construction'
+import { eatSpot, findFacility } from '@/base/FacilityLife'
 import { countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { BASE } from '@/simulation/baseLayout'
@@ -17,11 +17,8 @@ export function insideBase(position: Vec3): boolean {
 }
 
 export function diningSpot(world: WorldState): Vec3 {
-  const kitchen = world.structures.find((structure) => structure.definitionId === 'kitchen' && structure.stage === 'complete')
-  if (kitchen?.cells[0]) {
-    const first = sitePosition(world, kitchen)
-    return { x: first.x, y: 0, z: first.z - 2.4 }
-  }
+  const kitchen = findFacility(world, 'kitchen')
+  if (kitchen) return eatSpot(world, kitchen)
   return findContainer(world, 'warehouse')?.position ?? { x: 0, y: 0, z: 0 }
 }
 

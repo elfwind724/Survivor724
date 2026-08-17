@@ -104,6 +104,23 @@ body,
   border-color: #8a5a2a;
 }
 
+.hud-reset {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel-2);
+  color: var(--hud-ink);
+  font-size: 13px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.hud-reset:hover,
+.hud-reset:focus-visible {
+  border-color: var(--hud-brass);
+  outline: none;
+}
+
 .hud-stock {
   display: inline-flex;
   align-items: center;
@@ -426,6 +443,119 @@ body,
   inset: 0;
   z-index: 30;
   pointer-events: none;
+}
+
+#roster-panel,
+.roster-root {
+  position: absolute;
+  left: calc(var(--hud-safe) + 192px);
+  bottom: var(--hud-safe);
+  z-index: var(--z-hud);
+  pointer-events: none;
+}
+
+.roster-toggle {
+  min-width: 88px;
+  height: 48px;
+  border: 1px solid #6a5a3e;
+  background: #2a241b;
+  color: var(--hud-ink);
+  font-size: 16px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.roster-toggle.is-open {
+  border-color: var(--hud-brass);
+  background: #3d3424;
+}
+
+.roster-panel {
+  position: absolute;
+  left: 0;
+  bottom: 56px;
+  display: none;
+  gap: 16px;
+  width: min(560px, 72vw);
+  max-height: min(62vh, 520px);
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel);
+  color: var(--hud-ink);
+  pointer-events: auto;
+}
+
+.roster-panel.is-open {
+  display: flex;
+}
+
+.roster-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.roster-col p,
+.roster-person header span {
+  margin: 0 0 8px;
+  color: var(--hud-muted);
+  font-size: 13px;
+}
+
+.roster-person {
+  margin-bottom: 10px;
+}
+
+.roster-person header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.roster-posts,
+.roster-col:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.roster-post,
+.roster-strategy {
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel-2);
+  color: var(--hud-ink);
+  cursor: pointer;
+}
+
+.roster-post {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.roster-strategy {
+  width: 100%;
+  padding: 8px;
+  text-align: left;
+}
+
+.roster-strategy strong,
+.roster-strategy span {
+  display: block;
+}
+
+.roster-strategy span {
+  color: var(--hud-muted);
+  font-size: 12px;
+}
+
+.roster-post.is-on,
+.roster-strategy.is-on,
+.roster-toggle:hover,
+.roster-post:hover,
+.roster-strategy:hover {
+  border-color: var(--hud-brass);
 }
 
 .cr-toggle {

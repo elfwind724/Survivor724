@@ -1,4 +1,6 @@
+import { isCooking, isSleeping } from '@/base/FacilityLife'
 import { countItem } from '@/inventory/Inventory'
+import { postLabel } from '@/jobs/Roster'
 import { equippedWeapon, INFINITE_AMMO, magazineSize, readMag } from '@/data/weapons'
 import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
 import type { SurvivorState, WorldState } from '@/simulation/types'
@@ -8,6 +10,8 @@ export interface HudPick {
   id: string
   kind: 'select' | 'possess'
 }
+
+export type HudCommand = 'reset-view'
 
 interface HudStock {
   id: string
@@ -55,7 +59,7 @@ export interface HudModel {
   } | null
 }
 
-const JOB_LABEL: Record<string, string> = {
+const PROFESSION_LABEL: Record<string, string> = {
   hunter: '猎手',
   fisher: '渔手',
   scavenger: '搜刮',
@@ -87,7 +91,7 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
 export function hudModelKey(model: HudModel): string {
   const stocks = model.stocks.map((item) => `${item.id}:${item.count}`).join(',')
   const cards = model.cards
-    .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.status}:${card.ammo ?? '-'}:${card.cooldown.toFixed(2)}`)
+    .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.job}:${card.status}:${card.ammo ?? '-'}:${card.cooldown.toFixed(2)}`)
     .join('|')
   const weapon = model.weapon ? `${model.weapon.name}:${model.weapon.ammo}/${model.weapon.ammoMax}:${model.weapon.cooldown.toFixed(2)}` : '-'
   return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.warning}:${model.notice}:${stocks}:${cards}:${weapon}`
@@ -108,6 +112,7 @@ export function renderHudHtml(model: HudModel): string {
         <span class="hud-phase">${model.phase}</span>
         <span class="hud-caption">${model.caption}</span>
         ${scale}${sites}${model.warning ? `<span class="hud-chip hud-chip-warn">${model.warning}</span>` : ''}
+        <button type="button" class="hud-reset" data-action="reset-view">复位镜头</button>
       </div>
       <div class="hud-stocks">${stocks}</div>
       ${renderWeaponHud(model.weapon)}
@@ -125,6 +130,7 @@ export class GameHud {
   constructor(
     private readonly root: HTMLElement,
     private readonly onPick: (pick: HudPick) => void,
+    private readonly onCommand: (command: HudCommand) => void,
   ) {
     this.root.classList.add('game-hud')
     this.root.addEventListener('pointerdown', this.onPointerDown)
@@ -141,6 +147,12 @@ export class GameHud {
   private readonly onPointerDown = (event: PointerEvent): void => {
     const target = event.target
     if (!(target instanceof Element)) return
+    const command = target.closest<HTMLButtonElement>('[data-action]')
+    if (command?.dataset.action === 'reset-view') {
+      event.stopPropagation()
+      this.onCommand('reset-view')
+      return
+    }
     const button = target.closest<HTMLButtonElement>('[data-survivor]')
     if (!button?.dataset.survivor) return
     event.stopPropagation()
@@ -158,7 +170,7 @@ function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
   return {
     id: survivor.id,
     name: survivor.name,
-    job: JOB_LABEL[survivor.professionId] ?? survivor.professionId,
+    job: `${PROFESSION_LABEL[survivor.professionId] ?? survivor.professionId}·${postLabel(survivor.dayAssignment)}`,
     status: statusLabel(world, survivor),
     selected: world.player.selectedId === survivor.id,
     live: world.player.controlledId === survivor.id,
@@ -238,6 +250,8 @@ function renderWeaponHud(weapon: HudModel['weapon']): string {
 
 function statusLabel(world: WorldState, survivor: SurvivorState): string {
   if (survivor.downed) return '倒地'
+  if (isSleeping(survivor)) return '睡觉'
+  if (isCooking(world, survivor)) return '做饭'
   if (world.time.phase === 'night' || world.time.phase === 'aftermath') return '守夜'
   switch (survivor.workerState) {
     case 'AcquireEquipment':

@@ -182,6 +182,7 @@ export function createInitialWorld(): WorldState {
     defenseSectors: createDefenseSectors(),
     decorations: loadDecorations(),
     projectiles: [],
+    rosterStrategy: 'balanced',
   }
 
   seedBaseWalls(world)
@@ -225,10 +226,15 @@ function bindContainersToBuildings(world: WorldState): void {
 function assignStarterHomes(world: WorldState): void {
   const quarters = world.structures.find((entry) => entry.definitionId === 'quarters' && entry.stage === 'complete')
   if (!quarters) return
-  const south = approachSouth(world, quarters)
   world.survivors.forEach((survivor, index) => {
-    const offset = (index - (world.survivors.length - 1) / 2) * 1.1
-    survivor.homePosition = { x: south.x + offset, y: 0, z: south.z }
+    const beds = [-2.2, -1.1, 0, 1.1, 2.2]
+    const midXs = quarters.cells.map((cell) => cell.x)
+    const midZs = quarters.cells.map((cell) => cell.z)
+    const mid = cellCenter(world.nav, {
+      x: (Math.min(...midXs) + Math.max(...midXs)) / 2,
+      z: (Math.min(...midZs) + Math.max(...midZs)) / 2,
+    })
+    survivor.homePosition = { x: mid.x + (beds[index] ?? 0), y: 0, z: mid.z + 0.35 }
   })
 }
 

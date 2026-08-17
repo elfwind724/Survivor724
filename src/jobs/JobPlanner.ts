@@ -32,7 +32,10 @@ export function planJobs(world: WorldState): void {
 
   for (const survivor of world.survivors) {
     if (hasActiveJob(world, survivor.currentJobId, survivor.id)) continue
-    if (survivor.dayAssignment !== 'build') continue
+    if (survivor.dayAssignment !== 'cook' && survivor.dayAssignment !== 'build') continue
+    if (survivor.dayAssignment === 'build' && world.survivors.some((entry) => entry.dayAssignment === 'cook' && !entry.downed)) {
+      continue
+    }
     const cook = world.jobs.find(
       (entry) => entry.definitionId === 'cook' && (entry.assigneeId === null || entry.assigneeId === survivor.id) && jobIsActive(world, entry),
     )

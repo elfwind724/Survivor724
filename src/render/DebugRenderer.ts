@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { interiorProps, isCooking, isSleeping, occupiedFacilityIds } from '@/base/FacilityLife'
 import { assetById } from '@/data/assetIndex'
 import { equippedWeapon, WEAPONS } from '@/data/weapons'
 import { ENEMY_ASSETS, STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '@/data/worldDressing'
@@ -159,6 +160,13 @@ export class DebugRenderer {
     this.followEnabled = true
   }
 
+  resetView(): void {
+    this.orbitYaw = 0
+    this.sidePull = 0
+    this.distance = 42
+    this.followEnabled = true
+  }
+
   setBuildPreview(
     world: WorldState,
     cells: GridCell[],
@@ -273,8 +281,11 @@ export class DebugRenderer {
       }
       this.kitSurvivor(survivor)
       const kit = marker.mesh.getObjectByName('kit')
-      marker.mesh.position.set(survivor.position.x, 0, survivor.position.z)
-      marker.mesh.rotation.y = survivor.facingYaw
+      const sleeping = isSleeping(survivor)
+      const cooking = isCooking(world, survivor)
+      const bob = cooking ? 0.05 + Math.sin(world.time.daySeconds * 9) * 0.035 : 0
+      marker.mesh.position.set(survivor.position.x, sleeping ? 0.52 : bob, survivor.position.z)
+      marker.mesh.rotation.set(sleeping ? Math.PI / 2 : 0, survivor.facingYaw, 0)
       this.driveRig(survivor, dt)
       kit?.updateMatrixWorld(true)
       this.syncHeldGun(survivor)
@@ -359,6 +370,7 @@ export class DebugRenderer {
       }
       this.kitStructure(world, structure, marker.mesh, cellSig)
       this.styleStructure(marker.mesh, structure)
+      this.styleFacilityLife(world, structure, marker.mesh)
     }
     for (const [id, marker] of this.structures) {
       if (seen.has(id)) continue
@@ -416,6 +428,64 @@ export class DebugRenderer {
       }
       material.color.set(structure.kind === 'gate' ? 0x8a6a3a : structure.kind === 'building' ? 0x7a5a42 : 0x6b6254)
     }
+  }
+
+  private styleFacilityLife(world: WorldState, structure: StructureState, root: THREE.Object3D): void {
+    if (structure.kind !== 'building' || structure.stage !== 'complete') return
+    const occupied = occupiedFacilityIds(world).has(structure.id)
+    this.ensureInterior(world, structure, root)
+    for (const child of root.children) {
+      if (child.name === 'interior' || child.name === 'steam') child.visible = occupied
+      if (child.name === 'kit') setCutaway(child, occupied)
+    }
+    if (structure.definitionId === 'kitchen') this.pulseKitchen(world, root, occupied)
+  }
+
+  private ensureInterior(world: WorldState, structure: StructureState, root: THREE.Object3D): void {
+    if (root.getObjectByName('interior')) return
+    const props = interiorProps(world, structure)
+    if (props.length === 0) return
+    const group = new THREE.Group()
+    group.name = 'interior'
+    group.visible = false
+    for (const prop of props) {
+      this.enqueueAsset(prop.assetId)
+      const kit = this.spawnKit(prop.assetId, prop.scale)
+      if (!kit) continue
+      kit.position.x += prop.x
+      kit.position.z += prop.z
+      kit.rotation.y = prop.yaw
+      group.add(kit)
+    }
+    if (group.children.length === 0) return
+    root.add(group)
+  }
+
+  private pulseKitchen(world: WorldState, root: THREE.Object3D, occupied: boolean): void {
+    let steam = root.getObjectByName('steam')
+    if (!steam) {
+      const geometry = new THREE.BufferGeometry()
+      const count = 18
+      const positions = new Float32Array(count * 3)
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+      const points = new THREE.Points(
+        geometry,
+        new THREE.PointsMaterial({ color: 0xf0e6d0, size: 0.16, transparent: true, opacity: 0.55, depthWrite: false }),
+      )
+      points.name = 'steam'
+      points.visible = false
+      root.add(points)
+      steam = points
+    }
+    steam.visible = occupied
+    if (!occupied || !(steam instanceof THREE.Points)) return
+    const attr = steam.geometry.getAttribute('position')
+    const t = world.time.daySeconds
+    for (let i = 0; i < attr.count; i += 1) {
+      const rise = ((t * 0.7 + i * 0.17) % 1.6)
+      attr.setXYZ(i, Math.sin(t * 1.7 + i) * 0.28, 1.1 + rise, Math.cos(t * 1.3 + i * 0.6) * 0.22)
+    }
+    attr.needsUpdate = true
   }
 
   private styleGateKit(root: THREE.Object3D, structure: StructureState): void {
@@ -639,6 +709,13 @@ export class DebugRenderer {
       'nature/pine',
       'nature/tree',
       ...WEAPONS.map((weapon) => weapon.assetId),
+      'interior/bed-single',
+      'interior/oven',
+      'interior/kitchen-sink',
+      'interior/table-round-small',
+      'interior/table-round-large',
+      'food/cooking-pot',
+      'food/frying-pan',
     ]
     return ids
   }
@@ -853,6 +930,17 @@ export class DebugRenderer {
   private driveRig(survivor: SurvivorState, dt: number): void {
     const rig = this.rigs.get(survivor.id)
     if (!rig) return
+    if (isSleeping(survivor)) {
+      if (rig.current !== 'idle') {
+        rig.poses[rig.current]?.fadeOut(0.08)
+        rig.poses.idle?.reset().fadeIn(0.08).play()
+        rig.current = 'idle'
+      }
+      rig.lastX = survivor.position.x
+      rig.lastZ = survivor.position.z
+      rig.mixer.update(dt)
+      return
+    }
     const speed = Math.hypot(survivor.position.x - rig.lastX, survivor.position.z - rig.lastZ) / Math.max(dt, 1 / 120)
     rig.lastX = survivor.position.x
     rig.lastZ = survivor.position.z
@@ -946,6 +1034,32 @@ export class DebugRenderer {
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(width, height, false)
   }
+}
+
+function setCutaway(root: THREE.Object3D, on: boolean): void {
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return
+    const materials = Array.isArray(object.material) ? object.material : [object.material]
+    const next = materials.map((material) => {
+      if (!(material instanceof THREE.Material)) return material
+      if (!material.userData.cutawayReady) {
+        const cloned = material.clone()
+        cloned.userData.cutawayReady = true
+        cloned.userData.cutawayOpaque = cloned.transparent
+        cloned.userData.cutawayOpacity = 'opacity' in cloned ? cloned.opacity : 1
+        cloned.userData.cutawayDepth = cloned.depthWrite
+        return cloned
+      }
+      return material
+    })
+    object.material = Array.isArray(object.material) ? next : next[0]!
+    for (const material of next) {
+      if (!(material instanceof THREE.Material)) continue
+      material.transparent = on || Boolean(material.userData.cutawayOpaque)
+      if ('opacity' in material) material.opacity = on ? 0.22 : Number(material.userData.cutawayOpacity ?? 1)
+      material.depthWrite = on ? false : material.userData.cutawayDepth !== false
+    }
+  })
 }
 
 function ghostMaterial(root: THREE.Object3D): void {

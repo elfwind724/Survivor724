@@ -18,6 +18,7 @@ type SurvivorDraft = Omit<
   | 'fireCooldown'
   | 'fireCooldownMax'
   | 'nightPostId'
+  | 'indoorId'
   | 'downed'
   | 'level'
   | 'xp'
@@ -41,6 +42,7 @@ type SurvivorDraft = Omit<
   fireCooldown?: number
   fireCooldownMax?: number
   nightPostId?: string | null
+  indoorId?: string | null
   downed?: boolean
   level?: number
   xp?: number
@@ -69,6 +71,7 @@ export function createSurvivor(input: SurvivorDraft): SurvivorState {
     fireCooldown: input.fireCooldown ?? 0,
     fireCooldownMax: input.fireCooldownMax ?? 0,
     nightPostId: input.nightPostId ?? null,
+    indoorId: input.indoorId ?? null,
     downed: input.downed ?? false,
     level: input.level ?? 1,
     xp: input.xp ?? 0,

@@ -46,7 +46,7 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
       { itemId: 'scrap', count: 4 },
     ],
     buildDuration: 4,
-    blocksNav: true,
+    blocksNav: false,
   },
   {
     id: 'warehouse',
@@ -59,7 +59,7 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
       { itemId: 'scrap', count: 6 },
     ],
     buildDuration: 4,
-    blocksNav: true,
+    blocksNav: false,
   },
   {
     id: 'hall',
@@ -72,7 +72,7 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
       { itemId: 'scrap', count: 8 },
     ],
     buildDuration: 5,
-    blocksNav: true,
+    blocksNav: false,
   },
   {
     id: 'workshop',
@@ -85,7 +85,7 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
       { itemId: 'scrap', count: 10 },
     ],
     buildDuration: 4,
-    blocksNav: true,
+    blocksNav: false,
   },
   {
     id: 'quarters',
@@ -98,7 +98,7 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
       { itemId: 'scrap', count: 4 },
     ],
     buildDuration: 4,
-    blocksNav: true,
+    blocksNav: false,
   },
   {
     id: 'watchtower',

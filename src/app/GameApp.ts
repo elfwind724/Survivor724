@@ -20,6 +20,7 @@ import { BuildMenu } from '@/ui/BuildMenu'
 import { CharacterSheet } from '@/ui/CharacterSheet'
 import { CreativeEditor } from '@/ui/CreativeEditor'
 import { GameHud } from '@/ui/GameHud'
+import { RosterPanel } from '@/ui/RosterPanel'
 import { DefenseBar } from '@/ui/DefenseBar'
 import { Minimap } from '@/ui/Minimap'
 import { GameLoop } from './GameLoop'
@@ -31,6 +32,7 @@ export class GameApp {
   private readonly sheet: CharacterSheet
   private readonly minimap: Minimap
   private readonly buildMenu: BuildMenu
+  private readonly roster: RosterPanel
   private readonly editor: CreativeEditor
   private readonly defenseBar: DefenseBar
   private readonly input = new Input()
@@ -56,6 +58,7 @@ export class GameApp {
     sheetRoot: HTMLElement,
     minimapCanvas: HTMLCanvasElement,
     buildMenuRoot: HTMLElement,
+    rosterRoot: HTMLElement,
     editorRoot: HTMLElement,
     defenseRoot: HTMLElement,
   ) {
@@ -69,9 +72,14 @@ export class GameApp {
         possessSurvivor(this.world, id)
         this.notice = `接管 ${findSurvivor(this.world, id)?.name ?? id}`
       }
+    }, (command) => {
+      if (command === 'reset-view') this.resetView()
     })
     this.sheet = new CharacterSheet(sheetRoot)
     this.minimap = new Minimap(minimapCanvas)
+    this.roster = new RosterPanel(rosterRoot, (notice) => {
+      this.notice = notice
+    })
     this.buildMenu = new BuildMenu(buildMenuRoot, (selected) => {
       this.wallAnchor = null
       if (selected) this.editor.clearBrush()
@@ -135,6 +143,7 @@ export class GameApp {
     this.refreshHud()
     this.minimap.render(this.world)
     this.defenseBar.render(this.world)
+    this.roster.render(this.world)
   }
 
   private controlIntent() {
@@ -179,6 +188,11 @@ export class GameApp {
         this.notice = '已关闭人物面板'
         return
       }
+      if (this.roster.isOpen()) {
+        this.roster.close()
+        this.notice = '已关闭岗位面板'
+        return
+      }
       if (this.editor.isOpen()) {
         this.editor.close()
         this.notice = '已关闭创造栏'
@@ -207,6 +221,10 @@ export class GameApp {
       this.world.player.view = this.world.player.view === 'firstperson' ? 'topdown' : 'firstperson'
     }
     if (event.code === 'KeyB') this.buildMenu.toggle()
+    if (event.code === 'KeyJ') {
+      this.roster.toggle()
+      this.notice = this.roster.isOpen() ? '安排白天岗位，或按策略一键上岗' : '已关闭岗位面板'
+    }
     if (event.code === 'KeyI') this.editor.toggle()
     if (event.code === 'KeyR' && this.editor.getBrush()) {
       this.editor.rotate(event.shiftKey ? -Math.PI / 2 : Math.PI / 2)
@@ -244,10 +262,7 @@ export class GameApp {
         return
       }
     }
-    if (event.code === 'KeyC') {
-      this.renderer.recenter()
-      this.notice = '镜头回到当前角色'
-    }
+    if (event.code === 'KeyC') this.resetView()
     if (event.code === 'KeyE') {
       const actor = this.world.player.controlledId
         ? findSurvivor(this.world, this.world.player.controlledId)
@@ -495,6 +510,12 @@ export class GameApp {
       return
     }
     if (!equippedWeapon(self)) this.notice = '没有装备枪械'
+  }
+
+  private resetView(): void {
+    this.world.player.view = 'topdown'
+    this.renderer.resetView()
+    this.notice = '镜头已复位'
   }
 
   private refreshHud(): void {

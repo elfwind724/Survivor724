@@ -130,6 +130,7 @@ export interface SurvivorState {
   fireCooldown: number
   fireCooldownMax: number
   nightPostId: string | null
+  indoorId: string | null
   downed: boolean
   level: number
   xp: number
@@ -241,6 +242,7 @@ export interface WorldState {
   defenseSectors: DefenseSector[]
   decorations: DecorationState[]
   projectiles: ProjectileState[]
+  rosterStrategy: string | null
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

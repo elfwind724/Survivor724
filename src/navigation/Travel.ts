@@ -1,8 +1,10 @@
+import { leaveFacility } from '@/base/FacilityLife'
 import { cloneVec3, type SurvivorState, type Vec3, type WorldState } from '@/simulation/types'
 import { moveToward } from '@/survivors/Survivor'
 import { findPath } from './AStar'
 
 export function beginTravel(world: WorldState, survivor: SurvivorState, target: Vec3): boolean {
+  leaveFacility(world, survivor)
   const path = findPath(world, survivor.position, target)
   survivor.pathTarget = cloneVec3(target)
   survivor.pathVersion = world.nav.version
