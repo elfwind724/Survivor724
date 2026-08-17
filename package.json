@@ -1,0 +1,25 @@
+{
+  "name": "dawn-bastion",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Dawn Bastion — top-down survivor settlement sim with live NPC labor, dungeon sync, and night defense command.",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "0.20.0",
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.2",
+    "@types/three": "0.185.4",
+    "typescript": "5.9.3",
+    "vite": "7.1.5",
+    "vitest": "3.2.4"
+  }
+}
