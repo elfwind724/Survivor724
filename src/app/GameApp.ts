@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { placeBlueprint, toggleGates } from '@/base/construction'
 import { setWorkZone } from '@/base/workZones'
+import { cameraRelativeWish } from '@/controls/CameraWish'
 import { Input } from '@/controls/Input'
 import { cycleControlled, possessSurvivor, releaseControl } from '@/controls/PlayerControl'
 import { beginTravel } from '@/navigation/Travel'
@@ -83,15 +84,11 @@ export class GameApp {
       }
     }
 
-    const camera = this.renderer.camera
-    const worldForward = camera.getWorldDirection(new THREE.Vector3())
-    const forwardFlat = new THREE.Vector2(worldForward.x, worldForward.z)
-    if (forwardFlat.length() < 1e-4) forwardFlat.set(0, -1)
-    forwardFlat.normalize()
-    const rightFlat = new THREE.Vector2(forwardFlat.y, -forwardFlat.x)
+    const worldForward = this.renderer.camera.getWorldDirection(new THREE.Vector3())
+    const wish = cameraRelativeWish(right, forward, worldForward.x, worldForward.z)
     return {
-      wishX: rightFlat.x * right + forwardFlat.x * forward,
-      wishZ: rightFlat.y * right + forwardFlat.y * forward,
+      wishX: wish.x,
+      wishZ: wish.z,
       faceX: look?.x ?? null,
       faceZ: look?.z ?? null,
       yawDelta: 0,

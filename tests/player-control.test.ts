@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { cycleControlled, possessSurvivor, releaseControl, stepPlayerControl } from '@/controls/PlayerControl'
+import { cameraRelativeWish } from '@/controls/CameraWish'
+import { cycleControlled, possessSurvivor, releaseControl } from '@/controls/PlayerControl'
 import { stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { findSurvivor } from '@/simulation/EntityRegistry'
 
 describe('player control', () => {
+  it('maps D to screen-right when the camera looks north', () => {
+    const wish = cameraRelativeWish(1, 0, 0, -1)
+    expect(wish.x).toBeGreaterThan(0.9)
+    expect(Math.abs(wish.z)).toBeLessThan(0.1)
+  })
+
   it('takes over an existing survivor instead of creating a new character', () => {
     const world = createInitialWorld()
     const before = world.survivors.length
