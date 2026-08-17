@@ -68,13 +68,16 @@ export class DebugRenderer {
   private ensureStatic(world: WorldState): void {
     if (this.extras.length > 0) return
 
-    const warehouse = new THREE.Mesh(
-      new THREE.BoxGeometry(6, 3, 4),
-      new THREE.MeshLambertMaterial({ color: 0x6b6254 }),
-    )
-    warehouse.position.set(0, 1.5, -6)
-    this.scene.add(warehouse)
-    this.extras.push(warehouse)
+    for (const container of world.containers) {
+      const isLocker = container.kind === 'tool_locker'
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(isLocker ? 3 : 6, isLocker ? 2 : 3, isLocker ? 2 : 4),
+        new THREE.MeshLambertMaterial({ color: isLocker ? 0x8a6a3a : 0x6b6254 }),
+      )
+      mesh.position.set(container.position.x, isLocker ? 1 : 1.5, container.position.z)
+      this.scene.add(mesh)
+      this.extras.push(mesh)
+    }
 
     for (const node of world.nodes) {
       const mesh = new THREE.Mesh(

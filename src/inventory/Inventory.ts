@@ -23,6 +23,36 @@ export function addItem(inventory: InventoryState, itemId: string, count: number
   return true
 }
 
+export function countItem(inventory: InventoryState, itemId: string): number {
+  return inventory.items.find((item) => item.itemId === itemId)?.count ?? 0
+}
+
+export function hasItem(inventory: InventoryState, itemId: string, count = 1): boolean {
+  return countItem(inventory, itemId) >= count
+}
+
+export function removeItem(inventory: InventoryState, itemId: string, count: number): boolean {
+  const existing = inventory.items.find((item) => item.itemId === itemId)
+  if (!existing || existing.count < count) return false
+  existing.count -= count
+  if (existing.count === 0) {
+    inventory.items = inventory.items.filter((item) => item.itemId !== itemId)
+  }
+  return true
+}
+
+export function transferItem(
+  from: InventoryState,
+  to: InventoryState,
+  itemId: string,
+  count: number,
+): boolean {
+  if (!hasItem(from, itemId, count) || !canAdd(to, count)) return false
+  removeItem(from, itemId, count)
+  addItem(to, itemId, count)
+  return true
+}
+
 export function inventoryOf(inventories: Record<string, InventoryState>, id: string): InventoryState {
   const inventory = inventories[id]
   if (!inventory) throw new Error(`Missing inventory ${id}`)

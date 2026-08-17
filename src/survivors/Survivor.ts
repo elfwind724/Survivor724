@@ -1,10 +1,27 @@
 import { cloneVec3, type SurvivorState, type Vec3 } from '@/simulation/types'
 
-export function createSurvivor(input: Omit<SurvivorState, 'destination'> & { destination?: Vec3 | null }): SurvivorState {
+type SurvivorDraft = Omit<
+  SurvivorState,
+  'destination' | 'homePosition' | 'workElapsed' | 'carriedTools' | 'returnFill' | 'blockedReason'
+> & {
+  destination?: Vec3 | null
+  homePosition?: Vec3
+  workElapsed?: number
+  carriedTools?: string[]
+  returnFill?: number
+  blockedReason?: SurvivorState['blockedReason']
+}
+
+export function createSurvivor(input: SurvivorDraft): SurvivorState {
   return {
     ...input,
     position: cloneVec3(input.position),
     destination: input.destination ? cloneVec3(input.destination) : null,
+    homePosition: cloneVec3(input.homePosition ?? input.position),
+    workElapsed: input.workElapsed ?? 0,
+    carriedTools: [...(input.carriedTools ?? [])],
+    returnFill: input.returnFill ?? 1,
+    blockedReason: input.blockedReason ?? null,
   }
 }
 

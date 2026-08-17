@@ -10,3 +10,9 @@ export const JOB_DEFINITIONS: readonly JobDefinition[] = [
   { id: 'fish', category: 'field', requiredTools: ['rod'], outputItemId: 'raw_fish' },
   { id: 'scavenge', category: 'field', requiredTools: ['crowbar'], outputItemId: 'scrap' },
 ]
+
+export const WORK_SECONDS = 4
+
+export function jobDefinition(id: string): JobDefinition | undefined {
+  return JOB_DEFINITIONS.find((entry) => entry.id === id)
+}

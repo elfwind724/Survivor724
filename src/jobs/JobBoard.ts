@@ -14,5 +14,7 @@ export function assignJob(world: WorldState, jobId: string, survivorId: string):
   if (!job || !survivor) return
   job.assigneeId = survivorId
   survivor.currentJobId = jobId
-  if (survivor.workerState === 'Idle') survivor.workerState = 'TravelToTarget'
+  if (survivor.workerState === 'Idle' || survivor.workerState === 'RestOrNextJob') {
+    survivor.workerState = 'AcquireEquipment'
+  }
 }
