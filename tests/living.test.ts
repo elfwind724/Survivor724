@@ -4,7 +4,7 @@ import { countItem } from '@/inventory/Inventory'
 import { worldToCell } from '@/navigation/NavGrid'
 import { stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
-import { eatAtBase } from '@/survivors/Living'
+import { eatAtBase, eatOne } from '@/survivors/Living'
 
 const DT = 1 / 30
 
@@ -14,18 +14,44 @@ function simulate(world: ReturnType<typeof createInitialWorld>, seconds: number)
 }
 
 describe('living loop', () => {
-  it('feeds people at the warehouse when dusk starts', () => {
+  it('feeds a survivor standing at the dining spot', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    const warehouse = world.inventories['inv-warehouse']
+    const store = world.containers.find((entry) => entry.kind === 'warehouse')
+    if (!hunter || !warehouse || !store) throw new Error('missing hunter')
+    hunter.hunger = 40
+    hunter.thirst = 40
+    hunter.position = { ...store.position }
+    const meals = countItem(warehouse, 'meal')
+    expect(eatAtBase(world)).toBeGreaterThan(0)
+    expect(eatOne(world, hunter)).toBe(true)
+    expect(hunter.hunger).toBeGreaterThan(70)
+    expect(countItem(warehouse, 'meal')).toBe(meals - 2)
+  })
+
+  it('walks hungry people to the warehouse to eat, then home to rest', () => {
     const world = createInitialWorld()
     const hunter = world.survivors.find((entry) => entry.id === 'hunter')
     const warehouse = world.inventories['inv-warehouse']
     if (!hunter || !warehouse) throw new Error('missing hunter')
     hunter.hunger = 40
     hunter.thirst = 40
+    hunter.fatigue = 40
     hunter.position = { x: 0, y: 0, z: 0 }
-    warehouse.items.push({ itemId: 'meal', count: 1 })
-    expect(eatAtBase(world)).toBeGreaterThan(0)
+    hunter.workerState = 'Idle'
+    hunter.destination = null
+    hunter.path = []
+    world.time.daySeconds = 60 + 11 * 60 + 10
+    world.time.phase = 'dusk'
+    world.lastPhase = 'dusk'
+    const meals = countItem(warehouse, 'meal')
+    simulate(world, 20)
     expect(hunter.hunger).toBeGreaterThan(70)
-    expect(countItem(warehouse, 'meal')).toBe(0)
+    expect(countItem(warehouse, 'meal')).toBeLessThan(meals)
+    expect(['Rest', 'Eat', 'RestOrNextJob']).toContain(hunter.workerState)
+    simulate(world, 12)
+    expect(hunter.fatigue).toBeLessThan(40)
   })
 
   it('hurts survivors still in the field when night falls', () => {

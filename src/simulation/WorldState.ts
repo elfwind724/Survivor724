@@ -29,6 +29,7 @@ export function createInitialWorld(): WorldState {
     { itemId: 'work_cap', count: 1 },
     { itemId: 'boots', count: 2 },
     { itemId: 'pistol', count: 1 },
+    { itemId: 'meal', count: 6 },
   ])
   const lockerInv = createInventory('inv-locker', 28, [
     { itemId: 'rifle', count: 1 },

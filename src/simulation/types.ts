@@ -15,6 +15,8 @@ export type DayWorkerState =
   | 'ReturnToBase'
   | 'DepositItems'
   | 'ReturnEquipment'
+  | 'Eat'
+  | 'Rest'
   | 'RestOrNextJob'
 
 export type WorkerBlockedReason = 'missing_tool' | 'warehouse_full' | 'route_blocked' | null

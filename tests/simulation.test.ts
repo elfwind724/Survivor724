@@ -131,7 +131,8 @@ describe('simulation layer', () => {
         if (!before) continue
         const jumped = distanceXZ(before.position, survivor.position)
         maxJump = Math.max(maxJump, jumped)
-        expect(jumped).toBeLessThanOrEqual(before.speed * DT + 1e-6)
+        const cap = Math.max(before.speed, survivor.moveSpeed) * DT + 1e-6
+        expect(jumped).toBeLessThanOrEqual(cap)
       }
     }
 

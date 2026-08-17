@@ -8,6 +8,7 @@ import { WORK_SECONDS, jobDefinition } from '@/data/jobs'
 import { addItem, canAdd, countItem, inventoryOf, removeItem, usedSlots } from '@/inventory/Inventory'
 import { beginTravel, followTravel } from '@/navigation/Travel'
 import { findContainer, findJob, findNode } from '@/simulation/EntityRegistry'
+import { diningSpot, eatOne, EAT_SECONDS, shouldEat } from '@/survivors/Living'
 import { distanceXZ, type DayPhase, type SurvivorState, type WorldState } from '@/simulation/types'
 
 export function isWorkPhase(phase: DayPhase): boolean {
@@ -72,6 +73,12 @@ export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: nu
     case 'ReturnEquipment':
       stepReturnEquipment(world, survivor, dt)
       break
+    case 'Eat':
+      stepEat(world, survivor, dt)
+      break
+    case 'Rest':
+      stepRest(world, survivor, dt)
+      break
     default:
       break
   }
@@ -92,18 +99,31 @@ function startNextAction(world: WorldState, survivor: SurvivorState): void {
       goToLocker(world, survivor, 'ReturnEquipment')
       return
     }
-    goHome(world, survivor)
+    if (shouldEat(world, survivor)) {
+      beginEat(world, survivor)
+      return
+    }
+    beginRest(world, survivor)
     return
   }
 
   const job = currentJob(world, survivor)
-  if (!job) return
+  if (!job) {
+    if (shouldEat(world, survivor)) beginEat(world, survivor)
+    else beginRest(world, survivor)
+    return
+  }
 
   const definition = jobDefinition(job.definitionId)
   if (!definition) return
 
   if (definition.requiredTools.length > 0 && !hasRequiredTools(survivor, definition.id)) {
     goToLocker(world, survivor, 'AcquireEquipment')
+    return
+  }
+
+  if (shouldEat(world, survivor)) {
+    beginEat(world, survivor)
     return
   }
 
@@ -414,7 +434,7 @@ function stepDeposit(world: WorldState, survivor: SurvivorState): void {
   if (survivor.blockedReason !== 'missing_tool') survivor.blockedReason = null
   if (isReturnPhase(world.time.phase)) {
     if (hasJobToolsToReturn(survivor)) goToLocker(world, survivor, 'ReturnEquipment')
-    else goHome(world, survivor)
+    else startNextAction(world, survivor)
     return
   }
   startNextAction(world, survivor)
@@ -437,7 +457,8 @@ function stepReturnEquipment(world: WorldState, survivor: SurvivorState, dt: num
   }
   survivor.carriedTools = kept
   clearJobTools(survivor, returned)
-  goHome(world, survivor)
+  survivor.workerState = 'RestOrNextJob'
+  startNextAction(world, survivor)
 }
 
 function goToLocker(
@@ -454,6 +475,47 @@ function goToLocker(
 function goHome(world: WorldState, survivor: SurvivorState): void {
   survivor.workerState = 'RestOrNextJob'
   beginTravel(world, survivor, survivor.homePosition)
+}
+
+function beginEat(world: WorldState, survivor: SurvivorState): void {
+  survivor.workerState = 'Eat'
+  survivor.workElapsed = 0
+  beginTravel(world, survivor, diningSpot(world))
+}
+
+function beginRest(world: WorldState, survivor: SurvivorState): void {
+  survivor.workerState = 'Rest'
+  beginTravel(world, survivor, survivor.homePosition)
+}
+
+function stepEat(world: WorldState, survivor: SurvivorState, dt: number): void {
+  if (!followTravel(world, survivor, dt)) return
+  const spot = diningSpot(world)
+  if (distanceXZ(survivor.position, spot) > 2.6) {
+    beginTravel(world, survivor, spot)
+    return
+  }
+  survivor.destination = null
+  survivor.path = []
+  survivor.workElapsed += dt
+  if (survivor.workElapsed < EAT_SECONDS) return
+  eatOne(world, survivor)
+  survivor.workElapsed = 0
+  if (isWorkPhase(world.time.phase)) {
+    survivor.workerState = 'RestOrNextJob'
+    startNextAction(world, survivor)
+    return
+  }
+  beginRest(world, survivor)
+}
+
+function stepRest(world: WorldState, survivor: SurvivorState, dt: number): void {
+  if (!followTravel(world, survivor, dt)) return
+  survivor.destination = null
+  survivor.path = []
+  survivor.fatigue = Math.max(0, survivor.fatigue - 8 * dt)
+  survivor.morale = Math.min(100, survivor.morale + 1.4 * dt)
+  if (isWorkPhase(world.time.phase)) survivor.workerState = 'RestOrNextJob'
 }
 
 function warehousePosition(world: WorldState, survivor: SurvivorState) {

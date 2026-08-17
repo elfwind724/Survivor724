@@ -21,7 +21,7 @@ export function stepWorld(world: WorldState, dt: number, intent: ControlIntent |
     stepPlayerControl(world, dt, intent)
     if (self) harvestWildlife(world, self)
   }
-  const nightWatch = world.time.phase === 'night' || world.time.phase === 'aftermath'
+  const nightWatch = world.time.phase === 'night'
   for (const survivor of world.survivors) {
     if (survivor.id === world.player.controlledId) continue
     if (nightWatch) stepNightDefender(world, survivor, dt)

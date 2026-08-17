@@ -254,6 +254,10 @@ function statusLabel(world: WorldState, survivor: SurvivorState): string {
       return '卸货'
     case 'ReturnEquipment':
       return '还工具'
+    case 'Eat':
+      return '吃饭'
+    case 'Rest':
+      return '休息'
     default:
       return '待命'
   }
