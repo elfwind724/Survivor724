@@ -5,6 +5,7 @@ import { assignJob, createJob } from './JobBoard'
 
 export function planJobs(world: WorldState): void {
   planConstructionJobs(world)
+  planKitchenJobs(world)
   dropStaleConstructionJobs(world)
 
   for (const job of world.jobs) {
@@ -27,6 +28,15 @@ export function planJobs(world: WorldState): void {
         jobIsActive(world, entry),
     )
     if (job) assignJob(world, job.id, survivor.id)
+  }
+
+  for (const survivor of world.survivors) {
+    if (hasActiveJob(world, survivor.currentJobId, survivor.id)) continue
+    if (survivor.dayAssignment !== 'build') continue
+    const cook = world.jobs.find(
+      (entry) => entry.definitionId === 'cook' && (entry.assigneeId === null || entry.assigneeId === survivor.id) && jobIsActive(world, entry),
+    )
+    if (cook) assignJob(world, cook.id, survivor.id)
   }
 }
 
@@ -61,7 +71,38 @@ function dropStaleConstructionJobs(world: WorldState): void {
   }
 }
 
+function planKitchenJobs(world: WorldState): void {
+  const kitchen = world.structures.find((structure) => structure.definitionId === 'kitchen' && structure.stage === 'complete')
+  if (!kitchen || !cookHasWork(world)) {
+    world.jobs = world.jobs.filter((job) => job.definitionId !== 'cook')
+    return
+  }
+  const existing = world.jobs.find((job) => job.definitionId === 'cook')
+  if (existing) {
+    existing.targetId = kitchen.id
+    return
+  }
+  world.jobs.push(createJob({
+    id: `cook-${kitchen.id}`,
+    definitionId: 'cook',
+    targetId: kitchen.id,
+    assigneeId: null,
+  }))
+}
+
+function cookHasWork(world: WorldState): boolean {
+  const warehouse = world.inventories['inv-warehouse']
+  if (warehouse && warehouse.items.some((item) => (item.itemId === 'raw_meat' || item.itemId === 'raw_fish') && item.count > 0)) {
+    return true
+  }
+  return world.survivors.some((survivor) => {
+    const bag = world.inventories[survivor.inventoryId]
+    return !!bag && bag.items.some((item) => (item.itemId === 'raw_meat' || item.itemId === 'raw_fish' || item.itemId === 'meal') && item.count > 0)
+  })
+}
+
 function jobIsActive(world: WorldState, job: JobRecord): boolean {
+  if (job.definitionId === 'cook') return cookHasWork(world)
   if (job.definitionId !== 'haul' && job.definitionId !== 'build') return true
   const structure = findStructure(world, job.targetId)
   if (!structure || structure.stage === 'complete') return false

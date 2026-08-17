@@ -4,6 +4,7 @@ import { type ControlIntent, stepPlayerControl } from '@/controls/PlayerControl'
 import { stepDayWorker } from '@/jobs/DayWorker'
 import { planJobs } from '@/jobs/JobPlanner'
 import { rebuildNav } from '@/navigation/NavGrid'
+import { stepLiving } from '@/survivors/Living'
 import { stepVitals } from '@/survivors/Vitals'
 import { advanceTime } from './TimeSystem'
 import type { WorldState } from './types'
@@ -11,6 +12,7 @@ import type { WorldState } from './types'
 export function stepWorld(world: WorldState, dt: number, intent: ControlIntent | null = null): void {
   advanceTime(world, dt)
   if (world.navDirty) rebuildNav(world)
+  stepLiving(world)
   stepNightCycle(world)
   planJobs(world)
   tickCooldowns(world, dt)

@@ -44,6 +44,7 @@ export function stepNightCycle(world: WorldState): void {
 
 export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt: number): void {
   if (survivor.downed) return
+  if (restockNightAmmo(world, survivor, dt)) return
   const post = world.nightPosts.find((entry) => entry.id === survivor.nightPostId) ?? assignOnePost(world, survivor)
   if (!post) return
   if (distanceXZ(survivor.position, post.position) > 1.4) {
@@ -106,6 +107,24 @@ function assignOnePost(world: WorldState, survivor: SurvivorState): NightPost | 
   post.occupantId = survivor.id
   survivor.nightPostId = post.id
   return post
+}
+
+function restockNightAmmo(world: WorldState, survivor: SurvivorState, dt: number): boolean {
+  if (survivor.ammo > 0) return false
+  const warehouse = findContainer(world, 'warehouse')
+  if (!warehouse) return false
+  const stock = inventoryOf(world.inventories, warehouse.inventoryId)
+  if (countItem(stock, 'ammo') <= 0) return false
+  if (distanceXZ(survivor.position, warehouse.position) > 2) {
+    if (!survivor.destination) beginTravel(world, survivor, warehouse.position)
+    followTravel(world, survivor, dt)
+    return true
+  }
+  const take = Math.min(12, countItem(stock, 'ammo'))
+  if (take > 0 && removeItem(stock, 'ammo', take)) survivor.ammo += take
+  const post = world.nightPosts.find((entry) => entry.id === survivor.nightPostId)
+  if (post) beginTravel(world, survivor, post.position)
+  return true
 }
 
 function issueNightAmmo(world: WorldState): void {

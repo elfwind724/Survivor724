@@ -65,7 +65,7 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
       { id: 'wood', label: '木', count: warehouse ? countItem(warehouse, 'wood') : 0 },
       { id: 'scrap', label: '铁', count: warehouse ? countItem(warehouse, 'scrap') : 0 },
       { id: 'ammo', label: '弹', count: warehouse ? countItem(warehouse, 'ammo') : 0 },
-      { id: 'food', label: '食', count: warehouse ? countItem(warehouse, 'raw_meat') + countItem(warehouse, 'raw_fish') : 0 },
+      { id: 'food', label: '食', count: warehouse ? countItem(warehouse, 'raw_meat') + countItem(warehouse, 'raw_fish') + countItem(warehouse, 'meal') : 0 },
     ],
     cards: world.survivors.map((survivor) => cardModel(world, survivor)),
   }
@@ -192,7 +192,7 @@ function statusLabel(world: WorldState, survivor: SurvivorState): string {
     case 'TravelToTarget':
       return '赶路'
     case 'Work':
-      return '工作'
+      return survivor.currentJobId?.startsWith('cook') ? '做饭' : '工作'
     case 'CollectOutput':
       return '收货'
     case 'ReturnToBase':

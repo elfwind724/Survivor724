@@ -4,7 +4,7 @@ import { clearJobTools, syncToolsToEquipment } from '@/survivors/Equipment'
 import { harvestWildlife, tryShoot } from '@/combat/Combat'
 import { nodeAllowedForSurvivor } from '@/base/workZones'
 import { WORK_SECONDS, jobDefinition } from '@/data/jobs'
-import { addItem, canAdd, inventoryOf, removeItem, usedSlots } from '@/inventory/Inventory'
+import { addItem, canAdd, countItem, inventoryOf, removeItem, usedSlots } from '@/inventory/Inventory'
 import { beginTravel, followTravel } from '@/navigation/Travel'
 import { findContainer, findJob, findNode } from '@/simulation/EntityRegistry'
 import { distanceXZ, type DayPhase, type SurvivorState, type WorldState } from '@/simulation/types'
@@ -58,6 +58,7 @@ export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: nu
       break
     case 'CollectOutput':
       if (definition?.id === 'haul') stepHaulCollect(world, survivor)
+      else if (definition?.id === 'cook') stepCookCollect(world, survivor)
       else stepCollect(world, survivor)
       break
     case 'ReturnToBase':
@@ -109,6 +110,19 @@ function startNextAction(world: WorldState, survivor: SurvivorState): void {
     }
     const bag = inventoryOf(world.inventories, survivor.inventoryId)
     const target = usedSlots(bag) > 0 ? sitePosition(world, structure) : warehousePosition(world, survivor)
+    if (beginTravel(world, survivor, target)) survivor.workerState = 'TravelToTarget'
+    return
+  }
+
+  if (definition.id === 'cook') {
+    const kitchen = findStructure(world, job.targetId)
+    if (!kitchen || kitchen.stage !== 'complete') {
+      goHome(world, survivor)
+      return
+    }
+    const bag = inventoryOf(world.inventories, survivor.inventoryId)
+    const hasRaw = bag.items.some((item) => item.itemId === 'raw_meat' || item.itemId === 'raw_fish')
+    const target = hasRaw ? sitePosition(world, kitchen) : warehousePosition(world, survivor)
     if (beginTravel(world, survivor, target)) survivor.workerState = 'TravelToTarget'
     return
   }
@@ -168,8 +182,13 @@ function stepTravel(world: WorldState, survivor: SurvivorState, dt: number): voi
   if (!followTravel(world, survivor, dt)) return
   const job = currentJob(world, survivor)
   const definition = job ? jobDefinition(job.definitionId) : undefined
-  if (definition?.id === 'haul') {
+  if (definition?.id === 'haul' || definition?.id === 'cook') {
     const bag = inventoryOf(world.inventories, survivor.inventoryId)
+    const hasRaw = bag.items.some((item) => item.itemId === 'raw_meat' || item.itemId === 'raw_fish')
+    if (definition.id === 'cook') {
+      survivor.workerState = hasRaw ? 'Work' : 'CollectOutput'
+      return
+    }
     survivor.workerState = usedSlots(bag) > 0 ? 'DepositItems' : 'CollectOutput'
     return
   }
@@ -246,6 +265,45 @@ function stepCollect(world: WorldState, survivor: SurvivorState): void {
   }
 
   survivor.workerState = 'Work'
+}
+
+function stepCookCollect(world: WorldState, survivor: SurvivorState): void {
+  const job = currentJob(world, survivor)
+  const kitchen = job ? findStructure(world, job.targetId) : undefined
+  const warehouse = findContainer(world, 'warehouse')
+  if (!job || !kitchen || kitchen.stage !== 'complete' || !warehouse) {
+    goHome(world, survivor)
+    return
+  }
+
+  const bag = inventoryOf(world.inventories, survivor.inventoryId)
+  const stock = inventoryOf(world.inventories, warehouse.inventoryId)
+  if (countItem(bag, 'raw_meat') > 0 || countItem(bag, 'raw_fish') > 0) {
+    const raw = countItem(bag, 'raw_meat') > 0 ? 'raw_meat' : 'raw_fish'
+    if (removeItem(bag, raw, 1)) addItem(bag, 'meal', 1)
+    if (shouldReturn(world, survivor) || (countItem(stock, 'raw_meat') + countItem(stock, 'raw_fish') <= 0 && countItem(bag, 'raw_meat') + countItem(bag, 'raw_fish') <= 0)) {
+      beginReturn(world, survivor)
+      return
+    }
+    if (beginTravel(world, survivor, warehouse.position)) survivor.workerState = 'TravelToTarget'
+    return
+  }
+
+  const space = bag.capacity - usedSlots(bag)
+  let take = Math.min(2, space)
+  for (const raw of ['raw_meat', 'raw_fish'] as const) {
+    if (take <= 0) break
+    const have = countItem(stock, raw)
+    const moved = Math.min(take, have)
+    if (moved <= 0) continue
+    if (removeItem(stock, raw, moved)) addItem(bag, raw, moved)
+    take -= moved
+  }
+  if (countItem(bag, 'raw_meat') + countItem(bag, 'raw_fish') <= 0) {
+    goHome(world, survivor)
+    return
+  }
+  if (beginTravel(world, survivor, sitePosition(world, kitchen))) survivor.workerState = 'TravelToTarget'
 }
 
 function stepHaulCollect(world: WorldState, survivor: SurvivorState): void {

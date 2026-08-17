@@ -11,6 +11,7 @@ export const JOB_DEFINITIONS: readonly JobDefinition[] = [
   { id: 'scavenge', category: 'field', requiredTools: ['crowbar'], outputItemId: 'scrap' },
   { id: 'haul', category: 'base', requiredTools: [], outputItemId: '' },
   { id: 'build', category: 'base', requiredTools: ['hammer'], outputItemId: '' },
+  { id: 'cook', category: 'base', requiredTools: [], outputItemId: 'meal' },
 ]
 
 export const WORK_SECONDS = 4
