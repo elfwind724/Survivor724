@@ -826,8 +826,7 @@ export class DebugRenderer {
       const kit = marker.mesh.getObjectByName('kit')
       const fallback = marker.mesh.getObjectByName('fallback')
       if (fallback) fallback.visible = !kit
-      if (enemy.hitFlash > 0) marker.mesh.scale.setScalar(1.08)
-      else marker.mesh.scale.setScalar(1)
+      marker.mesh.scale.setScalar(1)
     }
     for (const [id, marker] of this.enemies) {
       if (seen.has(id)) continue
@@ -1224,30 +1223,33 @@ export class DebugRenderer {
   }
 
   private markEnemy(root: THREE.Object3D, hitFlash: number): void {
+    const leftover = root.getObjectByName('threat-box')
+    if (leftover) leftover.removeFromParent()
     let ring = root.getObjectByName('threat')
     if (!ring) {
       ring = new THREE.Mesh(
-        new THREE.RingGeometry(0.52, 0.78, 22),
-        new THREE.MeshBasicMaterial({ color: 0xff2a18, side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.95 }),
+        new THREE.RingGeometry(0.34, 0.46, 28),
+        new THREE.MeshBasicMaterial({
+          color: 0xff2a18,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          transparent: true,
+          opacity: 0.8,
+        }),
       )
       ring.rotation.x = -Math.PI / 2
-      ring.position.y = 0.07
+      ring.position.y = 0.04
       ring.name = 'threat'
       ring.renderOrder = 28
       root.add(ring)
-      const box = new THREE.LineSegments(
-        new THREE.EdgesGeometry(new THREE.BoxGeometry(0.95, 2.35, 0.72)),
-        new THREE.LineBasicMaterial({ color: 0xff3a22, depthTest: false }),
-      )
-      box.position.y = 1.18
-      box.name = 'threat-box'
-      box.renderOrder = 29
-      root.add(box)
     }
-    const pulse = hitFlash > 0 ? 1.25 + hitFlash * 2 : 1
+    const pulse = hitFlash > 0 ? 1.18 : 1
     ring.scale.set(pulse, pulse, 1)
     const material = ring instanceof THREE.Mesh ? ring.material : null
-    if (material instanceof THREE.MeshBasicMaterial) material.color.set(hitFlash > 0 ? 0xfff1c8 : 0xff2a18)
+    if (material instanceof THREE.MeshBasicMaterial) {
+      material.color.set(hitFlash > 0 ? 0xfff1c8 : 0xff2a18)
+      material.opacity = hitFlash > 0 ? 0.95 : 0.8
+    }
   }
 
   private syncFireLights(world: WorldState): void {
