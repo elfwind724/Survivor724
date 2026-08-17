@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
-import { findHoldBone, heldGunLength, prepareHeldGun, snapHeldGun } from '@/render/HeldWeapon'
+import { attachHeldGun, findHoldBone, heldGunLength, prepareHeldGun } from '@/render/HeldWeapon'
 import { fitHeldGun, fitToHeight } from '@/render/ModelFit'
 
 describe('model fit', () => {
@@ -23,25 +23,33 @@ describe('model fit', () => {
     expect(Math.max(size.x, size.y, size.z)).toBeCloseTo(0.82, 2)
   })
 
-  it('snaps a recentered gun to the wrist in character space', () => {
+  it('puts the grip at the origin and parents the gun to WristR', () => {
+    const raw = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.3, 4))
+    raw.position.set(0, -0.8, 0.4)
+    const held = prepareHeldGun(raw)
+    held.updateMatrixWorld(true)
+    const prepared = new THREE.Box3().setFromObject(held)
+    const center = prepared.getCenter(new THREE.Vector3())
+    expect(Math.max(prepared.max.x - prepared.min.x, prepared.max.y - prepared.min.y, prepared.max.z - prepared.min.z)).toBeCloseTo(1, 2)
+    expect(Math.abs(center.x)).toBeLessThan(0.2)
+    expect(Math.abs(center.y)).toBeLessThan(0.3)
+    expect(Math.abs(center.z)).toBeLessThan(0.3)
+
     const root = new THREE.Group()
     const wrist = new THREE.Bone()
     wrist.name = 'WristR'
     wrist.position.set(-0.22, 1.04, 0.14)
     root.add(wrist)
     expect(findHoldBone(root)?.name).toBe('WristR')
-    const raw = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.3, 4))
-    raw.position.set(0, -0.2, 0)
-    const held = prepareHeldGun(raw)
     root.updateMatrixWorld(true)
-    snapHeldGun(root, wrist, held, 'pistol')
+    attachHeldGun(wrist, held, 'pistol')
     root.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(held)
-    const size = box.getSize(new THREE.Vector3())
-    expect(held.parent).toBe(root)
+    expect(held.parent).toBe(wrist)
     expect(heldGunLength('pistol')).toBeLessThan(heldGunLength('rifle'))
-    expect(Math.max(size.x, size.y, size.z)).toBeCloseTo(heldGunLength('pistol'), 2)
-    expect(held.position.y).toBeGreaterThan(0.9)
     expect(held.visible).toBe(true)
+    const world = new THREE.Vector3()
+    held.getWorldPosition(world)
+    expect(world.y).toBeGreaterThan(0.9)
+    expect(world.distanceTo(wrist.position)).toBeLessThan(0.2)
   })
 })

@@ -7,7 +7,7 @@ import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, SurvivorState, WorldState } from '@/simulation/types'
 import { AssetLibrary } from './AssetLibrary'
 import { pickArmedPose, pickCharacterClip, type CharacterPose } from './CharacterClips'
-import { findHoldBone, prepareHeldGun, snapHeldGun } from './HeldWeapon'
+import { attachHeldGun, findHoldBone, prepareHeldGun } from './HeldWeapon'
 import { fitToHeight, prepareKit, suggestedScale, SURVIVOR_HEIGHT } from './ModelFit'
 
 interface Marker {
@@ -270,6 +270,7 @@ export class DebugRenderer {
       marker.mesh.position.set(survivor.position.x, 0, survivor.position.z)
       marker.mesh.rotation.y = survivor.facingYaw
       this.driveRig(survivor, dt)
+      kit?.updateMatrixWorld(true)
       this.syncHeldGun(survivor)
       const fallback = marker.mesh.getObjectByName('fallback')
       if (fallback instanceof THREE.Mesh && fallback.material instanceof THREE.MeshLambertMaterial) {
@@ -653,7 +654,7 @@ export class DebugRenderer {
     const kit = marker.mesh.getObjectByName('kit')
     const hand = kit ? findHoldBone(kit) : null
     if (existing && existing.userData.weaponAsset === want && weapon && hand) {
-      snapHeldGun(marker.mesh, hand, existing, weapon.id)
+      attachHeldGun(hand, existing, weapon.id)
       return
     }
     if (existing) existing.removeFromParent()
@@ -664,7 +665,7 @@ export class DebugRenderer {
     const gun = prepareHeldGun(raw)
     gun.name = 'held-gun'
     gun.userData.weaponAsset = weapon.assetId
-    snapHeldGun(marker.mesh, hand, gun, weapon.id)
+    attachHeldGun(hand, gun, weapon.id)
   }
 
   private syncViewGun(world: WorldState): void {
