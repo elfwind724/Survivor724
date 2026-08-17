@@ -77,6 +77,10 @@ export class GameApp {
       }
     }, (command) => {
       if (command === 'reset-view') this.resetView()
+      if (command === 'toggle-interiors') {
+        this.world.showInteriors = !this.world.showInteriors
+        this.notice = this.world.showInteriors ? '已切换到房屋内部' : '已显示房屋整体'
+      }
     })
     this.sheet = new CharacterSheet(sheetRoot)
     this.minimap = new Minimap(minimapCanvas)

@@ -19,10 +19,10 @@ export function seedOutdoorScenery(): DecorationState[] {
     })
   }
 
-  add('fort/mountain', 92, -48, 0.4, 46)
-  add('fort/mountain-2', -96, 18, 1.1, 46)
-  add('fort/mountains', 24, 98, 0.2, 46)
-  add('fort/mountain-group', -70, -80, 2.2, 46)
+  add('fort/mountain', 118, -78, 0.4, 12)
+  add('fort/mountain-2', -122, 36, 1.1, 11)
+  add('fort/mountains', 48, 128, 0.2, 13)
+  add('fort/mountain-group', -108, -108, 2.2, 12)
 
   add('natureClump/pine-trees', 58, -22, 0.3, 1.12)
   add('natureClump/trees', 48, -32, 1.4, 1.12)

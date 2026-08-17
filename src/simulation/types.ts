@@ -254,6 +254,7 @@ export interface WorldState {
   projectiles: ProjectileState[]
   impacts: ImpactState[]
   rosterStrategy: string | null
+  showInteriors: boolean
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

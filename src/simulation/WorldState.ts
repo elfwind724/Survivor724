@@ -186,6 +186,7 @@ export function createInitialWorld(): WorldState {
     projectiles: [],
     impacts: [],
     rosterStrategy: 'balanced',
+    showInteriors: true,
   }
 
   seedBaseWalls(world)
@@ -235,7 +236,7 @@ function assignStarterHomes(world: WorldState): void {
   const quarters = world.structures.find((entry) => entry.definitionId === 'quarters' && entry.stage === 'complete')
   if (!quarters) return
   world.survivors.forEach((survivor, index) => {
-    const beds = [-2.2, -1.1, 0, 1.1, 2.2]
+    const beds = [-3.2, -1.6, 0, 1.6, 3.2]
     const midXs = quarters.cells.map((cell) => cell.x)
     const midZs = quarters.cells.map((cell) => cell.z)
     const mid = cellCenter(world.nav, {

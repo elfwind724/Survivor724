@@ -11,7 +11,7 @@ export interface HudPick {
   kind: 'select' | 'possess'
 }
 
-export type HudCommand = 'reset-view'
+export type HudCommand = 'reset-view' | 'toggle-interiors'
 
 interface HudStock {
   id: string
@@ -49,6 +49,7 @@ export interface HudModel {
   notice: string
   warning: string
   sites: number
+  interiors: boolean
   stocks: HudStock[]
   cards: HudCard[]
   weapon: {
@@ -77,6 +78,7 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
     notice,
     warning: duskWarningText(duskWarningLevel(world)),
     sites: world.structures.filter((structure) => structure.stage !== 'complete').length,
+    interiors: world.showInteriors,
     stocks: [
       { id: 'wood', label: '木', count: warehouse ? countItem(warehouse, 'wood') : 0 },
       { id: 'scrap', label: '铁', count: warehouse ? countItem(warehouse, 'scrap') : 0 },
@@ -94,7 +96,7 @@ export function hudModelKey(model: HudModel): string {
     .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.job}:${card.status}:${card.ammo ?? '-'}:${card.cooldown.toFixed(2)}`)
     .join('|')
   const weapon = model.weapon ? `${model.weapon.name}:${model.weapon.ammo}/${model.weapon.ammoMax}:${model.weapon.cooldown.toFixed(2)}` : '-'
-  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.warning}:${model.notice}:${stocks}:${cards}:${weapon}`
+  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${stocks}:${cards}:${weapon}`
 }
 
 export function renderHudHtml(model: HudModel): string {
@@ -113,6 +115,7 @@ export function renderHudHtml(model: HudModel): string {
         <span class="hud-caption">${model.caption}</span>
         ${scale}${sites}${model.warning ? `<span class="hud-chip hud-chip-warn">${model.warning}</span>` : ''}
         <button type="button" class="hud-reset" data-action="reset-view">复位镜头</button>
+        <button type="button" class="hud-reset" data-action="toggle-interiors">${model.interiors ? '显示整栋' : '显示内部'}</button>
       </div>
       <div class="hud-stocks">${stocks}</div>
       ${renderWeaponHud(model.weapon)}
@@ -151,6 +154,11 @@ export class GameHud {
     if (command?.dataset.action === 'reset-view') {
       event.stopPropagation()
       this.onCommand('reset-view')
+      return
+    }
+    if (command?.dataset.action === 'toggle-interiors') {
+      event.stopPropagation()
+      this.onCommand('toggle-interiors')
       return
     }
     const button = target.closest<HTMLButtonElement>('[data-survivor]')

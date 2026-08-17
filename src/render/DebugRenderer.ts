@@ -463,24 +463,14 @@ export class DebugRenderer {
 
   private styleFacilityLife(world: WorldState, structure: StructureState, root: THREE.Object3D): void {
     if (structure.kind !== 'building' || structure.stage !== 'complete') return
-    const open = isLifeBuilding(structure.definitionId)
+    const open = world.showInteriors && isLifeBuilding(structure.definitionId)
     this.ensureInterior(world, structure, root)
+    this.ensureOpenShell(world, structure, root)
     for (const child of root.children) {
-      if (child.name === 'interior' || child.name === 'steam') child.visible = open
-      if (child.name === 'kit') {
-        child.visible = !open
-        if (open) setCutaway(child, true)
-      }
-      if (open && child instanceof THREE.Mesh && child.name !== 'kit' && child.name !== 'interior') {
-        child.visible = true
-        child.scale.y = 0.18
-        const baseHeight = typeof child.userData.baseHeight === 'number' ? child.userData.baseHeight : 4.2
-        child.position.y = (baseHeight * 0.18) / 2
-        if (child.material instanceof THREE.MeshLambertMaterial) {
-          child.material.color.set(0x7a5a42)
-          child.material.transparent = false
-          child.material.opacity = 1
-        }
+      if (child.name === 'interior' || child.name === 'steam' || child.name === 'open-shell') child.visible = open
+      if (child.name === 'kit') child.visible = !open
+      if (child instanceof THREE.Mesh && child.name !== 'kit') {
+        child.visible = open ? false : !root.children.some((entry) => entry.name === 'kit')
       }
     }
     if (structure.definitionId === 'kitchen') this.pulseKitchen(world, root, open)
@@ -498,11 +488,54 @@ export class DebugRenderer {
       const kit = this.spawnKit(prop.assetId, prop.scale)
       if (!kit) continue
       kit.position.x += prop.x
+      kit.position.y += 0.08
       kit.position.z += prop.z
       kit.rotation.y = prop.yaw
       group.add(kit)
     }
     if (group.children.length === 0) return
+    root.add(group)
+  }
+
+  private ensureOpenShell(world: WorldState, structure: StructureState, root: THREE.Object3D): void {
+    if (root.getObjectByName('open-shell') || !isLifeBuilding(structure.definitionId)) return
+    const xs = structure.cells.map((cell) => cell.x)
+    const zs = structure.cells.map((cell) => cell.z)
+    if (xs.length === 0 || zs.length === 0) return
+    const minX = Math.min(...xs)
+    const maxX = Math.max(...xs)
+    const minZ = Math.min(...zs)
+    const maxZ = Math.max(...zs)
+    const mid = cellCenter(world.nav, { x: (minX + maxX) / 2, z: (minZ + maxZ) / 2 })
+    const size = world.nav.cellSize
+    const width = (maxX - minX + 1) * size
+    const depth = (maxZ - minZ + 1) * size
+    const group = new THREE.Group()
+    group.name = 'open-shell'
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(width - 0.12, depth - 0.12),
+      new THREE.MeshLambertMaterial({ color: 0x8b7355, side: THREE.DoubleSide }),
+    )
+    floor.rotation.x = -Math.PI / 2
+    floor.position.set(mid.x, 0.025, mid.z)
+    floor.receiveShadow = true
+    group.add(floor)
+    const wallH = 0.42
+    const wallT = 0.1
+    const walls = [
+      { w: width, d: wallT, x: mid.x, z: mid.z - depth / 2 + wallT / 2 },
+      { w: width, d: wallT, x: mid.x, z: mid.z + depth / 2 - wallT / 2 },
+      { w: wallT, d: depth, x: mid.x - width / 2 + wallT / 2, z: mid.z },
+      { w: wallT, d: depth, x: mid.x + width / 2 - wallT / 2, z: mid.z },
+    ]
+    for (const wall of walls) {
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(wall.w, wallH, wall.d),
+        new THREE.MeshLambertMaterial({ color: 0x6b5340 }),
+      )
+      mesh.position.set(wall.x, wallH / 2, wall.z)
+      group.add(mesh)
+    }
     root.add(group)
   }
 
@@ -782,10 +815,16 @@ export class DebugRenderer {
       'interior/bed-single',
       'interior/oven',
       'interior/kitchen-sink',
+      'interior/kitchen-fridge',
       'interior/table-round-small',
       'interior/table-round-large',
+      'interior/chair',
+      'interior/night-stand',
+      'interior/shelf-large',
+      'interior/shelf-small',
       'food/cooking-pot',
       'food/frying-pan',
+      'fort/mountain',
     ]
     return ids
   }

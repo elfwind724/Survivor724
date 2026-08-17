@@ -42,17 +42,17 @@ export function bedSpot(world: WorldState, survivor: SurvivorState): Vec3 {
 
 export function facilityBeds(world: WorldState, structure: StructureState): Vec3[] {
   const mid = structureMid(world, structure)
-  return [-2.2, -1.1, 0, 1.1, 2.2].map((offset) => ({ x: mid.x + offset, y: 0, z: mid.z + 0.35 }))
+  return [-3.2, -1.6, 0, 1.6, 3.2].map((offset) => ({ x: mid.x + offset, y: 0, z: mid.z + 1.1 }))
 }
 
 export function cookSpot(world: WorldState, kitchen: StructureState): Vec3 {
   const mid = structureMid(world, kitchen)
-  return { x: mid.x, y: 0, z: mid.z + 0.4 }
+  return { x: mid.x + 0.4, y: 0, z: mid.z + 1.4 }
 }
 
 export function eatSpot(world: WorldState, kitchen: StructureState): Vec3 {
   const mid = structureMid(world, kitchen)
-  return { x: mid.x, y: 0, z: mid.z - 0.8 }
+  return { x: mid.x - 0.2, y: 0, z: mid.z - 1.6 }
 }
 
 export function enterFacility(world: WorldState, survivor: SurvivorState, structure: StructureState, spot: Vec3): void {
@@ -108,26 +108,51 @@ export function tryEnterAfterArrival(
 export function interiorProps(world: WorldState, structure: StructureState): InteriorProp[] {
   const mid = structureMid(world, structure)
   if (structure.definitionId === 'quarters') {
-    return facilityBeds(world, structure).map((bed, index) => ({
+    const beds = facilityBeds(world, structure).map((bed, index) => ({
       assetId: 'interior/bed-single',
       x: bed.x,
       z: bed.z,
       yaw: index % 2 === 0 ? Math.PI / 2 : -Math.PI / 2,
     }))
+    return [
+      ...beds,
+      { assetId: 'interior/night-stand', x: mid.x - 3.2, z: mid.z - 1.4, yaw: 0 },
+      { assetId: 'interior/night-stand', x: mid.x + 3.2, z: mid.z - 1.4, yaw: 0 },
+      { assetId: 'interior/chair', x: mid.x, z: mid.z - 1.8, yaw: 0 },
+    ]
   }
   if (structure.definitionId === 'kitchen') {
     return [
-      { assetId: 'interior/oven', x: mid.x + 0.9, z: mid.z + 0.7, yaw: Math.PI },
-      { assetId: 'food/cooking-pot', x: mid.x + 0.15, z: mid.z + 0.55, yaw: 0.4, scale: 0.55 },
-      { assetId: 'food/frying-pan', x: mid.x - 0.55, z: mid.z + 0.45, yaw: 0.8, scale: 0.5 },
-      { assetId: 'interior/kitchen-sink', x: mid.x - 1.05, z: mid.z + 0.7, yaw: Math.PI },
+      { assetId: 'interior/oven', x: mid.x + 1.8, z: mid.z + 2.0, yaw: Math.PI },
+      { assetId: 'interior/kitchen-sink', x: mid.x, z: mid.z + 2.0, yaw: Math.PI },
+      { assetId: 'interior/kitchen-fridge', x: mid.x - 1.8, z: mid.z + 2.0, yaw: Math.PI },
+      { assetId: 'interior/table-round-small', x: mid.x, z: mid.z - 1.4, yaw: 0 },
+      { assetId: 'interior/chair', x: mid.x - 1.1, z: mid.z - 1.4, yaw: Math.PI / 2 },
+      { assetId: 'interior/chair', x: mid.x + 1.1, z: mid.z - 1.4, yaw: -Math.PI / 2 },
+      { assetId: 'food/cooking-pot', x: mid.x + 1.6, z: mid.z + 1.2, yaw: 0.4, scale: 0.55 },
+      { assetId: 'food/frying-pan', x: mid.x + 0.6, z: mid.z + 1.15, yaw: 0.8, scale: 0.5 },
     ]
   }
   if (structure.definitionId === 'workshop') {
-    return [{ assetId: 'interior/table-round-small', x: mid.x, z: mid.z, yaw: 0 }]
+    return [
+      { assetId: 'interior/table-round-small', x: mid.x, z: mid.z + 0.4, yaw: 0 },
+      { assetId: 'interior/shelf-small', x: mid.x + 2.0, z: mid.z + 1.4, yaw: Math.PI },
+      { assetId: 'interior/chair', x: mid.x - 1.4, z: mid.z + 0.4, yaw: Math.PI / 2 },
+    ]
   }
   if (structure.definitionId === 'hall') {
-    return [{ assetId: 'interior/table-round-large', x: mid.x, z: mid.z, yaw: 0 }]
+    return [
+      { assetId: 'interior/table-round-large', x: mid.x, z: mid.z, yaw: 0 },
+      { assetId: 'interior/chair', x: mid.x - 1.6, z: mid.z, yaw: Math.PI / 2 },
+      { assetId: 'interior/chair', x: mid.x + 1.6, z: mid.z, yaw: -Math.PI / 2 },
+      { assetId: 'interior/chair', x: mid.x, z: mid.z + 1.6, yaw: Math.PI },
+    ]
+  }
+  if (structure.definitionId === 'warehouse') {
+    return [
+      { assetId: 'interior/shelf-large', x: mid.x - 1.8, z: mid.z, yaw: Math.PI / 2 },
+      { assetId: 'interior/shelf-large', x: mid.x + 1.8, z: mid.z, yaw: -Math.PI / 2 },
+    ]
   }
   return []
 }

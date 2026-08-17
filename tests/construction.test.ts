@@ -113,7 +113,7 @@ describe('construction and work zones', () => {
     const cell = worldToCell(world.nav, { x: -4, y: 0, z: 8 })
     const preview = previewPlacement(world, 'kitchen', cell.x, cell.z)
     expect(preview.valid).toBe(true)
-    expect(preview.cells).toHaveLength(16)
+    expect(preview.cells).toHaveLength(36)
 
     const wall = world.structures.find((structure) => structure.definitionId === 'wall' && structure.stage === 'complete')
     if (!wall?.cells[0]) throw new Error('missing wall')

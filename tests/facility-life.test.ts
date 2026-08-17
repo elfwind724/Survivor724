@@ -46,4 +46,11 @@ describe('facility life', () => {
     expect(isLifeBuilding('quarters')).toBe(true)
     expect(isLifeBuilding('watchtower')).toBe(false)
   })
+
+  it('can switch between interior cutaway and full buildings', () => {
+    const world = createInitialWorld()
+    expect(world.showInteriors).toBe(true)
+    world.showInteriors = false
+    expect(world.showInteriors).toBe(false)
+  })
 })
