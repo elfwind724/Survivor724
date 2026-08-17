@@ -11,20 +11,19 @@ import { findSurvivor } from '@/simulation/EntityRegistry'
 import { stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
 import type { WorldState } from '@/simulation/types'
+import { BuildMenu } from '@/ui/BuildMenu'
 import { DebugHud } from '@/ui/DebugHud'
 import { Minimap } from '@/ui/Minimap'
 import { GameLoop } from './GameLoop'
-
-type BuildMode = 'none' | 'wall' | 'gate' | 'kitchen' | 'demolish'
 
 export class GameApp {
   private readonly world: WorldState
   private readonly renderer: DebugRenderer
   private readonly hud: DebugHud
   private readonly minimap: Minimap
+  private readonly buildMenu: BuildMenu
   private readonly input = new Input()
   private readonly loop: GameLoop
-  private buildMode: BuildMode = 'none'
   private zoneJob = 'hunt'
   private zoneStart: { x: number; z: number } | null = null
   private lastClickAt = 0
@@ -37,13 +36,21 @@ export class GameApp {
     lastY: number
     dragging: boolean
   } | null = null
-  private notice = '左键拖移画面 · 右键拖转镜头 · 滚轮缩放 · 单击放置/选人 · B墙 N门 K厨房 R拆除'
+  private notice = '打开建造菜单选设施，再单击地面放置 · 左键拖移 · 右键转镜头 · 滚轮缩放'
 
-  constructor(canvas: HTMLCanvasElement, hudRoot: HTMLElement, minimapCanvas: HTMLCanvasElement) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    hudRoot: HTMLElement,
+    minimapCanvas: HTMLCanvasElement,
+    buildMenuRoot: HTMLElement,
+  ) {
     this.world = createInitialWorld()
     this.renderer = new DebugRenderer(canvas)
     this.hud = new DebugHud(hudRoot)
     this.minimap = new Minimap(minimapCanvas)
+    this.buildMenu = new BuildMenu(buildMenuRoot, (selected) => {
+      this.notice = selected === 'demolish' ? '拆除：单击建筑' : selected ? `已选择，单击地面放置` : '已取消建造'
+    })
     this.loop = new GameLoop(this.step, this.draw)
     possessSurvivor(this.world, 'hunter')
     this.renderer.sync(this.world)
@@ -121,17 +128,24 @@ export class GameApp {
       const id = this.world.player.selectedId
       if (id) possessSurvivor(this.world, id)
     }
-    if (event.code === 'KeyX' || event.code === 'Escape') {
+    if (event.code === 'Escape') {
+      if (this.buildMenu.getSelected() || this.buildMenu.isOpen()) {
+        this.buildMenu.clear()
+        this.buildMenu.close()
+        this.notice = '已关闭建造'
+        return
+      }
+      releaseControl(this.world)
+      this.notice = '已交还该幸存者，AI 继续工作'
+    }
+    if (event.code === 'KeyX') {
       releaseControl(this.world)
       this.notice = '已交还该幸存者，AI 继续工作'
     }
     if (event.code === 'KeyF' && this.world.player.controlledId) {
       this.world.player.view = this.world.player.view === 'firstperson' ? 'topdown' : 'firstperson'
     }
-    if (event.code === 'KeyB') this.buildMode = this.buildMode === 'wall' ? 'none' : 'wall'
-    if (event.code === 'KeyN') this.buildMode = this.buildMode === 'gate' ? 'none' : 'gate'
-    if (event.code === 'KeyK') this.buildMode = this.buildMode === 'kitchen' ? 'none' : 'kitchen'
-    if (event.code === 'KeyR') this.buildMode = this.buildMode === 'demolish' ? 'none' : 'demolish'
+    if (event.code === 'KeyB') this.buildMenu.toggle()
     if (event.code === 'KeyC') {
       this.renderer.recenter()
       this.notice = '镜头回到当前角色'
@@ -185,7 +199,8 @@ export class GameApp {
   }
 
   private handleClick(event: PointerEvent, button: number): void {
-    if (button === 0 && this.buildMode === 'demolish') {
+    const buildMode = this.buildMenu.getSelected()
+    if (button === 0 && buildMode === 'demolish') {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
       if (!hit) return
       const structure = structureAt(this.world, { x: hit.x, y: 0, z: hit.z })
@@ -198,12 +213,12 @@ export class GameApp {
       return
     }
 
-    if (button === 0 && this.buildMode !== 'none') {
+    if (button === 0 && buildMode && buildMode !== 'demolish') {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
       if (!hit) return
       const cell = worldToCell(this.world.nav, { x: hit.x, y: 0, z: hit.z })
-      const result = placeBlueprint(this.world, this.buildMode, cell.x, cell.z)
-      this.notice = result.ok ? `已放置${this.buildMode}蓝图，搬山会来运材料` : `无法放置：${result.reason}`
+      const result = placeBlueprint(this.world, buildMode, cell.x, cell.z)
+      this.notice = result.ok ? `已放置蓝图，搬山会来运材料` : `无法放置：${result.reason}`
       return
     }
 
@@ -246,6 +261,6 @@ export class GameApp {
   }
 
   private refreshHud(): void {
-    this.hud.render(this.world, this.notice, this.buildMode, this.zoneJob)
+    this.hud.render(this.world, this.notice, this.buildMenu.getSelected() ?? 'none', this.zoneJob)
   }
 }

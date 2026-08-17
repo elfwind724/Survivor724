@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { demolishStructure, placeBlueprint } from '@/base/construction'
+import { FACILITY_DEFINITIONS } from '@/data/facilities'
 import { setWorkZone } from '@/base/workZones'
 import { countItem } from '@/inventory/Inventory'
 import { worldToCell } from '@/navigation/NavGrid'
@@ -15,6 +16,14 @@ function simulate(world: ReturnType<typeof createInitialWorld>, seconds: number)
 }
 
 describe('construction and work zones', () => {
+  it('exposes every placeable facility from data instead of hard-coded keys', () => {
+    expect(FACILITY_DEFINITIONS.length).toBeGreaterThanOrEqual(3)
+    for (const facility of FACILITY_DEFINITIONS) {
+      expect(facility.label.length).toBeGreaterThan(0)
+      expect(facility.id.length).toBeGreaterThan(0)
+    }
+  })
+
   it('does not complete a blueprint without hauled materials', () => {
     const world = createInitialWorld()
     const warehouse = world.inventories['inv-warehouse']

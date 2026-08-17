@@ -2,6 +2,7 @@ import type { GridCell, ItemStack, StructureKind } from '@/simulation/types'
 
 export interface FacilityDefinition {
   id: string
+  label: string
   kind: StructureKind
   width: number
   depth: number
@@ -13,6 +14,7 @@ export interface FacilityDefinition {
 export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
   {
     id: 'wall',
+    label: '围墙',
     kind: 'wall',
     width: 1,
     depth: 1,
@@ -22,6 +24,7 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
   },
   {
     id: 'gate',
+    label: '大门',
     kind: 'gate',
     width: 3,
     depth: 1,
@@ -34,6 +37,7 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
   },
   {
     id: 'kitchen',
+    label: '厨房',
     kind: 'building',
     width: 10,
     depth: 8,
