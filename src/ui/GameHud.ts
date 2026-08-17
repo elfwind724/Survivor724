@@ -1,5 +1,5 @@
 import { countItem } from '@/inventory/Inventory'
-import { hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
+import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
 import type { SurvivorState, WorldState } from '@/simulation/types'
 import { clampVital } from '@/survivors/Vitals'
 
@@ -39,6 +39,7 @@ export interface HudModel {
   caption: string
   timeScale: number
   notice: string
+  warning: string
   sites: number
   stocks: HudStock[]
   cards: HudCard[]
@@ -60,6 +61,7 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
     caption: hudTimeCaption(world),
     timeScale: world.time.timeScale,
     notice,
+    warning: duskWarningText(duskWarningLevel(world)),
     sites: world.structures.filter((structure) => structure.stage !== 'complete').length,
     stocks: [
       { id: 'wood', label: '木', count: warehouse ? countItem(warehouse, 'wood') : 0 },
@@ -76,7 +78,7 @@ export function hudModelKey(model: HudModel): string {
   const cards = model.cards
     .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.status}:${card.ammo ?? '-'}`)
     .join('|')
-  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.notice}:${stocks}:${cards}`
+  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.warning}:${model.notice}:${stocks}:${cards}`
 }
 
 export function renderHudHtml(model: HudModel): string {
@@ -93,7 +95,7 @@ export function renderHudHtml(model: HudModel): string {
         <strong>第 ${model.day} 天</strong>
         <span class="hud-phase">${model.phase}</span>
         <span class="hud-caption">${model.caption}</span>
-        ${scale}${sites}
+        ${scale}${sites}${model.warning ? `<span class="hud-chip hud-chip-warn">${model.warning}</span>` : ''}
       </div>
       <div class="hud-stocks">${stocks}</div>
     </div>

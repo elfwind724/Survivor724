@@ -27,6 +27,24 @@ export function secondsUntilDusk(world: WorldState): number {
   return Math.max(0, DAY_END - world.time.daySeconds)
 }
 
+export function duskWarningLevel(world: WorldState): 0 | 1 | 2 | 3 {
+  if (world.time.phase === 'dusk') return 3
+  if (world.time.phase !== 'dawn' && world.time.phase !== 'day') return 0
+  const daySpan = DAY_END - DAWN_END
+  const left = secondsUntilDusk(world) / daySpan
+  if (left <= 0.05) return 3
+  if (left <= 0.15) return 2
+  if (left <= 0.3) return 1
+  return 0
+}
+
+export function duskWarningText(level: 0 | 1 | 2 | 3): string {
+  if (level === 1) return '该评估返程'
+  if (level === 2) return '做完这下就回'
+  if (level === 3) return '立刻回营'
+  return ''
+}
+
 export function phaseLabel(phase: DayPhase): string {
   if (phase === 'dawn') return '黎明'
   if (phase === 'day') return '白昼'

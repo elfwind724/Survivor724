@@ -99,6 +99,11 @@ body,
   color: #d8c08a;
 }
 
+.hud-chip-warn {
+  color: #f0c27a;
+  border-color: #8a5a2a;
+}
+
 .hud-stock {
   display: inline-flex;
   align-items: center;

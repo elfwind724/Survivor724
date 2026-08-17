@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createEnemy, tryShoot } from '@/combat/Combat'
 import { reinforceSector } from '@/combat/Defense'
-import { stepNightCycle } from '@/combat/Night'
+import { assignedRescuer, stepNightCycle } from '@/combat/Night'
+import { duskWarningLevel } from '@/simulation/TimeSystem'
 import { cellCenter } from '@/navigation/NavGrid'
 import { stepWorld } from '@/simulation/SimStep'
 import { possessSurvivor } from '@/controls/PlayerControl'
@@ -66,5 +67,56 @@ describe('combat and night', () => {
     skipSeconds(world, 60 + 11 * 60 + 95)
     expect(world.time.phase === 'night' || world.time.phase === 'dusk' || world.time.phase === 'aftermath').toBe(true)
     expect(world.survivors.some((survivor) => !survivor.downed)).toBe(true)
+  })
+
+  it('sends the nearest free survivor to a downed ally', () => {
+    const world = createInitialWorld()
+    world.time.daySeconds = 60 + 11 * 60 + 90
+    world.time.phase = 'night'
+    world.nightSpawnedDay = world.time.dayIndex
+    world.enemies = []
+    const hunter = findSurvivor(world, 'hunter')
+    const fisher = findSurvivor(world, 'fisher')
+    if (!hunter || !fisher) throw new Error('missing people')
+    hunter.downed = true
+    hunter.health = 8
+    hunter.position = { x: 0, y: 0, z: 0 }
+    for (const survivor of world.survivors) {
+      if (survivor.id === 'hunter' || survivor.id === 'fisher') continue
+      survivor.position = { x: 40, y: 0, z: 40 }
+    }
+    fisher.position = { x: 10, y: 0, z: 0 }
+    expect(assignedRescuer(world, hunter)?.id).toBe('fisher')
+    const start = fisher.position.x
+    for (let i = 0; i < 90; i += 1) stepWorld(world, 1 / 30)
+    expect(Math.abs(fisher.position.x)).toBeLessThan(Math.abs(start))
+  })
+
+  it('lets the builder repair a damaged wall at night when no enemy is close', () => {
+    const world = createInitialWorld()
+    world.time.daySeconds = 60 + 11 * 60 + 90
+    world.time.phase = 'night'
+    world.nightSpawnedDay = world.time.dayIndex
+    world.enemies = []
+    const wall = world.structures.find((structure) => structure.kind === 'wall' && structure.stage === 'complete')
+    const builder = findSurvivor(world, 'builder')
+    if (!wall?.cells[0] || !builder) throw new Error('missing wall or builder')
+    wall.hp = 20
+    const point = cellCenter(world.nav, wall.cells[0])
+    builder.position = { x: point.x, y: 0, z: point.z + 1 }
+    builder.carriedTools = ['hammer']
+    const before = wall.hp
+    for (let i = 0; i < 60; i += 1) stepWorld(world, 1 / 30)
+    expect(wall.hp).toBeGreaterThan(before)
+  })
+
+  it('raises dusk warnings as daylight runs out', () => {
+    const world = createInitialWorld()
+    expect(duskWarningLevel(world)).toBe(0)
+    world.time.daySeconds = 60 + 11 * 60 - 20
+    world.time.phase = 'day'
+    expect(duskWarningLevel(world)).toBe(3)
+    world.time.phase = 'dusk'
+    expect(duskWarningLevel(world)).toBe(3)
   })
 })

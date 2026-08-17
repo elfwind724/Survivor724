@@ -1,8 +1,10 @@
+import { repairStructure } from '@/base/construction'
 import { NIGHT_HORDE } from '@/data/enemies'
 import { countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
+import { cellCenter } from '@/navigation/NavGrid'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { BASE } from '@/simulation/baseLayout'
-import { distanceXZ, type NightPost, type SurvivorState, type WorldState } from '@/simulation/types'
+import { distanceXZ, type NightPost, type StructureState, type SurvivorState, type WorldState } from '@/simulation/types'
 import { beginTravel, followTravel } from '@/navigation/Travel'
 import { createEnemy, tryShoot } from './Combat'
 
@@ -45,6 +47,9 @@ export function stepNightCycle(world: WorldState): void {
 export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt: number): void {
   if (survivor.downed) return
   if (restockNightAmmo(world, survivor, dt)) return
+  const closeThreat = nearestEnemy(world, survivor.position, 10)
+  if (!closeThreat && rescueDowned(world, survivor, dt)) return
+  if (!closeThreat && repairDamagedWall(world, survivor, dt)) return
   const post = world.nightPosts.find((entry) => entry.id === survivor.nightPostId) ?? assignOnePost(world, survivor)
   if (!post) return
   if (distanceXZ(survivor.position, post.position) > 1.4) {
@@ -107,6 +112,55 @@ function assignOnePost(world: WorldState, survivor: SurvivorState): NightPost | 
   post.occupantId = survivor.id
   survivor.nightPostId = post.id
   return post
+}
+
+export function assignedRescuer(world: WorldState, downed: SurvivorState): SurvivorState | undefined {
+  return world.survivors
+    .filter((entry) => !entry.downed && entry.id !== downed.id && entry.id !== world.player.controlledId)
+    .sort((a, b) => distanceXZ(a.position, downed.position) - distanceXZ(b.position, downed.position))[0]
+}
+
+function rescueDowned(world: WorldState, survivor: SurvivorState, dt: number): boolean {
+  const downed = world.survivors.find((entry) => entry.downed)
+  if (!downed) return false
+  const rescuer = assignedRescuer(world, downed)
+  if (!rescuer || rescuer.id !== survivor.id) return false
+  if (distanceXZ(survivor.position, downed.position) > 1.6) {
+    if (!survivor.destination) beginTravel(world, survivor, downed.position)
+    followTravel(world, survivor, dt)
+    return true
+  }
+  survivor.destination = null
+  survivor.path = []
+  return true
+}
+
+function repairDamagedWall(world: WorldState, survivor: SurvivorState, dt: number): boolean {
+  if (survivor.professionId !== 'builder' && !survivor.carriedTools.includes('hammer')) return false
+  const wall = damagedWall(world)
+  if (!wall?.cells[0]) return false
+  const warehouse = findContainer(world, 'warehouse')
+  if (!warehouse || countItem(inventoryOf(world.inventories, warehouse.inventoryId), 'wood') <= 0) return false
+  const target = cellCenter(world.nav, wall.cells[0])
+  if (distanceXZ(survivor.position, target) > 2.2) {
+    survivor.workElapsed = 0
+    if (!survivor.destination) beginTravel(world, survivor, target)
+    followTravel(world, survivor, dt)
+    return true
+  }
+  if (!repairStructure(world, wall, 16 * dt)) return false
+  survivor.workElapsed += dt
+  if (survivor.workElapsed >= 0.55) {
+    survivor.workElapsed = 0
+    removeItem(inventoryOf(world.inventories, warehouse.inventoryId), 'wood', 1)
+  }
+  return true
+}
+
+function damagedWall(world: WorldState): StructureState | undefined {
+  return world.structures
+    .filter((structure) => structure.kind === 'wall' && structure.stage === 'complete' && structure.hp < structure.maxHp)
+    .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
 }
 
 function restockNightAmmo(world: WorldState, survivor: SurvivorState, dt: number): boolean {
