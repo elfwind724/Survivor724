@@ -4,11 +4,16 @@ import type { WorldState } from '@/simulation/types'
 export class DebugHud {
   constructor(private readonly root: HTMLElement) {}
 
-  render(world: WorldState): void {
+  render(world: WorldState, notice = '', buildMode = 'none', zoneJob = 'hunt'): void {
     const warehouse = world.inventories['inv-warehouse']
     const stock = warehouse
       ? warehouse.items.map((item) => `${item.itemId}:${item.count}`).join(' ')
       : 'empty'
+
+    const sites = world.structures
+      .filter((structure) => structure.stage !== 'complete')
+      .map((structure) => `${structure.definitionId}:${structure.stage}`)
+      .join(' ')
 
     const lines = world.survivors.map((survivor) => {
       const bag = world.inventories[survivor.inventoryId]
@@ -19,10 +24,13 @@ export class DebugHud {
     })
 
     this.root.innerHTML = `
-      <strong>Dawn Bastion M0 work loop</strong><br />
+      <strong>Dawn Bastion M1</strong><br />
       Day ${world.time.dayIndex} · ${world.time.phase} · ${world.time.daySeconds.toFixed(1)}s<br />
+      Build ${buildMode} · Zone ${zoneJob}<br />
       Warehouse ${stock || 'empty'}<br />
-      ${lines.join('<br />')}
+      Sites ${sites || 'none'}<br />
+      ${lines.join('<br />')}<br />
+      <span>${notice}</span>
     `
   }
 }

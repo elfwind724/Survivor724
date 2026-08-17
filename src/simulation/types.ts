@@ -17,7 +17,47 @@ export type DayWorkerState =
   | 'ReturnEquipment'
   | 'RestOrNextJob'
 
-export type WorkerBlockedReason = 'missing_tool' | 'warehouse_full' | null
+export type WorkerBlockedReason = 'missing_tool' | 'warehouse_full' | 'route_blocked' | null
+
+export type StructureKind = 'wall' | 'gate'
+export type StructureStage = 'blueprint' | 'hauling' | 'building' | 'complete'
+
+export interface GridCell {
+  x: number
+  z: number
+}
+
+export interface NavGridState {
+  originX: number
+  originZ: number
+  cellSize: number
+  width: number
+  height: number
+  blocked: number[]
+  version: number
+}
+
+export interface StructureState {
+  id: string
+  definitionId: string
+  kind: StructureKind
+  cells: GridCell[]
+  stage: StructureStage
+  inventoryId: string
+  required: ItemStack[]
+  buildElapsed: number
+  buildDuration: number
+  open: boolean
+}
+
+export interface WorkZoneState {
+  id: string
+  jobDefinitionId: string
+  minX: number
+  minZ: number
+  maxX: number
+  maxZ: number
+}
 
 export interface TimeState {
   dayIndex: number
@@ -57,6 +97,9 @@ export interface SurvivorState {
   carriedTools: string[]
   returnFill: number
   blockedReason: WorkerBlockedReason
+  path: Vec3[]
+  pathTarget: Vec3 | null
+  pathVersion: number
 }
 
 export interface ResourceNodeState {
@@ -88,6 +131,10 @@ export interface WorldState {
   nodes: ResourceNodeState[]
   containers: ContainerState[]
   jobs: JobRecord[]
+  nav: NavGridState
+  navDirty: boolean
+  structures: StructureState[]
+  workZones: WorkZoneState[]
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

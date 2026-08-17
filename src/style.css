@@ -36,3 +36,15 @@ body,
 #debug-hud strong {
   color: #f2efe6;
 }
+
+#minimap {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 180px;
+  height: 180px;
+  border: 1px solid #3a4148;
+  background: #141816;
+  image-rendering: pixelated;
+  cursor: crosshair;
+}

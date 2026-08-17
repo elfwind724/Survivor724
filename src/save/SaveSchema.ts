@@ -1,6 +1,6 @@
 import type { WorldState } from '@/simulation/types'
 
-export const SAVE_VERSION = 1
+export const SAVE_VERSION = 2
 
 export interface SaveFile {
   version: number

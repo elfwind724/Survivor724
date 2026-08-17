@@ -1,9 +1,10 @@
 import * as THREE from 'three'
-import type { WorldState } from '@/simulation/types'
+import type { StructureState, WorldState } from '@/simulation/types'
+import { cellCenter } from '@/navigation/NavGrid'
 
 interface Marker {
   id: string
-  mesh: THREE.Mesh
+  mesh: THREE.Object3D
 }
 
 export class DebugRenderer {
@@ -11,7 +12,9 @@ export class DebugRenderer {
   readonly camera: THREE.PerspectiveCamera
   readonly renderer: THREE.WebGLRenderer
   private readonly survivors = new Map<string, Marker>()
+  private readonly structures = new Map<string, Marker>()
   private readonly extras: THREE.Object3D[] = []
+  private zones: THREE.Object3D[] = []
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
@@ -32,14 +35,30 @@ export class DebugRenderer {
       new THREE.MeshLambertMaterial({ color: 0x3d4a3a }),
     )
     ground.rotation.x = -Math.PI / 2
+    ground.name = 'ground'
     this.scene.add(ground)
 
     window.addEventListener('resize', this.resize)
     this.resize()
   }
 
+  pickGround(clientX: number, clientY: number): THREE.Vector3 | null {
+    const rect = this.renderer.domElement.getBoundingClientRect()
+    const pointer = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -(((clientY - rect.top) / rect.height) * 2 - 1),
+    )
+    const raycaster = new THREE.Raycaster()
+    raycaster.setFromCamera(pointer, this.camera)
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
+    const hit = new THREE.Vector3()
+    return raycaster.ray.intersectPlane(plane, hit) ? hit : null
+  }
+
   sync(world: WorldState): void {
     this.ensureStatic(world)
+    this.syncZones(world)
+    this.syncStructures(world)
     for (const survivor of world.survivors) {
       let marker = this.survivors.get(survivor.id)
       if (!marker) {
@@ -47,7 +66,6 @@ export class DebugRenderer {
           new THREE.BoxGeometry(1.2, 1.8, 1.2),
           new THREE.MeshLambertMaterial({ color: 0xc4b39a }),
         )
-        mesh.userData.survivorId = survivor.id
         this.scene.add(mesh)
         marker = { id: survivor.id, mesh }
         this.survivors.set(survivor.id, marker)
@@ -63,6 +81,78 @@ export class DebugRenderer {
   dispose(): void {
     window.removeEventListener('resize', this.resize)
     this.renderer.dispose()
+  }
+
+  private syncStructures(world: WorldState): void {
+    const seen = new Set<string>()
+    for (const structure of world.structures) {
+      seen.add(structure.id)
+      let marker = this.structures.get(structure.id)
+      if (!marker) {
+        const mesh = this.createStructureMesh(world, structure)
+        this.scene.add(mesh)
+        marker = { id: structure.id, mesh }
+        this.structures.set(structure.id, marker)
+      }
+      this.styleStructure(marker.mesh, structure)
+    }
+    for (const [id, marker] of this.structures) {
+      if (seen.has(id)) continue
+      this.scene.remove(marker.mesh)
+      this.structures.delete(id)
+    }
+  }
+
+  private createStructureMesh(world: WorldState, structure: StructureState): THREE.Mesh {
+    const width = Math.max(1, structure.cells.length)
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(width, 2.4, 1),
+      new THREE.MeshLambertMaterial({ color: 0x6b6254, transparent: true, opacity: 1 }),
+    )
+    const first = structure.cells[0]
+    const last = structure.cells[structure.cells.length - 1]
+    if (first && last) {
+      const a = cellCenter(world.nav, first)
+      const b = cellCenter(world.nav, last)
+      mesh.position.set((a.x + b.x) / 2, 1.2, (a.z + b.z) / 2)
+    }
+    return mesh
+  }
+
+  private styleStructure(mesh: THREE.Object3D, structure: StructureState): void {
+    if (!(mesh instanceof THREE.Mesh) || !Array.isArray(mesh.material) && !(mesh.material instanceof THREE.MeshLambertMaterial)) return
+    const material = mesh.material as THREE.MeshLambertMaterial
+    if (structure.stage !== 'complete') {
+      material.color.set(0x3d7ea6)
+      material.opacity = 0.45
+      material.transparent = true
+      mesh.scale.y = 0.25
+      mesh.position.y = 0.3
+      return
+    }
+    material.transparent = false
+    material.opacity = 1
+    mesh.scale.y = structure.kind === 'gate' && structure.open ? 0.45 : 1
+    mesh.position.y = structure.kind === 'gate' && structure.open ? 0.55 : 1.2
+    material.color.set(structure.kind === 'gate' ? 0x8a6a3a : 0x6b6254)
+  }
+
+  private syncZones(world: WorldState): void {
+    if (this.zones.length === world.workZones.length) return
+    for (const mesh of this.zones) this.scene.remove(mesh)
+    this.zones = []
+    for (const zone of world.workZones) {
+      const w = Math.max(1, zone.maxX - zone.minX)
+      const d = Math.max(1, zone.maxZ - zone.minZ)
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, d),
+        new THREE.MeshBasicMaterial({ color: 0x88aa66, transparent: true, opacity: 0.12, side: THREE.DoubleSide }),
+      )
+      mesh.rotation.x = -Math.PI / 2
+      mesh.position.set((zone.minX + zone.maxX) / 2, 0.05, (zone.minZ + zone.maxZ) / 2)
+      this.scene.add(mesh)
+      this.zones.push(mesh)
+    }
   }
 
   private ensureStatic(world: WorldState): void {

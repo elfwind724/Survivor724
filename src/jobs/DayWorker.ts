@@ -1,8 +1,10 @@
+import { completeStructure, findStructure, materialsMet, sitePosition, stillNeeded } from '@/base/construction'
+import { nodeAllowedForSurvivor } from '@/base/workZones'
 import { WORK_SECONDS, jobDefinition } from '@/data/jobs'
 import { addItem, canAdd, inventoryOf, removeItem, usedSlots } from '@/inventory/Inventory'
+import { beginTravel, followTravel } from '@/navigation/Travel'
 import { findContainer, findJob, findNode } from '@/simulation/EntityRegistry'
 import type { DayPhase, SurvivorState, WorldState } from '@/simulation/types'
-import { moveToward } from '@/survivors/Survivor'
 
 export function isWorkPhase(phase: DayPhase): boolean {
   return phase === 'dawn' || phase === 'day'
@@ -28,15 +30,16 @@ export function shouldReturn(world: WorldState, survivor: SurvivorState): boolea
 }
 
 export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: number): void {
-  if (isReturnPhase(world.time.phase) && isFieldState(survivor.workerState)) {
+  const job = currentJob(world, survivor)
+  const definition = job ? jobDefinition(job.definitionId) : undefined
+  if (isReturnPhase(world.time.phase) && isInterruptible(survivor.workerState, definition?.category ?? 'field')) {
     beginReturn(world, survivor)
   }
 
   switch (survivor.workerState) {
     case 'Idle':
     case 'RestOrNextJob':
-      if (survivor.destination && !moveToward(survivor, dt)) break
-      survivor.destination = null
+      if ((survivor.destination || survivor.path.length > 0) && !followTravel(world, survivor, dt)) break
       startNextAction(world, survivor)
       break
     case 'AcquireEquipment':
@@ -46,16 +49,19 @@ export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: nu
       stepTravel(world, survivor, dt)
       break
     case 'Work':
-      stepWork(survivor, dt)
+      if (definition?.id === 'build') stepBuild(world, survivor, dt)
+      else stepWork(survivor, dt)
       break
     case 'CollectOutput':
-      stepCollect(world, survivor)
+      if (definition?.id === 'haul') stepHaulCollect(world, survivor)
+      else stepCollect(world, survivor)
       break
     case 'ReturnToBase':
-      if (moveToward(survivor, dt)) survivor.workerState = 'DepositItems'
+      if (followTravel(world, survivor, dt)) survivor.workerState = 'DepositItems'
       break
     case 'DepositItems':
-      stepDeposit(world, survivor)
+      if (definition?.id === 'haul' && isWorkPhase(world.time.phase)) stepHaulDeposit(world, survivor)
+      else stepDeposit(world, survivor)
       break
     case 'ReturnEquipment':
       stepReturnEquipment(world, survivor, dt)
@@ -65,8 +71,9 @@ export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: nu
   }
 }
 
-function isFieldState(state: SurvivorState['workerState']): boolean {
-  return state === 'TravelToTarget' || state === 'Work' || state === 'CollectOutput'
+function isInterruptible(state: SurvivorState['workerState'], category: 'field' | 'base' | 'defense'): boolean {
+  if (state !== 'TravelToTarget' && state !== 'Work' && state !== 'CollectOutput') return false
+  return category === 'field' || category === 'base'
 }
 
 function startNextAction(world: WorldState, survivor: SurvivorState): void {
@@ -75,31 +82,54 @@ function startNextAction(world: WorldState, survivor: SurvivorState): void {
       goToLocker(world, survivor, 'ReturnEquipment')
       return
     }
-    goHome(survivor)
+    goHome(world, survivor)
     return
   }
 
   const job = currentJob(world, survivor)
   if (!job) return
 
-  survivor.blockedReason = null
-  if (!hasRequiredTools(survivor, job.definitionId)) {
+  const definition = jobDefinition(job.definitionId)
+  if (!definition) return
+
+  if (definition.requiredTools.length > 0 && !hasRequiredTools(survivor, definition.id)) {
     goToLocker(world, survivor, 'AcquireEquipment')
     return
   }
 
-  const node = findNode(world, job.targetId)
-  if (!node || node.reserve <= 0) {
-    goHome(survivor)
+  if (definition.id === 'haul') {
+    const structure = findStructure(world, job.targetId)
+    if (!structure || structure.stage === 'complete' || materialsMet(world, structure)) {
+      goHome(world, survivor)
+      return
+    }
+    const bag = inventoryOf(world.inventories, survivor.inventoryId)
+    const target = usedSlots(bag) > 0 ? sitePosition(world, structure) : warehousePosition(world, survivor)
+    if (beginTravel(world, survivor, target)) survivor.workerState = 'TravelToTarget'
     return
   }
 
-  survivor.destination = { ...node.position }
-  survivor.workerState = 'TravelToTarget'
+  if (definition.id === 'build') {
+    const structure = findStructure(world, job.targetId)
+    if (!structure || structure.stage === 'complete' || !materialsMet(world, structure)) {
+      goHome(world, survivor)
+      return
+    }
+    if (beginTravel(world, survivor, sitePosition(world, structure))) survivor.workerState = 'TravelToTarget'
+    return
+  }
+
+  const node = findNode(world, job.targetId)
+  if (!node || node.reserve <= 0 || !nodeAllowedForSurvivor(world, survivor, node)) {
+    goHome(world, survivor)
+    return
+  }
+
+  if (beginTravel(world, survivor, node.position)) survivor.workerState = 'TravelToTarget'
 }
 
 function stepAcquire(world: WorldState, survivor: SurvivorState, dt: number): void {
-  if (!moveToward(survivor, dt)) return
+  if (!followTravel(world, survivor, dt)) return
 
   const job = currentJob(world, survivor)
   const locker = findContainer(world, 'tool_locker')
@@ -126,16 +156,20 @@ function stepAcquire(world: WorldState, survivor: SurvivorState, dt: number): vo
   }
 
   survivor.blockedReason = null
-  const node = findNode(world, job.targetId)
-  survivor.destination = node ? { ...node.position } : null
-  survivor.workerState = node ? 'TravelToTarget' : 'RestOrNextJob'
+  startNextAction(world, survivor)
 }
 
 function stepTravel(world: WorldState, survivor: SurvivorState, dt: number): void {
-  if (moveToward(survivor, dt)) {
-    survivor.workElapsed = 0
-    survivor.workerState = 'Work'
+  if (!followTravel(world, survivor, dt)) return
+  const job = currentJob(world, survivor)
+  const definition = job ? jobDefinition(job.definitionId) : undefined
+  if (definition?.id === 'haul') {
+    const bag = inventoryOf(world.inventories, survivor.inventoryId)
+    survivor.workerState = usedSlots(bag) > 0 ? 'DepositItems' : 'CollectOutput'
+    return
   }
+  survivor.workElapsed = 0
+  survivor.workerState = 'Work'
 }
 
 function stepWork(survivor: SurvivorState, dt: number): void {
@@ -180,11 +214,82 @@ function stepCollect(world: WorldState, survivor: SurvivorState): void {
   survivor.workerState = 'Work'
 }
 
+function stepHaulCollect(world: WorldState, survivor: SurvivorState): void {
+  const job = currentJob(world, survivor)
+  const structure = job ? findStructure(world, job.targetId) : undefined
+  const warehouse = findContainer(world, 'warehouse')
+  if (!job || !structure || !warehouse) {
+    goHome(world, survivor)
+    return
+  }
+
+  const bag = inventoryOf(world.inventories, survivor.inventoryId)
+  const stock = inventoryOf(world.inventories, warehouse.inventoryId)
+  for (const need of stillNeeded(world, structure)) {
+    const space = bag.capacity - usedSlots(bag)
+    if (space <= 0) break
+    const take = Math.min(need.count, space)
+    if (removeItem(stock, need.itemId, take)) addItem(bag, need.itemId, take)
+  }
+
+  if (usedSlots(bag) === 0) {
+    goHome(world, survivor)
+    return
+  }
+
+  if (beginTravel(world, survivor, sitePosition(world, structure))) survivor.workerState = 'TravelToTarget'
+}
+
+function stepHaulDeposit(world: WorldState, survivor: SurvivorState): void {
+  const job = currentJob(world, survivor)
+  const structure = job ? findStructure(world, job.targetId) : undefined
+  if (!structure) {
+    beginReturn(world, survivor)
+    return
+  }
+
+  const bag = inventoryOf(world.inventories, survivor.inventoryId)
+  const site = inventoryOf(world.inventories, structure.inventoryId)
+  const remaining = []
+  for (const item of bag.items) {
+    if (addItem(site, item.itemId, item.count)) continue
+    remaining.push({ ...item })
+  }
+  bag.items = remaining
+  if (remaining.length > 0) {
+    survivor.blockedReason = 'warehouse_full'
+    return
+  }
+
+  if (isReturnPhase(world.time.phase)) {
+    beginReturn(world, survivor)
+    return
+  }
+  startNextAction(world, survivor)
+}
+
+function stepBuild(world: WorldState, survivor: SurvivorState, dt: number): void {
+  const job = currentJob(world, survivor)
+  const structure = job ? findStructure(world, job.targetId) : undefined
+  if (!structure || !materialsMet(world, structure)) {
+    goHome(world, survivor)
+    return
+  }
+
+  structure.stage = 'building'
+  structure.buildElapsed += dt
+  if (structure.buildElapsed >= structure.buildDuration) {
+    completeStructure(world, structure)
+    goHome(world, survivor)
+  }
+}
+
 function beginReturn(world: WorldState, survivor: SurvivorState): void {
   const warehouse = findContainer(world, 'warehouse')
-  survivor.destination = warehouse ? { ...warehouse.position } : { ...survivor.homePosition }
+  const target = warehouse ? warehouse.position : survivor.homePosition
   survivor.workerState = 'ReturnToBase'
   survivor.workElapsed = 0
+  beginTravel(world, survivor, target)
 }
 
 function stepDeposit(world: WorldState, survivor: SurvivorState): void {
@@ -209,7 +314,7 @@ function stepDeposit(world: WorldState, survivor: SurvivorState): void {
     return
   }
 
-  survivor.blockedReason = null
+  if (survivor.blockedReason !== 'missing_tool') survivor.blockedReason = null
   if (isReturnPhase(world.time.phase)) {
     goToLocker(world, survivor, 'ReturnEquipment')
     return
@@ -218,14 +323,14 @@ function stepDeposit(world: WorldState, survivor: SurvivorState): void {
 }
 
 function stepReturnEquipment(world: WorldState, survivor: SurvivorState, dt: number): void {
-  if (!moveToward(survivor, dt)) return
+  if (!followTravel(world, survivor, dt)) return
   const locker = findContainer(world, 'tool_locker')
   if (locker) {
     const lockerInv = inventoryOf(world.inventories, locker.inventoryId)
     for (const tool of survivor.carriedTools) addItem(lockerInv, tool, 1)
   }
   survivor.carriedTools = []
-  goHome(survivor)
+  goHome(world, survivor)
 }
 
 function goToLocker(
@@ -234,13 +339,18 @@ function goToLocker(
   state: 'AcquireEquipment' | 'ReturnEquipment',
 ): void {
   const locker = findContainer(world, 'tool_locker')
-  survivor.destination = locker ? { ...locker.position } : { ...survivor.homePosition }
+  const target = locker ? locker.position : survivor.homePosition
   survivor.workerState = state
+  beginTravel(world, survivor, target)
 }
 
-function goHome(survivor: SurvivorState): void {
-  survivor.destination = { ...survivor.homePosition }
+function goHome(world: WorldState, survivor: SurvivorState): void {
   survivor.workerState = 'RestOrNextJob'
+  beginTravel(world, survivor, survivor.homePosition)
+}
+
+function warehousePosition(world: WorldState, survivor: SurvivorState) {
+  return findContainer(world, 'warehouse')?.position ?? survivor.homePosition
 }
 
 function currentJob(world: WorldState, survivor: SurvivorState) {

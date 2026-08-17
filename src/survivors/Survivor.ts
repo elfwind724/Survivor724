@@ -2,7 +2,15 @@ import { cloneVec3, type SurvivorState, type Vec3 } from '@/simulation/types'
 
 type SurvivorDraft = Omit<
   SurvivorState,
-  'destination' | 'homePosition' | 'workElapsed' | 'carriedTools' | 'returnFill' | 'blockedReason'
+  | 'destination'
+  | 'homePosition'
+  | 'workElapsed'
+  | 'carriedTools'
+  | 'returnFill'
+  | 'blockedReason'
+  | 'path'
+  | 'pathTarget'
+  | 'pathVersion'
 > & {
   destination?: Vec3 | null
   homePosition?: Vec3
@@ -10,6 +18,9 @@ type SurvivorDraft = Omit<
   carriedTools?: string[]
   returnFill?: number
   blockedReason?: SurvivorState['blockedReason']
+  path?: Vec3[]
+  pathTarget?: Vec3 | null
+  pathVersion?: number
 }
 
 export function createSurvivor(input: SurvivorDraft): SurvivorState {
@@ -22,6 +33,9 @@ export function createSurvivor(input: SurvivorDraft): SurvivorState {
     carriedTools: [...(input.carriedTools ?? [])],
     returnFill: input.returnFill ?? 1,
     blockedReason: input.blockedReason ?? null,
+    path: (input.path ?? []).map((point) => cloneVec3(point)),
+    pathTarget: input.pathTarget ? cloneVec3(input.pathTarget) : null,
+    pathVersion: input.pathVersion ?? 0,
   }
 }
 
