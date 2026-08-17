@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { demolishAt, interactGate, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, structureAt } from '@/base/construction'
+import { demolishAt, findStructure, interactGate, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, structureAt } from '@/base/construction'
 import { decorationNear, placeDecoration, removeDecoration, snapDecor } from '@/base/decorations'
 import { buildProgress, facilityLabel, facilityPreviewHeight } from '@/data/facilities'
 import { cellCenter } from '@/navigation/NavGrid'
@@ -17,6 +17,8 @@ import { skipSeconds, stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
 import type { GridCell, WorldState } from '@/simulation/types'
 import { reinforceSector } from '@/combat/Defense'
+import { postForTower } from '@/combat/Night'
+import { assignWatch } from '@/jobs/Roster'
 import { BuildMenu } from '@/ui/BuildMenu'
 import { CharacterSheet } from '@/ui/CharacterSheet'
 import { CreativeEditor } from '@/ui/CreativeEditor'
@@ -40,6 +42,8 @@ export class GameApp {
   private readonly loop: GameLoop
   private readonly tip: HTMLDivElement
   private readonly labels: HTMLDivElement
+  private readonly towerPanel: HTMLDivElement
+  private towerPostId: string | null = null
   private zoneJob = 'hunt'
   private zoneStart: { x: number; z: number } | null = null
   private lastClickAt = 0
@@ -113,7 +117,10 @@ export class GameApp {
     this.tip.className = 'world-tip'
     this.labels = document.createElement('div')
     this.labels.className = 'world-labels'
-    document.querySelector('#app')?.append(this.tip, this.labels)
+    this.towerPanel = document.createElement('div')
+    this.towerPanel.className = 'tower-panel'
+    this.towerPanel.addEventListener('pointerdown', (event) => event.stopPropagation())
+    document.querySelector('#app')?.append(this.tip, this.labels, this.towerPanel)
     this.loop = new GameLoop(this.step, this.draw)
     possessSurvivor(this.world, 'hunter')
     this.renderer.sync(this.world)
@@ -202,6 +209,12 @@ export class GameApp {
       if (this.roster.isOpen()) {
         this.roster.close()
         this.notice = '已关闭岗位面板'
+        return
+      }
+      if (this.towerPostId) {
+        this.towerPostId = null
+        this.towerPanel.innerHTML = ''
+        this.notice = '已关闭瞭望塔任命'
         return
       }
       if (this.editor.isOpen()) {
@@ -428,8 +441,21 @@ export class GameApp {
     }
 
     if (button === 0) {
+      const towerId = this.renderer.pickStructure(this.world, event.clientX, event.clientY)
+      const tower = towerId ? findStructure(this.world, towerId) : undefined
+      if (tower?.definitionId === 'watchtower') {
+        const post = postForTower(this.world, tower)
+        if (post) {
+          this.towerPostId = post.id
+          this.renderTowerPanel()
+          this.notice = '点选一个人派上这座瞭望塔'
+          return
+        }
+      }
       const id = this.renderer.pickSurvivor(this.world, event.clientX, event.clientY)
       if (!id) {
+        this.towerPostId = null
+        this.towerPanel.innerHTML = ''
         this.fireIfPossessed()
         return
       }
@@ -551,6 +577,36 @@ export class GameApp {
       )
     }
     this.labels.innerHTML = bits.join('')
+  }
+
+  private renderTowerPanel(): void {
+    const post = this.world.nightPosts.find((entry) => entry.id === this.towerPostId)
+    if (!post) {
+      this.towerPanel.innerHTML = ''
+      return
+    }
+    const people = this.world.survivors
+      .map((survivor) => {
+        const on = survivor.watchPostId === post.id ? ' is-on' : ''
+        return `<button type="button" class="tower-pick${on}" data-watch="${survivor.id}">${survivor.name}${survivor.watchPostId === post.id ? ' · 在岗' : ''}</button>`
+      })
+      .join('')
+    this.towerPanel.innerHTML = `<div class="tower-card"><strong>瞭望塔站岗</strong><span>点名字派上去，到了会自动锁敌</span>${people}<button type="button" data-watch-close>关闭</button></div>`
+    this.towerPanel.querySelectorAll<HTMLButtonElement>('[data-watch]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const id = button.dataset.watch
+        if (!id || !this.towerPostId) return
+        if (assignWatch(this.world, this.towerPostId, id)) {
+          const name = this.world.survivors.find((entry) => entry.id === id)?.name ?? id
+          this.notice = `已派 ${name} 上塔站岗`
+          this.renderTowerPanel()
+        }
+      })
+    })
+    this.towerPanel.querySelector('[data-watch-close]')?.addEventListener('click', () => {
+      this.towerPostId = null
+      this.towerPanel.innerHTML = ''
+    })
   }
 
   private resetView(): void {

@@ -9,6 +9,7 @@ export const ROSTER_POSTS = [
   { id: 'haul', label: '搬运' },
   { id: 'build', label: '建造' },
   { id: 'cook', label: '做饭' },
+  { id: 'watch', label: '站岗' },
   { id: 'idle', label: '待命' },
 ] as const
 
@@ -40,7 +41,7 @@ export function assignPost(world: WorldState, survivorId: string, postId: Roster
   const survivor = world.survivors.find((entry) => entry.id === survivorId)
   if (!survivor || survivor.downed) return false
   const next = postId === 'idle' ? null : postId
-  if (next && !jobDefinition(next) && next !== 'cook') return false
+  if (next && !jobDefinition(next) && next !== 'cook' && next !== 'watch') return false
   survivor.dayAssignment = next
   survivor.currentJobId = null
   survivor.workerState = 'RestOrNextJob'
@@ -48,6 +49,45 @@ export function assignPost(world: WorldState, survivorId: string, postId: Roster
   survivor.path = []
   survivor.pathTarget = null
   leaveFacility(world, survivor)
+  if (next === 'watch' && !survivor.watchPostId) {
+    const open = world.nightPosts.find((post) => !world.survivors.some((entry) => entry.watchPostId === post.id && entry.id !== survivor.id))
+    if (open) {
+      survivor.watchPostId = open.id
+      survivor.nightPostId = open.id
+      open.occupantId = survivor.id
+    }
+  }
+  if (next !== 'watch') {
+    if (survivor.watchPostId) {
+      const post = world.nightPosts.find((entry) => entry.id === survivor.watchPostId)
+      if (post && post.occupantId === survivor.id) post.occupantId = null
+    }
+    survivor.watchPostId = null
+    survivor.nightPostId = null
+  }
+  world.rosterStrategy = null
+  return true
+}
+
+export function assignWatch(world: WorldState, postId: string, survivorId: string): boolean {
+  const survivor = world.survivors.find((entry) => entry.id === survivorId)
+  const post = world.nightPosts.find((entry) => entry.id === postId)
+  if (!survivor || !post || survivor.downed) return false
+  for (const other of world.survivors) {
+    if (other.id === survivor.id || other.watchPostId !== postId) continue
+    other.watchPostId = null
+    if (other.nightPostId === postId) other.nightPostId = null
+    if (other.dayAssignment === 'watch') other.dayAssignment = null
+  }
+  survivor.dayAssignment = 'watch'
+  survivor.watchPostId = postId
+  survivor.nightPostId = postId
+  survivor.currentJobId = null
+  survivor.workerState = 'RestOrNextJob'
+  survivor.destination = null
+  survivor.path = []
+  leaveFacility(world, survivor)
+  post.occupantId = survivor.id
   world.rosterStrategy = null
   return true
 }

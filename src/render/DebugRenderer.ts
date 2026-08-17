@@ -309,14 +309,14 @@ export class DebugRenderer {
       }
       this.kitSurvivor(survivor)
       const kit = marker.mesh.getObjectByName('kit')
-      const sleeping = isSleeping(survivor)
+      const sleeping = isSleeping(world, survivor)
       const cooking = isCooking(world, survivor)
       const building = isBuildingNow(world, survivor)
       const bob = cooking || building ? 0.05 + Math.sin(world.time.daySeconds * 9) * 0.045 : 0
       const standY = sleeping ? 0.52 : Math.max(0, survivor.position.y) + bob
       marker.mesh.position.set(survivor.position.x, standY, survivor.position.z)
       marker.mesh.rotation.set(sleeping ? Math.PI / 2 : 0, survivor.facingYaw, 0)
-      this.driveRig(survivor, dt)
+      this.driveRig(world, survivor, dt)
       kit?.updateMatrixWorld(true)
       this.syncHeldGun(survivor)
       const fallback = marker.mesh.getObjectByName('fallback')
@@ -1060,10 +1060,10 @@ export class DebugRenderer {
     })
   }
 
-  private driveRig(survivor: SurvivorState, dt: number): void {
+  private driveRig(world: WorldState, survivor: SurvivorState, dt: number): void {
     const rig = this.rigs.get(survivor.id)
     if (!rig) return
-    if (isSleeping(survivor)) {
+    if (isSleeping(world, survivor)) {
       if (rig.current !== 'idle') {
         rig.poses[rig.current]?.fadeOut(0.08)
         rig.poses.idle?.reset().fadeIn(0.08).play()

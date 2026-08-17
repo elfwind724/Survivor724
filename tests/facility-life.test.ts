@@ -10,10 +10,11 @@ describe('facility life', () => {
     const quarters = findFacility(world, 'quarters')
     const hunter = world.survivors.find((entry) => entry.id === 'hunter')
     if (!quarters || !hunter) throw new Error('missing camp')
+    hunter.position = bedSpot(world, hunter)
     enterFacility(world, hunter, quarters, bedSpot(world, hunter))
     hunter.workerState = 'Rest'
     expect(hunter.indoorId).toBe(quarters.id)
-    expect(isSleeping(hunter)).toBe(true)
+    expect(isSleeping(world, hunter)).toBe(true)
     expect(occupiedFacilityIds(world).has(quarters.id)).toBe(true)
     leaveFacility(world, hunter)
     expect(hunter.indoorId).toBeNull()
@@ -38,7 +39,18 @@ describe('facility life', () => {
     for (let i = 0; i < 30 * 5; i += 1) stepWorld(world, 1 / 30)
     expect(hunter.indoorId).toBe(quarters.id)
     expect(hunter.workerState).toBe('Rest')
-    expect(isSleeping(hunter)).toBe(true)
+    expect(isSleeping(world, hunter)).toBe(true)
+    const bed = bedSpot(world, hunter)
+    const xs = quarters.cells.map((cell) => cell.x)
+    const zs = quarters.cells.map((cell) => cell.z)
+    const west = world.nav.originX + Math.min(...xs)
+    const east = world.nav.originX + Math.max(...xs) + 1
+    const south = world.nav.originZ + Math.min(...zs)
+    const north = world.nav.originZ + Math.max(...zs) + 1
+    expect(bed.x).toBeGreaterThan(west + 1.2)
+    expect(bed.x).toBeLessThan(east - 1.2)
+    expect(bed.z).toBeGreaterThan(south + 1.2)
+    expect(bed.z).toBeLessThan(north - 1.2)
   })
 
   it('treats kitchen and quarters as open living buildings', () => {

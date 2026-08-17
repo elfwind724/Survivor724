@@ -258,7 +258,10 @@ function renderWeaponHud(weapon: HudModel['weapon']): string {
 
 function statusLabel(world: WorldState, survivor: SurvivorState): string {
   if (survivor.downed) return '倒地'
-  if (isSleeping(survivor)) return '睡觉'
+  if (isSleeping(world, survivor)) return '睡觉'
+  if (survivor.watchPostId || survivor.dayAssignment === 'watch') {
+    if (world.time.phase !== 'night' && survivor.workerState !== 'TravelToTarget') return '站岗'
+  }
   if (isCooking(world, survivor)) return '做饭'
   if (world.time.phase === 'night' || world.time.phase === 'aftermath') return '守夜'
   switch (survivor.workerState) {

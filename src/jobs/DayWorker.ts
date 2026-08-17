@@ -1,5 +1,5 @@
 import { completeStructure, findStructure, materialsMet, sitePosition, stillNeeded } from '@/base/construction'
-import { bedSpot, cookSpot, eatSpot, tryEnterAfterArrival } from '@/base/FacilityLife'
+import { bedSpot, cookSpot, eatSpot, enterFacility, tryEnterAfterArrival } from '@/base/FacilityLife'
 import { derivedStats } from '@/data/equipment'
 import { weaponById } from '@/data/weapons'
 import { clearJobTools, syncToolsToEquipment } from '@/survivors/Equipment'
@@ -37,6 +37,10 @@ export function shouldReturn(world: WorldState, survivor: SurvivorState): boolea
 
 export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: number): void {
   if (world.player.controlledId === survivor.id) return
+  if (survivor.dayAssignment === 'watch' || survivor.watchPostId) {
+    stepWatch(world, survivor, dt)
+    return
+  }
   const job = currentJob(world, survivor)
   const definition = job ? jobDefinition(job.definitionId) : undefined
   if (isReturnPhase(world.time.phase) && isInterruptible(survivor.workerState, definition?.category ?? 'field')) {
@@ -483,11 +487,6 @@ function goHome(world: WorldState, survivor: SurvivorState): void {
   beginTravel(world, survivor, survivor.homePosition)
 }
 
-function restWalkTarget(world: WorldState, survivor: SurvivorState) {
-  const quarters = world.structures.find((structure) => structure.definitionId === 'quarters' && structure.stage === 'complete')
-  return quarters ? bedSpot(world, survivor) : survivor.homePosition
-}
-
 function beginEat(world: WorldState, survivor: SurvivorState): void {
   survivor.workerState = 'Eat'
   survivor.workElapsed = 0
@@ -496,13 +495,13 @@ function beginEat(world: WorldState, survivor: SurvivorState): void {
 
 function beginRest(world: WorldState, survivor: SurvivorState): void {
   survivor.workerState = 'Rest'
-  if (survivor.indoorId) return
-  const quarters = world.structures.find((structure) => structure.definitionId === 'quarters' && structure.stage === 'complete')
-  if (quarters && tryEnterAfterArrival(world, survivor, 'quarters', bedSpot(world, survivor))) {
-    survivor.facingYaw = Math.PI / 2
+  const bed = bedSpot(world, survivor)
+  if (distanceXZ(survivor.position, bed) <= 0.95) {
+    const quarters = world.structures.find((structure) => structure.definitionId === 'quarters' && structure.stage === 'complete')
+    if (quarters) enterFacility(world, survivor, quarters, bed)
     return
   }
-  beginTravel(world, survivor, restWalkTarget(world, survivor))
+  beginTravel(world, survivor, bed)
 }
 
 function stepEat(world: WorldState, survivor: SurvivorState, dt: number): void {
@@ -532,19 +531,53 @@ function stepEat(world: WorldState, survivor: SurvivorState, dt: number): void {
 
 function stepRest(world: WorldState, survivor: SurvivorState, dt: number): void {
   if (!followTravel(world, survivor, dt)) return
-  if (!survivor.indoorId) {
-    if (tryEnterAfterArrival(world, survivor, 'quarters', bedSpot(world, survivor))) {
-      survivor.facingYaw = Math.PI / 2
-    } else {
-      beginTravel(world, survivor, restWalkTarget(world, survivor))
-      return
-    }
+  const bed = bedSpot(world, survivor)
+  if (distanceXZ(survivor.position, bed) > 0.95) {
+    beginTravel(world, survivor, bed)
+    return
   }
+  const quarters = world.structures.find((structure) => structure.definitionId === 'quarters' && structure.stage === 'complete')
+  if (quarters) enterFacility(world, survivor, quarters, bed)
+  survivor.facingYaw = Math.PI / 2
   survivor.destination = null
   survivor.path = []
   survivor.fatigue = Math.max(0, survivor.fatigue - 8 * dt)
   survivor.morale = Math.min(100, survivor.morale + 1.4 * dt)
-  if (isWorkPhase(world.time.phase)) survivor.workerState = 'RestOrNextJob'
+  if (isWorkPhase(world.time.phase) && currentJob(world, survivor)) {
+    survivor.workerState = 'RestOrNextJob'
+    startNextAction(world, survivor)
+  }
+}
+
+function stepWatch(world: WorldState, survivor: SurvivorState, dt: number): void {
+  if (survivor.downed) return
+  const post = world.nightPosts.find((entry) => entry.id === survivor.watchPostId || entry.id === survivor.nightPostId)
+  if (!post) {
+    beginRest(world, survivor)
+    return
+  }
+  survivor.nightPostId = post.id
+  post.occupantId = survivor.id
+  if (distanceXZ(survivor.position, post.position) > 1.4) {
+    survivor.position.y = 0
+    if (!survivor.destination) beginTravel(world, survivor, post.position)
+    followTravel(world, survivor, dt)
+    return
+  }
+  survivor.position.y = post.position.y
+  survivor.destination = null
+  survivor.path = []
+  const enemy = world.enemies
+    .map((entry) => ({ entry, distance: distanceXZ(survivor.position, entry.position) }))
+    .sort((a, b) => a.distance - b.distance)[0]
+  if (enemy && enemy.distance < 30 + (post.rangeBonus ?? 0)) {
+    const dx = enemy.entry.position.x - survivor.position.x
+    const dz = enemy.entry.position.z - survivor.position.z
+    survivor.facingYaw = Math.atan2(dx, dz)
+    tryShoot(world, survivor)
+    return
+  }
+  survivor.facingYaw = post.facingYaw
 }
 
 function warehousePosition(world: WorldState, survivor: SurvivorState) {

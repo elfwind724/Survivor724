@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createEnemy, reloadWeapon, stepProjectiles, towerRangeBonus, tryShoot } from '@/combat/Combat'
 import { reinforceSector } from '@/combat/Defense'
 import { assignedRescuer, stepNightCycle, stepNightDefender } from '@/combat/Night'
+import { assignWatch } from '@/jobs/Roster'
 import { TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { fireProfile, magazineSize, muzzleOrigin, readMag } from '@/data/weapons'
 import { duskWarningLevel } from '@/simulation/TimeSystem'
@@ -214,6 +215,17 @@ describe('combat and night', () => {
     stepNightDefender(world, hunter, 1 / 30)
     expect(hunter.position.y).toBeCloseTo(TOWER_STAND_HEIGHT, 5)
     expect(world.projectiles.length).toBeGreaterThan(0)
+  })
+
+  it('lets the player appoint a survivor to a watchtower', () => {
+    const world = createInitialWorld()
+    const post = world.nightPosts[0]
+    if (!post) throw new Error('missing post')
+    expect(assignWatch(world, post.id, 'builder')).toBe(true)
+    const builder = findSurvivor(world, 'builder')
+    expect(builder?.watchPostId).toBe(post.id)
+    expect(builder?.dayAssignment).toBe('watch')
+    expect(post.occupantId).toBe('builder')
   })
 
   it('extends fire range when a survivor stands on a watchtower post', () => {

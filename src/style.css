@@ -329,6 +329,51 @@ body,
   background: #1a1612;
 }
 
+.tower-panel {
+  position: absolute;
+  left: 50%;
+  top: 110px;
+  z-index: 32;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.tower-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel);
+  color: var(--hud-ink);
+  pointer-events: auto;
+}
+
+.tower-card strong {
+  font-size: 16px;
+}
+
+.tower-card span {
+  color: var(--hud-muted);
+  font-size: 13px;
+}
+
+.tower-pick,
+.tower-card [data-watch-close] {
+  height: 32px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel-2);
+  color: var(--hud-ink);
+  cursor: pointer;
+}
+
+.tower-pick.is-on,
+.tower-pick:hover,
+.tower-card [data-watch-close]:hover {
+  border-color: var(--hud-brass);
+}
+
 .hud-bar b {
   display: block;
   height: 100%;

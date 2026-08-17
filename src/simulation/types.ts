@@ -130,6 +130,7 @@ export interface SurvivorState {
   fireCooldown: number
   fireCooldownMax: number
   nightPostId: string | null
+  watchPostId: string | null
   indoorId: string | null
   downed: boolean
   level: number

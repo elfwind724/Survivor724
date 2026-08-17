@@ -1,5 +1,6 @@
 import { createCompleteStructure, placeBlueprint } from '@/base/construction'
 import { loadDecorations } from '@/base/decorations'
+import { facilityBeds } from '@/base/FacilityLife'
 import { seedOutdoorScenery } from '@/data/outdoorScenery'
 import { createWorkZone } from '@/base/workZones'
 import { createDeer } from '@/combat/Combat'
@@ -210,7 +211,7 @@ function seedStarterBuildings(world: WorldState): void {
   seedAt(world, 'kitchen', -22, 8)
   seedAt(world, 'warehouse', -22, -16)
   seedAt(world, 'hall', 18, 16)
-  seedAt(world, 'quarters', 16, -6)
+  seedAt(world, 'quarters', 14, -10)
   seedAt(world, 'workshop', 16, -18)
   seedAt(world, 'watchtower', BASE.west + 2, BASE.north - 3)
   seedAt(world, 'watchtower', BASE.east - 3, BASE.north - 3)
@@ -235,15 +236,9 @@ function bindContainersToBuildings(world: WorldState): void {
 function assignStarterHomes(world: WorldState): void {
   const quarters = world.structures.find((entry) => entry.definitionId === 'quarters' && entry.stage === 'complete')
   if (!quarters) return
+  const beds = facilityBeds(world, quarters)
   world.survivors.forEach((survivor, index) => {
-    const beds = [-3.2, -1.6, 0, 1.6, 3.2]
-    const midXs = quarters.cells.map((cell) => cell.x)
-    const midZs = quarters.cells.map((cell) => cell.z)
-    const mid = cellCenter(world.nav, {
-      x: (Math.min(...midXs) + Math.max(...midXs)) / 2,
-      z: (Math.min(...midZs) + Math.max(...midZs)) / 2,
-    })
-    survivor.homePosition = { x: mid.x + (beds[index] ?? 0), y: 0, z: mid.z + 0.35 }
+    survivor.homePosition = beds[index] ?? beds[0] ?? survivor.homePosition
   })
 }
 

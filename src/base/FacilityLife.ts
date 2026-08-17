@@ -40,9 +40,38 @@ export function bedSpot(world: WorldState, survivor: SurvivorState): Vec3 {
   return beds[index % beds.length] ?? facilityApproach(world, quarters)
 }
 
+export function facilityBounds(world: WorldState, structure: StructureState): {
+  west: number
+  east: number
+  south: number
+  north: number
+} {
+  const xs = structure.cells.map((cell) => cell.x)
+  const zs = structure.cells.map((cell) => cell.z)
+  const size = world.nav.cellSize
+  return {
+    west: world.nav.originX + Math.min(...xs) * size,
+    east: world.nav.originX + (Math.max(...xs) + 1) * size,
+    south: world.nav.originZ + Math.min(...zs) * size,
+    north: world.nav.originZ + (Math.max(...zs) + 1) * size,
+  }
+}
+
 export function facilityBeds(world: WorldState, structure: StructureState): Vec3[] {
-  const mid = structureMid(world, structure)
-  return [-3.2, -1.6, 0, 1.6, 3.2].map((offset) => ({ x: mid.x + offset, y: 0, z: mid.z + 1.1 }))
+  const bounds = facilityBounds(world, structure)
+  const inset = 1.6
+  const west = bounds.west + inset
+  const east = bounds.east - inset
+  const south = bounds.south + inset
+  const north = bounds.north - inset
+  const count = 5
+  const span = Math.max(0.8, east - west)
+  const z = south + (north - south) * 0.38
+  return Array.from({ length: count }, (_, index) => ({
+    x: west + (span * (index + 0.5)) / count,
+    y: 0,
+    z,
+  }))
 }
 
 export function cookSpot(world: WorldState, kitchen: StructureState): Vec3 {
@@ -80,8 +109,9 @@ export function occupiedFacilityIds(world: WorldState): Set<string> {
   return ids
 }
 
-export function isSleeping(survivor: SurvivorState): boolean {
-  return survivor.workerState === 'Rest' && Boolean(survivor.indoorId)
+export function isSleeping(world: WorldState, survivor: SurvivorState): boolean {
+  if (!survivor.indoorId || (survivor.workerState !== 'Rest' && survivor.workerState !== 'RestOrNextJob')) return false
+  return distanceXZ(survivor.position, bedSpot(world, survivor)) < 1.1
 }
 
 export function isCooking(world: WorldState, survivor: SurvivorState): boolean {
@@ -98,9 +128,7 @@ export function tryEnterAfterArrival(
 ): boolean {
   const structure = findFacility(world, definitionId)
   if (!structure) return false
-  if (distanceXZ(survivor.position, facilityApproach(world, structure)) > 2.8 && distanceXZ(survivor.position, spot) > 2.8) {
-    return false
-  }
+  if (distanceXZ(survivor.position, spot) > 0.95) return false
   enterFacility(world, survivor, structure, spot)
   return true
 }
@@ -108,17 +136,19 @@ export function tryEnterAfterArrival(
 export function interiorProps(world: WorldState, structure: StructureState): InteriorProp[] {
   const mid = structureMid(world, structure)
   if (structure.definitionId === 'quarters') {
-    const beds = facilityBeds(world, structure).map((bed, index) => ({
+    const bounds = facilityBounds(world, structure)
+    const beds = facilityBeds(world, structure).map((bed) => ({
       assetId: 'interior/bed-single',
       x: bed.x,
       z: bed.z,
-      yaw: index % 2 === 0 ? Math.PI / 2 : -Math.PI / 2,
+      yaw: Math.PI / 2,
+      scale: 0.58,
     }))
     return [
       ...beds,
-      { assetId: 'interior/night-stand', x: mid.x - 3.2, z: mid.z - 1.4, yaw: 0 },
-      { assetId: 'interior/night-stand', x: mid.x + 3.2, z: mid.z - 1.4, yaw: 0 },
-      { assetId: 'interior/chair', x: mid.x, z: mid.z - 1.8, yaw: 0 },
+      { assetId: 'interior/night-stand', x: bounds.west + 1.7, z: bounds.south + 1.7, yaw: 0, scale: 0.7 },
+      { assetId: 'interior/night-stand', x: bounds.east - 1.7, z: bounds.south + 1.7, yaw: 0, scale: 0.7 },
+      { assetId: 'interior/chair', x: (bounds.west + bounds.east) / 2, z: bounds.south + 1.8, yaw: 0, scale: 0.7 },
     ]
   }
   if (structure.definitionId === 'kitchen') {

@@ -76,7 +76,11 @@ export function stepNightCycle(world: WorldState): void {
     world.enemies = []
     for (const post of world.nightPosts) post.occupantId = null
     for (const survivor of world.survivors) {
-      survivor.nightPostId = null
+      survivor.nightPostId = survivor.watchPostId
+      if (survivor.watchPostId) {
+        const post = world.nightPosts.find((entry) => entry.id === survivor.watchPostId)
+        if (post) post.occupantId = survivor.id
+      }
       survivor.position.y = 0
     }
   }
@@ -135,9 +139,23 @@ function edgePoint(seed: number) {
 function assignNightPosts(world: WorldState): void {
   for (const post of world.nightPosts) post.occupantId = null
   for (const survivor of world.survivors) {
-    if (survivor.downed) continue
+    if (survivor.downed || !survivor.watchPostId) continue
+    const reserved = world.nightPosts.find((post) => post.id === survivor.watchPostId)
+    if (!reserved) continue
+    reserved.occupantId = survivor.id
+    survivor.nightPostId = reserved.id
+  }
+  for (const survivor of world.survivors) {
+    if (survivor.downed || survivor.watchPostId) continue
     assignOnePost(world, survivor)
   }
+}
+
+export function postForTower(world: WorldState, structure: StructureState): NightPost | undefined {
+  const mid = structureMid(world, structure)
+  return world.nightPosts
+    .slice()
+    .sort((a, b) => distanceXZ(a.position, mid) - distanceXZ(b.position, mid))[0]
 }
 
 function assignOnePost(world: WorldState, survivor: SurvivorState): NightPost | undefined {
