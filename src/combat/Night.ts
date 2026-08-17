@@ -1,6 +1,6 @@
 import { repairStructure } from '@/base/construction'
 import { NIGHT_HORDE } from '@/data/enemies'
-import { equippedWeapon } from '@/data/weapons'
+import { equippedWeapon, magazineSize, writeMag } from '@/data/weapons'
 import { countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { cellCenter } from '@/navigation/NavGrid'
 import { findContainer } from '@/simulation/EntityRegistry'
@@ -177,8 +177,13 @@ function restockNightAmmo(world: WorldState, survivor: SurvivorState, dt: number
     followTravel(world, survivor, dt)
     return true
   }
-  const take = Math.min(12, countItem(stock, 'ammo'))
-  if (take > 0 && removeItem(stock, 'ammo', take)) survivor.ammo += take
+  const gun = equippedWeapon(survivor)
+  const cap = gun ? magazineSize(gun.id) : 12
+  const take = Math.min(cap - survivor.ammo, countItem(stock, 'ammo'))
+  if (take > 0 && removeItem(stock, 'ammo', take)) {
+    if (gun) writeMag(survivor, gun.id, survivor.ammo + take)
+    else survivor.ammo += take
+  }
   const post = world.nightPosts.find((entry) => entry.id === survivor.nightPostId)
   if (post) beginTravel(world, survivor, post.position)
   return true
@@ -199,12 +204,14 @@ function issueNightAmmo(world: WorldState): void {
   if (!warehouse) return
   const stock = inventoryOf(world.inventories, warehouse.inventoryId)
   for (const survivor of world.survivors) {
-    if (survivor.downed || survivor.ammo >= 12) continue
-    const need = 16 - survivor.ammo
-    const take = Math.min(need, countItem(stock, 'ammo'))
+    const gun = equippedWeapon(survivor)
+    const cap = gun ? magazineSize(gun.id) : 16
+    if (survivor.downed || survivor.ammo >= cap) continue
+    const take = Math.min(cap - survivor.ammo, countItem(stock, 'ammo'))
     if (take <= 0) break
     removeItem(stock, 'ammo', take)
-    survivor.ammo += take
+    if (gun) writeMag(survivor, gun.id, survivor.ammo + take)
+    else survivor.ammo += take
   }
 }
 

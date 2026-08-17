@@ -124,7 +124,9 @@ export interface SurvivorState {
   pathVersion: number
   facingYaw: number
   ammo: number
+  weaponAmmo: Record<string, number>
   fireCooldown: number
+  fireCooldownMax: number
   nightPostId: string | null
   downed: boolean
   level: number

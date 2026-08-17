@@ -24,6 +24,26 @@ describe('game hud', () => {
     expect(html).not.toContain('Warehouse')
   })
 
+  it('shows the current gun magazine and a cooldown ring', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.equipment.weapon = 'pistol'
+    hunter.ammo = 7
+    hunter.weaponAmmo = { pistol: 7 }
+    hunter.fireCooldown = 0.2
+    hunter.fireCooldownMax = 0.4
+    world.player.selectedId = 'hunter'
+    const model = buildHudModel(world)
+    expect(model.weapon?.name).toBe('手枪')
+    expect(model.weapon?.ammo).toBe(7)
+    expect(model.weapon?.ammoMax).toBe(12)
+    expect(model.weapon?.cooldown).toBeCloseTo(0.5, 5)
+    const html = renderHudHtml(model)
+    expect(html).toContain('7/12')
+    expect(html).toContain('hud-cd')
+  })
+
   it('drains hunger and thirst while a survivor is working', () => {
     const world = createInitialWorld()
     const hunter = world.survivors.find((entry) => entry.id === 'hunter')

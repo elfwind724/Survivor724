@@ -474,7 +474,7 @@ export class GameApp {
     if (!self) return
     if (tryShoot(this.world, self)) {
       const gun = fireProfile(self).weapon
-      this.notice = `射击 · ${gun?.label ?? '枪'} · 剩弹 ${self.ammo}`
+      this.notice = `射击 · ${gun?.label ?? '枪'} · ${self.ammo}发`
       return
     }
     if (!equippedWeapon(self)) this.notice = '没有装备枪械'

@@ -56,6 +56,8 @@ describe('model fit', () => {
   it('keeps pistol grips low and turns a sideways shotgun barrel onto Z', () => {
     expect(holdPose('pistol').lift).toBeLessThan(0.05)
     expect(holdPose('rifle').lift).toBeLessThan(0.06)
+    expect(holdPose('shotgun').barrelFlip).toBe(true)
+    expect(holdPose('rifle').barrelFlip).toBe(false)
     const shotgun = new THREE.Mesh(new THREE.BoxGeometry(5, 0.8, 0.3))
     alignGunAxes(shotgun)
     shotgun.updateMatrixWorld(true)

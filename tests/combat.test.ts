@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createEnemy, stepProjectiles, tryShoot } from '@/combat/Combat'
 import { reinforceSector } from '@/combat/Defense'
 import { assignedRescuer, stepNightCycle } from '@/combat/Night'
-import { fireProfile, muzzleOrigin } from '@/data/weapons'
+import { fireProfile, magazineSize, muzzleOrigin, readMag } from '@/data/weapons'
 import { duskWarningLevel } from '@/simulation/TimeSystem'
 import { cellCenter } from '@/navigation/NavGrid'
 import { stepWorld } from '@/simulation/SimStep'
@@ -79,6 +79,28 @@ describe('combat and night', () => {
     expect(sniper.damage).toBeGreaterThan(40)
     expect(tryShoot(world, hunter)).toBe(true)
     expect(world.projectiles[0]?.velocity.x !== 0 || (world.projectiles[0]?.velocity.z ?? 0) > 80).toBe(true)
+  })
+
+  it('keeps a separate magazine for each gun', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.ammo = 3
+    hunter.equipment.weapon = 'pistol'
+    hunter.weaponAmmo = { pistol: 3 }
+    expect(equipItem(world, hunter, 'rifle')).toBe(true)
+    expect(hunter.equipment.weapon).toBe('rifle')
+    expect(hunter.ammo).toBe(magazineSize('rifle'))
+    expect(readMag(hunter, 'pistol')).toBe(3)
+    hunter.ammo = 0
+    hunter.weaponAmmo.rifle = 0
+    hunter.fireCooldown = 0
+    expect(tryShoot(world, hunter)).toBe(false)
+    expect(equipItem(world, hunter, 'pistol')).toBe(true)
+    expect(hunter.ammo).toBe(3)
+    hunter.fireCooldown = 0
+    expect(tryShoot(world, hunter)).toBe(true)
+    expect(hunter.ammo).toBe(2)
   })
 
   it('lets a survivor equip a locker gun and refuses to fire without one', () => {

@@ -1,7 +1,7 @@
 import { damageStructure } from '@/base/construction'
 import { ENEMY_DEFINITIONS } from '@/data/enemies'
 import { derivedStats } from '@/data/equipment'
-import { fireProfile, muzzleOrigin } from '@/data/weapons'
+import { fireProfile, muzzleOrigin, readMag, writeMag } from '@/data/weapons'
 import { addItem, inventoryOf } from '@/inventory/Inventory'
 import { cellCenter, isBlocked, worldToCell } from '@/navigation/NavGrid'
 import { lookXZ } from '@/controls/CameraWish'
@@ -26,11 +26,14 @@ export function tickCooldowns(world: WorldState, dt: number): void {
 }
 
 export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
-  if (survivor.downed || survivor.fireCooldown > 0 || survivor.ammo <= 0) return false
+  if (survivor.downed || survivor.fireCooldown > 0) return false
   const profile = fireProfile(survivor)
   if (!profile.weapon || profile.pellets <= 0) return false
+  const mag = readMag(survivor, profile.weapon.id)
+  if (mag < profile.ammoCost) return false
   survivor.fireCooldown = profile.cooldown
-  survivor.ammo -= profile.ammoCost
+  survivor.fireCooldownMax = profile.cooldown
+  writeMag(survivor, profile.weapon.id, mag - profile.ammoCost)
   const aimJitter = (unitNoise(`${survivor.id}:${world.time.daySeconds.toFixed(2)}`) * 2 - 1) * profile.spread
   const origin = muzzleOrigin(survivor)
   for (let index = 0; index < profile.pellets; index += 1) {

@@ -12,22 +12,26 @@ export interface HoldPose {
   lift: number
   forward: number
   side: number
+  barrelFlip: boolean
 }
 
 const HOLD_POSES: Record<string, HoldPose> = {
-  pistol: { lift: 0.02, forward: 0.24, side: 0.01 },
-  revolver: { lift: 0.02, forward: 0.24, side: 0.01 },
-  smg: { lift: 0.03, forward: 0.26, side: 0.01 },
-  rifle: { lift: 0.03, forward: 0.28, side: 0.01 },
-  shotgun: { lift: 0.03, forward: 0.28, side: 0.01 },
-  sniper: { lift: 0.03, forward: 0.3, side: 0.01 },
+  pistol: { lift: 0.02, forward: 0.24, side: 0.01, barrelFlip: false },
+  revolver: { lift: 0.02, forward: 0.24, side: 0.01, barrelFlip: false },
+  smg: { lift: 0.03, forward: 0.26, side: 0.01, barrelFlip: false },
+  rifle: { lift: 0.03, forward: 0.28, side: 0.01, barrelFlip: false },
+  shotgun: { lift: 0.03, forward: 0.28, side: 0.01, barrelFlip: true },
+  sniper: { lift: 0.03, forward: 0.3, side: 0.01, barrelFlip: false },
 }
 
 export function holdPose(weaponId: string): HoldPose {
-  return HOLD_POSES[weaponId] ?? { lift: 0.03, forward: 0.06, side: 0.01 }
+  return HOLD_POSES[weaponId] ?? { lift: 0.03, forward: 0.06, side: 0.01, barrelFlip: false }
 }
 
-export function holdRotation(_weaponId: string): THREE.Quaternion {
+export function holdRotation(weaponId: string): THREE.Quaternion {
+  if (holdPose(weaponId).barrelFlip) {
+    return _hold.setFromEuler(new THREE.Euler(-Math.PI / 2, Math.PI, -Math.PI / 2, 'XYZ'))
+  }
   return _hold.setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI / 2, 'XYZ'))
 }
 

@@ -1,4 +1,5 @@
 import { countItem } from '@/inventory/Inventory'
+import { equippedWeapon, magazineSize, readMag } from '@/data/weapons'
 import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
 import type { SurvivorState, WorldState } from '@/simulation/types'
 import { clampVital } from '@/survivors/Vitals'
@@ -29,6 +30,9 @@ export interface HudCard {
   live: boolean
   downed: boolean
   ammo: number | null
+  ammoMax: number
+  weapon: string | null
+  cooldown: number
   portrait: string
   bars: HudBar[]
 }
@@ -43,6 +47,12 @@ export interface HudModel {
   sites: number
   stocks: HudStock[]
   cards: HudCard[]
+  weapon: {
+    name: string
+    ammo: number
+    ammoMax: number
+    cooldown: number
+  } | null
 }
 
 const JOB_LABEL: Record<string, string> = {
@@ -70,15 +80,17 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
       { id: 'food', label: '食', count: warehouse ? countItem(warehouse, 'raw_meat') + countItem(warehouse, 'raw_fish') + countItem(warehouse, 'meal') : 0 },
     ],
     cards: world.survivors.map((survivor) => cardModel(world, survivor)),
+    weapon: focusWeapon(world),
   }
 }
 
 export function hudModelKey(model: HudModel): string {
   const stocks = model.stocks.map((item) => `${item.id}:${item.count}`).join(',')
   const cards = model.cards
-    .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.status}:${card.ammo ?? '-'}`)
+    .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.status}:${card.ammo ?? '-'}:${card.cooldown.toFixed(2)}`)
     .join('|')
-  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.warning}:${model.notice}:${stocks}:${cards}`
+  const weapon = model.weapon ? `${model.weapon.name}:${model.weapon.ammo}/${model.weapon.ammoMax}:${model.weapon.cooldown.toFixed(2)}` : '-'
+  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.warning}:${model.notice}:${stocks}:${cards}:${weapon}`
 }
 
 export function renderHudHtml(model: HudModel): string {
@@ -98,6 +110,7 @@ export function renderHudHtml(model: HudModel): string {
         ${scale}${sites}${model.warning ? `<span class="hud-chip hud-chip-warn">${model.warning}</span>` : ''}
       </div>
       <div class="hud-stocks">${stocks}</div>
+      ${renderWeaponHud(model.weapon)}
     </div>
     <div class="hud-roster">${cards}</div>
     ${toast}
@@ -141,6 +154,7 @@ export class GameHud {
 }
 
 function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
+  const gun = equippedWeapon(survivor)
   return {
     id: survivor.id,
     name: survivor.name,
@@ -149,7 +163,10 @@ function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
     selected: world.player.selectedId === survivor.id,
     live: world.player.controlledId === survivor.id,
     downed: survivor.downed,
-    ammo: world.player.controlledId === survivor.id ? survivor.ammo : null,
+    ammo: gun ? readMag(survivor, gun.id) : null,
+    ammoMax: gun ? magazineSize(gun.id) : 0,
+    weapon: gun?.label ?? null,
+    cooldown: cooldownRatio(survivor),
     portrait: survivorPortrait(survivor),
     bars: [
       { key: 'hp', label: '血', value: clampVital(survivor.health) },
@@ -174,7 +191,9 @@ function renderCard(card: HudCard): string {
       </div>`
     })
     .join('')
-  const ammo = card.ammo !== null ? `<em class="hud-ammo">${card.ammo}发</em>` : ''
+  const ammo = card.ammo !== null
+    ? `<em class="hud-ammo">${card.ammo}/${card.ammoMax}</em>`
+    : ''
   return `<button type="button" class="hud-card ${flags}" data-survivor="${card.id}">
     <span class="hud-face" aria-hidden="true">${card.portrait}</span>
     <span class="hud-meta">
@@ -183,6 +202,38 @@ function renderCard(card: HudCard): string {
       ${bars}
     </span>
   </button>`
+}
+
+function focusWeapon(world: WorldState): HudModel['weapon'] {
+  const id = world.player.controlledId ?? world.player.selectedId
+  const survivor = id ? world.survivors.find((entry) => entry.id === id) : undefined
+  if (!survivor) return null
+  const gun = equippedWeapon(survivor)
+  if (!gun) return null
+  return {
+    name: gun.label,
+    ammo: readMag(survivor, gun.id),
+    ammoMax: magazineSize(gun.id),
+    cooldown: cooldownRatio(survivor),
+  }
+}
+
+function cooldownRatio(survivor: SurvivorState): number {
+  if (survivor.fireCooldownMax <= 0) return 0
+  return Math.max(0, Math.min(1, survivor.fireCooldown / survivor.fireCooldownMax))
+}
+
+function renderWeaponHud(weapon: HudModel['weapon']): string {
+  if (!weapon) return ''
+  const empty = weapon.ammo <= 0 ? ' is-empty' : ''
+  const cooling = weapon.cooldown > 0.02 ? ' is-cd' : ''
+  return `<div class="hud-weapon${empty}${cooling}">
+    <span class="hud-cd" style="--t:${weapon.cooldown.toFixed(3)}" aria-hidden="true"></span>
+    <div>
+      <strong>${escapeHtml(weapon.name)}</strong>
+      <em>${weapon.ammo}/${weapon.ammoMax}</em>
+    </div>
+  </div>`
 }
 
 function statusLabel(world: WorldState, survivor: SurvivorState): string {

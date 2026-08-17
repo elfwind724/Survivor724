@@ -122,6 +122,47 @@ body,
 .hud-stock[data-stock="ammo"] i { background: #b9a15a; }
 .hud-stock[data-stock="food"] i { background: #a45a42; }
 
+.hud-weapon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel);
+}
+
+.hud-weapon strong {
+  display: block;
+  font-size: 15px;
+}
+
+.hud-weapon em {
+  color: var(--hud-brass);
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 650;
+}
+
+.hud-weapon.is-empty em {
+  color: #e15b4a;
+}
+
+.hud-cd {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background:
+    conic-gradient(#c9a45c calc(var(--t, 0) * 1turn), #2a241c 0),
+    #16130f;
+  box-shadow: inset 0 0 0 3px #16130f;
+}
+
+.hud-weapon:not(.is-cd) .hud-cd {
+  background: #2a241c;
+  box-shadow: inset 0 0 0 3px #16130f, inset 0 0 0 5px #4d4336;
+}
+
 .hud-roster {
   display: flex;
   flex-wrap: wrap;

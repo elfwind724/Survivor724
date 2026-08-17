@@ -5,6 +5,7 @@ import {
   PROFESSION_CLOTHES,
   type EquipItemDef,
 } from '@/data/equipment'
+import { switchMags } from '@/data/weapons'
 import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
 import type { EquipSlot, SurvivorState, WorldState } from '@/simulation/types'
@@ -26,6 +27,7 @@ export function dressProfession(survivor: SurvivorState): void {
 }
 
 export function syncToolsToEquipment(world: WorldState, survivor: SurvivorState): void {
+  const previousWeapon = survivor.equipment.weapon
   for (const tool of survivor.carriedTools) {
     const item = equipmentById(tool)
     if (!item || (item.slot !== 'weapon' && item.slot !== 'tool')) continue
@@ -34,6 +36,9 @@ export function syncToolsToEquipment(world: WorldState, survivor: SurvivorState)
     survivor.equipment[item.slot] = tool
   }
   applyEquipmentStats(survivor)
+  if (survivor.equipment.weapon !== previousWeapon) {
+    switchMags(survivor, previousWeapon, survivor.equipment.weapon)
+  }
 }
 
 export function clearJobTools(survivor: SurvivorState, returned: string[]): void {
@@ -80,8 +85,10 @@ export function equipItem(world: WorldState, survivor: SurvivorState, itemId: st
   if (current && (current === survivor.equipment.weapon || current === survivor.equipment.tool)) {
     survivor.carriedTools = survivor.carriedTools.filter((tool) => tool !== current)
   }
+  const previousWeapon = survivor.equipment.weapon
   survivor.equipment[item.slot] = itemId
   applyEquipmentStats(survivor)
+  if (item.slot === 'weapon') switchMags(survivor, previousWeapon, itemId)
   return true
 }
 
@@ -92,6 +99,7 @@ export function unequipSlot(world: WorldState, survivor: SurvivorState, slot: Eq
   survivor.equipment[slot] = null
   survivor.carriedTools = survivor.carriedTools.filter((tool) => tool !== current)
   applyEquipmentStats(survivor)
+  if (slot === 'weapon') switchMags(survivor, current, null)
   return true
 }
 

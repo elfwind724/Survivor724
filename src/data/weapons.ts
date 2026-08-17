@@ -84,3 +84,45 @@ export function muzzleOrigin(survivor: SurvivorState): { x: number; y: number; z
 export function weaponForTools(tools: string[]): WeaponDefinition {
   return weaponById(tools.find((tool) => weaponById(tool)) ?? '') ?? WEAPONS[0]!
 }
+
+export const WEAPON_SWAP_COOLDOWN = 0.4
+
+export function magazineSize(weaponId: string): number {
+  if (weaponId === 'pistol') return 12
+  if (weaponId === 'revolver') return 6
+  if (weaponId === 'smg') return 30
+  if (weaponId === 'rifle') return 24
+  if (weaponId === 'shotgun') return 8
+  if (weaponId === 'sniper') return 5
+  return 12
+}
+
+export function readMag(survivor: SurvivorState, weaponId: string): number {
+  const stored = survivor.weaponAmmo[weaponId]
+  if (stored !== undefined) return stored
+  if (equippedWeapon(survivor)?.id === weaponId) return survivor.ammo
+  return magazineSize(weaponId)
+}
+
+export function writeMag(survivor: SurvivorState, weaponId: string, count: number): void {
+  const next = Math.max(0, count)
+  survivor.weaponAmmo[weaponId] = next
+  if (equippedWeapon(survivor)?.id === weaponId) survivor.ammo = next
+}
+
+export function switchMags(survivor: SurvivorState, fromId: string | null, toId: string | null): void {
+  if (fromId && weaponById(fromId)) writeMag(survivor, fromId, survivor.ammo)
+  if (!toId || !weaponById(toId)) {
+    survivor.ammo = 0
+    return
+  }
+  if (survivor.weaponAmmo[toId] === undefined) {
+    const seed = fromId === null && survivor.ammo > 0 ? survivor.ammo : magazineSize(toId)
+    survivor.weaponAmmo[toId] = Math.min(magazineSize(toId), seed)
+  }
+  survivor.ammo = survivor.weaponAmmo[toId] ?? magazineSize(toId)
+  if (fromId && fromId !== toId) {
+    survivor.fireCooldown = WEAPON_SWAP_COOLDOWN
+    survivor.fireCooldownMax = WEAPON_SWAP_COOLDOWN
+  }
+}

@@ -14,7 +14,9 @@ type SurvivorDraft = Omit<
   | 'pathVersion'
   | 'facingYaw'
   | 'ammo'
+  | 'weaponAmmo'
   | 'fireCooldown'
+  | 'fireCooldownMax'
   | 'nightPostId'
   | 'downed'
   | 'level'
@@ -35,7 +37,9 @@ type SurvivorDraft = Omit<
   pathVersion?: number
   facingYaw?: number
   ammo?: number
+  weaponAmmo?: Record<string, number>
   fireCooldown?: number
+  fireCooldownMax?: number
   nightPostId?: string | null
   downed?: boolean
   level?: number
@@ -61,7 +65,9 @@ export function createSurvivor(input: SurvivorDraft): SurvivorState {
     pathVersion: input.pathVersion ?? 0,
     facingYaw: input.facingYaw ?? 0,
     ammo: input.ammo ?? 18,
+    weaponAmmo: { ...(input.weaponAmmo ?? {}) },
     fireCooldown: input.fireCooldown ?? 0,
+    fireCooldownMax: input.fireCooldownMax ?? 0,
     nightPostId: input.nightPostId ?? null,
     downed: input.downed ?? false,
     level: input.level ?? 1,
