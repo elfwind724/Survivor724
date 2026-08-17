@@ -55,6 +55,21 @@ export class DebugRenderer {
     return raycaster.ray.intersectPlane(plane, hit) ? hit : null
   }
 
+  pickSurvivor(world: WorldState, clientX: number, clientY: number): string | null {
+    const hit = this.pickGround(clientX, clientY)
+    if (!hit) return null
+    let bestId: string | null = null
+    let best = 2.2
+    for (const survivor of world.survivors) {
+      const distance = Math.hypot(survivor.position.x - hit.x, survivor.position.z - hit.z)
+      if (distance < best) {
+        best = distance
+        bestId = survivor.id
+      }
+    }
+    return bestId
+  }
+
   sync(world: WorldState): void {
     this.ensureStatic(world)
     this.syncZones(world)
@@ -71,7 +86,42 @@ export class DebugRenderer {
         this.survivors.set(survivor.id, marker)
       }
       marker.mesh.position.set(survivor.position.x, 0.9, survivor.position.z)
+      marker.mesh.rotation.y = survivor.facingYaw
+      if (marker.mesh instanceof THREE.Mesh && marker.mesh.material instanceof THREE.MeshLambertMaterial) {
+        const controlled = world.player.controlledId === survivor.id
+        const selected = world.player.selectedId === survivor.id
+        marker.mesh.material.color.set(controlled ? 0xf0d27a : selected ? 0xd8c4a0 : 0xc4b39a)
+      }
     }
+    this.updateCamera(world)
+  }
+
+  private updateCamera(world: WorldState): void {
+    const focusId = world.player.controlledId ?? world.player.selectedId
+    const focus = world.survivors.find((survivor) => survivor.id === focusId)
+    if (!focus) return
+
+    if (world.player.view === 'firstperson' && world.player.controlledId) {
+      this.camera.fov = 70
+      this.camera.updateProjectionMatrix()
+      this.camera.position.set(focus.position.x, 1.65, focus.position.z)
+      this.camera.lookAt(
+        focus.position.x + Math.sin(focus.facingYaw),
+        1.65,
+        focus.position.z + Math.cos(focus.facingYaw),
+      )
+      const marker = this.survivors.get(focus.id)
+      if (marker) marker.mesh.visible = false
+      return
+    }
+
+    for (const marker of this.survivors.values()) marker.mesh.visible = true
+    this.camera.fov = 50
+    this.camera.updateProjectionMatrix()
+    const target = new THREE.Vector3(focus.position.x, 0, focus.position.z)
+    const desired = new THREE.Vector3(focus.position.x, 28, focus.position.z + 22)
+    this.camera.position.lerp(desired, 0.18)
+    this.camera.lookAt(target)
   }
 
   draw(): void {

@@ -11,6 +11,7 @@ type SurvivorDraft = Omit<
   | 'path'
   | 'pathTarget'
   | 'pathVersion'
+  | 'facingYaw'
 > & {
   destination?: Vec3 | null
   homePosition?: Vec3
@@ -21,6 +22,7 @@ type SurvivorDraft = Omit<
   path?: Vec3[]
   pathTarget?: Vec3 | null
   pathVersion?: number
+  facingYaw?: number
 }
 
 export function createSurvivor(input: SurvivorDraft): SurvivorState {
@@ -36,6 +38,7 @@ export function createSurvivor(input: SurvivorDraft): SurvivorState {
     path: (input.path ?? []).map((point) => cloneVec3(point)),
     pathTarget: input.pathTarget ? cloneVec3(input.pathTarget) : null,
     pathVersion: input.pathVersion ?? 0,
+    facingYaw: input.facingYaw ?? 0,
   }
 }
 

@@ -1,7 +1,12 @@
+import * as THREE from 'three'
 import { placeBlueprint, toggleGates } from '@/base/construction'
 import { setWorkZone } from '@/base/workZones'
+import { Input } from '@/controls/Input'
+import { cycleControlled, possessSurvivor, releaseControl } from '@/controls/PlayerControl'
+import { beginTravel } from '@/navigation/Travel'
 import { worldToCell } from '@/navigation/NavGrid'
 import { DebugRenderer } from '@/render/DebugRenderer'
+import { findSurvivor } from '@/simulation/EntityRegistry'
 import { stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
 import type { WorldState } from '@/simulation/types'
@@ -16,11 +21,14 @@ export class GameApp {
   private readonly renderer: DebugRenderer
   private readonly hud: DebugHud
   private readonly minimap: Minimap
+  private readonly input = new Input()
   private readonly loop: GameLoop
   private buildMode: BuildMode = 'none'
   private zoneJob = 'hunt'
   private zoneStart: { x: number; z: number } | null = null
-  private notice = 'B 墙 / N 门 / 单击地面放置 · G 开关大门 · 小地图拖拽绘制工作区 · 1猎 2渔 3搜'
+  private lastClickAt = 0
+  private lastClickId: string | null = null
+  private notice = 'WASD 移动 · 鼠标朝向 · 单击选人 · 双击/Enter 接管 · Tab 切换 · F 第一人称 · X 交还AI · B/N 建造'
 
   constructor(canvas: HTMLCanvasElement, hudRoot: HTMLElement, minimapCanvas: HTMLCanvasElement) {
     this.world = createInitialWorld()
@@ -28,10 +36,12 @@ export class GameApp {
     this.hud = new DebugHud(hudRoot)
     this.minimap = new Minimap(minimapCanvas)
     this.loop = new GameLoop(this.step, this.draw)
+    possessSurvivor(this.world, 'hunter')
     this.renderer.sync(this.world)
-    this.hud.render(this.world, this.notice, this.buildMode, this.zoneJob)
+    this.refreshHud()
     this.minimap.render(this.world)
     canvas.addEventListener('pointerdown', this.onWorldClick)
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault())
     minimapCanvas.addEventListener('pointerdown', this.onMinimapDown)
     minimapCanvas.addEventListener('pointerup', this.onMinimapUp)
     window.addEventListener('keydown', this.onKey)
@@ -44,21 +54,67 @@ export class GameApp {
   stop(): void {
     this.loop.stop()
     this.renderer.dispose()
+    this.input.dispose()
     window.removeEventListener('keydown', this.onKey)
   }
 
   private readonly step = (dt: number): void => {
-    stepWorld(this.world, dt)
+    stepWorld(this.world, dt, this.controlIntent())
   }
 
   private readonly draw = (_alpha: number): void => {
     this.renderer.sync(this.world)
     this.renderer.draw()
-    this.hud.render(this.world, this.notice, this.buildMode, this.zoneJob)
+    this.refreshHud()
     this.minimap.render(this.world)
   }
 
+  private controlIntent() {
+    const right = this.input.axis('KeyD', 'KeyA')
+    const forward = this.input.axis('KeyW', 'KeyS')
+    const look = this.renderer.pickGround(this.input.mouseX, this.input.mouseY)
+    if (this.world.player.view === 'firstperson') {
+      return {
+        wishX: right,
+        wishZ: forward,
+        faceX: null,
+        faceZ: null,
+        yawDelta: this.input.consumeMouseDeltaX() * 0.005,
+      }
+    }
+
+    const camera = this.renderer.camera
+    const worldForward = camera.getWorldDirection(new THREE.Vector3())
+    const forwardFlat = new THREE.Vector2(worldForward.x, worldForward.z)
+    if (forwardFlat.length() < 1e-4) forwardFlat.set(0, -1)
+    forwardFlat.normalize()
+    const rightFlat = new THREE.Vector2(forwardFlat.y, -forwardFlat.x)
+    return {
+      wishX: rightFlat.x * right + forwardFlat.x * forward,
+      wishZ: rightFlat.y * right + forwardFlat.y * forward,
+      faceX: look?.x ?? null,
+      faceZ: look?.z ?? null,
+      yawDelta: 0,
+    }
+  }
+
   private readonly onKey = (event: KeyboardEvent): void => {
+    if (event.code === 'Tab') {
+      event.preventDefault()
+      cycleControlled(this.world)
+      this.notice = `当前：${this.world.player.controlledId ?? this.world.player.selectedId ?? '无人'}`
+    }
+    if (event.code === 'Enter') {
+      const id = this.world.player.selectedId
+      if (id) possessSurvivor(this.world, id)
+    }
+    if (event.code === 'KeyX' || event.code === 'Escape') {
+      releaseControl(this.world)
+      this.notice = '已交还该幸存者，AI 继续工作'
+    }
+    if (event.code === 'KeyF' && this.world.player.controlledId) {
+      this.world.player.view = this.world.player.view === 'firstperson' ? 'topdown' : 'firstperson'
+    }
     if (event.code === 'KeyB') this.buildMode = this.buildMode === 'wall' ? 'none' : 'wall'
     if (event.code === 'KeyN') this.buildMode = this.buildMode === 'gate' ? 'none' : 'gate'
     if (event.code === 'KeyG') {
@@ -71,12 +127,38 @@ export class GameApp {
   }
 
   private readonly onWorldClick = (event: PointerEvent): void => {
-    if (this.buildMode === 'none') return
-    const hit = this.renderer.pickGround(event.clientX, event.clientY)
-    if (!hit) return
-    const cell = worldToCell(this.world.nav, { x: hit.x, y: 0, z: hit.z })
-    const result = placeBlueprint(this.world, this.buildMode, cell.x, cell.z)
-    this.notice = result.ok ? `已放置${this.buildMode}蓝图` : `无法放置：${result.reason}`
+    if (this.buildMode !== 'none' && event.button === 0) {
+      const hit = this.renderer.pickGround(event.clientX, event.clientY)
+      if (!hit) return
+      const cell = worldToCell(this.world.nav, { x: hit.x, y: 0, z: hit.z })
+      const result = placeBlueprint(this.world, this.buildMode, cell.x, cell.z)
+      this.notice = result.ok ? `已放置${this.buildMode}蓝图` : `无法放置：${result.reason}`
+      return
+    }
+
+    if (event.button === 0) {
+      const id = this.renderer.pickSurvivor(this.world, event.clientX, event.clientY)
+      if (!id) return
+      const now = performance.now()
+      const doubleClick = this.lastClickId === id && now - this.lastClickAt < 320
+      this.lastClickAt = now
+      this.lastClickId = id
+      this.world.player.selectedId = id
+      if (doubleClick) {
+        possessSurvivor(this.world, id)
+        this.notice = `接管 ${findSurvivor(this.world, id)?.name ?? id}`
+      }
+      return
+    }
+
+    if (event.button === 2 && !this.world.player.controlledId && this.world.player.selectedId) {
+      const hit = this.renderer.pickGround(event.clientX, event.clientY)
+      const survivor = findSurvivor(this.world, this.world.player.selectedId)
+      if (!hit || !survivor) return
+      beginTravel(this.world, survivor, { x: hit.x, y: 0, z: hit.z })
+      survivor.workerState = 'TravelToTarget'
+      this.notice = `命令 ${survivor.name} 移动`
+    }
   }
 
   private readonly onMinimapDown = (event: PointerEvent): void => {
@@ -89,5 +171,9 @@ export class GameApp {
     setWorkZone(this.world, this.zoneJob, this.zoneStart.x, this.zoneStart.z, end.x, end.z)
     this.notice = `已更新 ${this.zoneJob} 工作区`
     this.zoneStart = null
+  }
+
+  private refreshHud(): void {
+    this.hud.render(this.world, this.notice, this.buildMode, this.zoneJob)
   }
 }

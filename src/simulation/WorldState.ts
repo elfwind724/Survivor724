@@ -130,6 +130,11 @@ export function createInitialWorld(): WorldState {
     ],
     nav: createNavGrid(),
     navDirty: true,
+    player: {
+      selectedId: 'hunter',
+      controlledId: null,
+      view: 'topdown',
+    },
     structures: [],
     workZones: [
       createWorkZone('zone-hunt', 'hunt', 20, -20, 50, 10),

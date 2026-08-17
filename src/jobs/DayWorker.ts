@@ -30,6 +30,7 @@ export function shouldReturn(world: WorldState, survivor: SurvivorState): boolea
 }
 
 export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: number): void {
+  if (world.player.controlledId === survivor.id) return
   const job = currentJob(world, survivor)
   const definition = job ? jobDefinition(job.definitionId) : undefined
   if (isReturnPhase(world.time.phase) && isInterruptible(survivor.workerState, definition?.category ?? 'field')) {

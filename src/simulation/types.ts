@@ -100,6 +100,15 @@ export interface SurvivorState {
   path: Vec3[]
   pathTarget: Vec3 | null
   pathVersion: number
+  facingYaw: number
+}
+
+export type CameraView = 'topdown' | 'firstperson'
+
+export interface PlayerState {
+  selectedId: string | null
+  controlledId: string | null
+  view: CameraView
 }
 
 export interface ResourceNodeState {
@@ -135,6 +144,7 @@ export interface WorldState {
   navDirty: boolean
   structures: StructureState[]
   workZones: WorkZoneState[]
+  player: PlayerState
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

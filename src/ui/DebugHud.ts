@@ -20,11 +20,15 @@ export class DebugHud {
       const bagText = bag ? `${usedSlots(bag)}/${bag.capacity}` : '0/0'
       const tools = survivor.carriedTools.join(',') || 'none'
       const blocked = survivor.blockedReason ? ` · ${survivor.blockedReason}` : ''
-      return `${survivor.name} · ${survivor.workerState} · bag ${bagText} · tools ${tools}${blocked}`
+      const mark = survivor.id === world.player.controlledId ? '▶ ' : survivor.id === world.player.selectedId ? '· ' : '  '
+      return `${mark}${survivor.name} · ${survivor.workerState} · bag ${bagText} · tools ${tools}${blocked}`
     })
 
+    const controlled = world.survivors.find((survivor) => survivor.id === world.player.controlledId)
+
     this.root.innerHTML = `
-      <strong>Dawn Bastion M1</strong><br />
+      <strong>Dawn Bastion</strong><br />
+      操控 ${controlled?.name ?? '（观察中）'} · ${world.player.view}<br />
       Day ${world.time.dayIndex} · ${world.time.phase} · ${world.time.daySeconds.toFixed(1)}s<br />
       Build ${buildMode} · Zone ${zoneJob}<br />
       Warehouse ${stock || 'empty'}<br />
