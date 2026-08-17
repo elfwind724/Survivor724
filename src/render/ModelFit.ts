@@ -13,8 +13,8 @@ export function sitOnGround(object: THREE.Object3D): void {
 export function fitToHeight(object: THREE.Object3D, height: number): void {
   object.updateMatrixWorld(true)
   const box = new THREE.Box3().setFromObject(object)
-  let sizeY = box.max.y - box.min.y
-  if (!Number.isFinite(sizeY) || sizeY < 0.5 || sizeY > 3.2) sizeY = 1.85
+  const sizeY = box.max.y - box.min.y
+  if (!Number.isFinite(sizeY) || sizeY < 0.05) return
   object.scale.multiplyScalar(height / sizeY)
   sitOnGround(object)
 }

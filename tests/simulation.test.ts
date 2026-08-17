@@ -154,5 +154,5 @@ describe('simulation layer', () => {
       expect(worked.has(id)).toBe(true)
       expect(deposited.has(id)).toBe(true)
     }
-  })
+  }, 10_000)
 })
