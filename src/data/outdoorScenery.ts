@@ -2,7 +2,7 @@ import type { DecorationState } from '@/simulation/types'
 import { BASE } from '@/simulation/baseLayout'
 import { assetById } from '@/data/assetIndex'
 
-export const TOWER_STAND_HEIGHT = 5.2
+export const TOWER_STAND_HEIGHT = 2.05
 
 export function seedOutdoorScenery(): DecorationState[] {
   const items: DecorationState[] = []

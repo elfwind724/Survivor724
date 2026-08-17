@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { bedSpot, interiorProps, isCooking, isSleeping } from '@/base/FacilityLife'
-import { isLifeBuilding } from '@/data/outdoorScenery'
+import { isLifeBuilding, TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { assetById } from '@/data/assetIndex'
 import { equippedWeapon, WEAPONS } from '@/data/weapons'
 import { ENEMY_ASSETS, STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '@/data/worldDressing'
@@ -318,7 +318,8 @@ export class DebugRenderer {
         marker.mesh.position.set(bed.x, 0.48, bed.z)
         marker.mesh.rotation.set(Math.PI / 2, 0, 0)
       } else {
-        marker.mesh.position.set(survivor.position.x, Math.max(0, survivor.position.y) + bob, survivor.position.z)
+        const deck = this.watchDeck(world, survivor)
+        marker.mesh.position.set(deck.x, deck.y + bob, deck.z)
         marker.mesh.rotation.set(0, survivor.facingYaw, 0)
       }
       this.driveRig(world, survivor, dt)
@@ -1217,7 +1218,8 @@ export class DebugRenderer {
         light.add(core, halo)
         this.fireLights.set(structure.id, light)
       }
-      light.position.set(mid.x, lamp.height, mid.z)
+      const height = structure.definitionId === 'watchtower' ? this.towerDeckY(structure.id) + 0.32 : lamp.height
+      light.position.set(mid.x, height, mid.z)
       light.intensity = (night ? lamp.night : lamp.day) * flicker
       light.distance = lamp.distance
       const glow = light.getObjectByName('flame')
@@ -1262,6 +1264,31 @@ export class DebugRenderer {
       this.disposeObject(marker.mesh)
       this.impacts.delete(id)
     }
+  }
+
+  private watchDeck(world: WorldState, survivor: SurvivorState): { x: number; y: number; z: number } {
+    const post = world.nightPosts.find((entry) => entry.id === survivor.nightPostId || entry.id === survivor.watchPostId)
+    if (!post || Math.hypot(survivor.position.x - post.position.x, survivor.position.z - post.position.z) > 1.6) {
+      return { x: survivor.position.x, y: Math.max(0, survivor.position.y), z: survivor.position.z }
+    }
+    const tower = world.structures.find(
+      (structure) =>
+        structure.definitionId === 'watchtower' &&
+        structure.stage === 'complete' &&
+        Math.hypot(structureMidXz(world, structure).x - post.position.x, structureMidXz(world, structure).z - post.position.z) < 3,
+    )
+    const deckY = tower ? this.towerDeckY(tower.id) : TOWER_STAND_HEIGHT
+    return { x: post.position.x, y: deckY, z: post.position.z }
+  }
+
+  private towerDeckY(structureId: string): number {
+    const marker = this.structures.get(structureId)
+    const kit = marker?.mesh.getObjectByName('kit')
+    if (!kit) return TOWER_STAND_HEIGHT
+    kit.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(kit)
+    if (!Number.isFinite(box.max.y) || box.max.y < 0.6) return TOWER_STAND_HEIGHT
+    return box.max.y
   }
 
   private kitExtras(): void {
@@ -1337,6 +1364,16 @@ function ghostMaterial(root: THREE.Object3D): void {
   })
 }
 
+function structureMidXz(world: WorldState, structure: StructureState): { x: number; z: number } {
+  const xs = structure.cells.map((cell) => cell.x)
+  const zs = structure.cells.map((cell) => cell.z)
+  const mid = cellCenter(world.nav, {
+    x: (Math.min(...xs) + Math.max(...xs)) / 2,
+    z: (Math.min(...zs) + Math.max(...zs)) / 2,
+  })
+  return { x: mid.x, z: mid.z }
+}
+
 function isBuildingNow(world: WorldState, survivor: SurvivorState): boolean {
   if (survivor.workerState !== 'Work' || !survivor.currentJobId) return false
   const job = world.jobs.find((entry) => entry.id === survivor.currentJobId)
@@ -1346,7 +1383,7 @@ function isBuildingNow(world: WorldState, survivor: SurvivorState): boolean {
 function fireLamp(definitionId: string): { height: number; distance: number; day: number; night: number } | null {
   if (definitionId === 'bonfire') return { height: 1.4, distance: 34, day: 18, night: 90 }
   if (definitionId === 'brazier') return { height: 2.9, distance: 26, day: 12, night: 58 }
-  if (definitionId === 'watchtower') return { height: 5.7, distance: 30, day: 14, night: 70 }
+  if (definitionId === 'watchtower') return { height: 2.4, distance: 22, day: 10, night: 48 }
   return null
 }
 
