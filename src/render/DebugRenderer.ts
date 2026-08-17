@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { interiorProps, isCooking, isSleeping, occupiedFacilityIds } from '@/base/FacilityLife'
+import { interiorProps, isCooking, isSleeping } from '@/base/FacilityLife'
+import { isLifeBuilding } from '@/data/outdoorScenery'
 import { assetById } from '@/data/assetIndex'
 import { equippedWeapon, WEAPONS } from '@/data/weapons'
 import { ENEMY_ASSETS, STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '@/data/worldDressing'
@@ -51,6 +52,7 @@ export class DebugRenderer {
   private readonly library = new AssetLibrary()
   private readonly dressingRoot = new THREE.Group()
   private readonly dressingMeshes = new Map<string, THREE.Object3D>()
+  private readonly sceneryMeshes = new Map<string, THREE.Object3D>()
   private readonly kitted = new Map<string, string>()
   private decorPreview: THREE.Group | null = null
   private readonly rigs = new Map<string, CharacterRig>()
@@ -120,6 +122,25 @@ export class DebugRenderer {
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
     const hit = new THREE.Vector3()
     return raycaster.ray.intersectPlane(plane, hit) ? hit : null
+  }
+
+  pickStructure(world: WorldState, clientX: number, clientY: number): string | null {
+    const hit = this.pickGround(clientX, clientY)
+    if (!hit) return null
+    const cell = worldToCell(world.nav, { x: hit.x, y: 0, z: hit.z })
+    const structure = world.structures.find((entry) =>
+      entry.cells.some((item) => item.x === cell.x && item.z === cell.z),
+    )
+    return structure?.id ?? null
+  }
+
+  worldToScreen(x: number, y: number, z: number): { x: number; y: number } | null {
+    const point = new THREE.Vector3(x, y, z).project(this.camera)
+    if (point.z > 1) return null
+    return {
+      x: (point.x * 0.5 + 0.5) * window.innerWidth,
+      y: (-point.y * 0.5 + 0.5) * window.innerHeight,
+    }
   }
 
   pickSurvivor(world: WorldState, clientX: number, clientY: number): string | null {
@@ -271,6 +292,7 @@ export class DebugRenderer {
     this.ensureStatic(world)
     this.kitExtras()
     this.syncDressing(world)
+    this.syncScenery(world)
     this.syncLighting(world)
     this.syncFireLights(world)
     this.syncZones(world)
@@ -289,8 +311,10 @@ export class DebugRenderer {
       const kit = marker.mesh.getObjectByName('kit')
       const sleeping = isSleeping(survivor)
       const cooking = isCooking(world, survivor)
-      const bob = cooking ? 0.05 + Math.sin(world.time.daySeconds * 9) * 0.035 : 0
-      marker.mesh.position.set(survivor.position.x, sleeping ? 0.52 : bob, survivor.position.z)
+      const building = isBuildingNow(world, survivor)
+      const bob = cooking || building ? 0.05 + Math.sin(world.time.daySeconds * 9) * 0.045 : 0
+      const standY = sleeping ? 0.52 : Math.max(0, survivor.position.y) + bob
+      marker.mesh.position.set(survivor.position.x, standY, survivor.position.z)
       marker.mesh.rotation.set(sleeping ? Math.PI / 2 : 0, survivor.facingYaw, 0)
       this.driveRig(survivor, dt)
       kit?.updateMatrixWorld(true)
@@ -439,13 +463,27 @@ export class DebugRenderer {
 
   private styleFacilityLife(world: WorldState, structure: StructureState, root: THREE.Object3D): void {
     if (structure.kind !== 'building' || structure.stage !== 'complete') return
-    const occupied = occupiedFacilityIds(world).has(structure.id)
+    const open = isLifeBuilding(structure.definitionId)
     this.ensureInterior(world, structure, root)
     for (const child of root.children) {
-      if (child.name === 'interior' || child.name === 'steam') child.visible = occupied
-      if (child.name === 'kit') setCutaway(child, occupied)
+      if (child.name === 'interior' || child.name === 'steam') child.visible = open
+      if (child.name === 'kit') {
+        child.visible = !open
+        if (open) setCutaway(child, true)
+      }
+      if (open && child instanceof THREE.Mesh && child.name !== 'kit' && child.name !== 'interior') {
+        child.visible = true
+        child.scale.y = 0.18
+        const baseHeight = typeof child.userData.baseHeight === 'number' ? child.userData.baseHeight : 4.2
+        child.position.y = (baseHeight * 0.18) / 2
+        if (child.material instanceof THREE.MeshLambertMaterial) {
+          child.material.color.set(0x7a5a42)
+          child.material.transparent = false
+          child.material.opacity = 1
+        }
+      }
     }
-    if (structure.definitionId === 'kitchen') this.pulseKitchen(world, root, occupied)
+    if (structure.definitionId === 'kitchen') this.pulseKitchen(world, root, open)
   }
 
   private ensureInterior(world: WorldState, structure: StructureState, root: THREE.Object3D): void {
@@ -454,7 +492,7 @@ export class DebugRenderer {
     if (props.length === 0) return
     const group = new THREE.Group()
     group.name = 'interior'
-    group.visible = false
+    group.visible = true
     for (const prop of props) {
       this.enqueueAsset(prop.assetId)
       const kit = this.spawnKit(prop.assetId, prop.scale)
@@ -580,6 +618,16 @@ export class DebugRenderer {
       this.scene.add(mesh)
       this.extras.push(mesh)
     }
+
+    const stream = new THREE.Mesh(
+      new THREE.PlaneGeometry(42, 7),
+      new THREE.MeshLambertMaterial({ color: 0x3d7290, transparent: true, opacity: 0.88 }),
+    )
+    stream.rotation.x = -Math.PI / 2
+    stream.rotation.z = 0.45
+    stream.position.set(-54, 0.05, 32)
+    this.scene.add(stream)
+    this.extras.push(stream)
   }
 
   private syncLighting(world: WorldState): void {
@@ -804,6 +852,30 @@ export class DebugRenderer {
       if (seen.has(id)) continue
       this.dressingRoot.remove(mesh)
       this.dressingMeshes.delete(id)
+    }
+  }
+
+  private syncScenery(world: WorldState): void {
+    const seen = new Set<string>()
+    for (const pose of world.scenery) {
+      seen.add(pose.id)
+      this.enqueueAsset(pose.assetId)
+      let mesh = this.sceneryMeshes.get(pose.id)
+      if (!mesh) {
+        const kit = this.spawnKit(pose.assetId, pose.scale)
+        if (!kit) continue
+        this.dressingRoot.add(kit)
+        this.sceneryMeshes.set(pose.id, kit)
+        mesh = kit
+      }
+      mesh.position.x = pose.x
+      mesh.position.z = pose.z
+      mesh.rotation.y = pose.yaw
+    }
+    for (const [id, mesh] of this.sceneryMeshes) {
+      if (seen.has(id)) continue
+      this.dressingRoot.remove(mesh)
+      this.sceneryMeshes.delete(id)
     }
   }
 
@@ -1215,6 +1287,12 @@ function ghostMaterial(root: THREE.Object3D): void {
       material.depthWrite = false
     }
   })
+}
+
+function isBuildingNow(world: WorldState, survivor: SurvivorState): boolean {
+  if (survivor.workerState !== 'Work' || !survivor.currentJobId) return false
+  const job = world.jobs.find((entry) => entry.id === survivor.currentJobId)
+  return job?.definitionId === 'build'
 }
 
 function fireLamp(definitionId: string): { height: number; distance: number; day: number; night: number } | null {

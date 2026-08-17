@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createCompleteStructure, demolishAt, demolishStructure, interactGate, lineCells, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, setGateOpen } from '@/base/construction'
-import { FACILITY_DEFINITIONS, wallLineDuration } from '@/data/facilities'
+import { buildProgress, FACILITY_DEFINITIONS, facilityLabel, wallLineDuration } from '@/data/facilities'
 import { setWorkZone } from '@/base/workZones'
 import { countItem } from '@/inventory/Inventory'
 import { worldToCell } from '@/navigation/NavGrid'
@@ -201,6 +201,10 @@ describe('construction and work zones', () => {
     expect(ids.filter((id) => id === 'watchtower')).toHaveLength(4)
     expect(ids.filter((id) => id === 'brazier').length).toBeGreaterThanOrEqual(2)
     expect(world.structures.filter((structure) => structure.kind === 'gate').length).toBeGreaterThanOrEqual(2)
+    expect(world.scenery.length).toBeGreaterThan(20)
+    expect(world.scenery.every((pose) => Math.abs(pose.x) > 30 || Math.abs(pose.z) > 26)).toBe(true)
+    expect(facilityLabel('kitchen')).toBe('厨房')
+    expect(buildProgress({ stage: 'building', buildElapsed: 2, buildDuration: 4 })).toBe(50)
   })
 
   it('closes the north wall except for the gate opening', () => {

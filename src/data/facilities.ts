@@ -142,6 +142,16 @@ export function facilityDefinition(id: string): FacilityDefinition | undefined {
   return FACILITY_DEFINITIONS.find((entry) => entry.id === id)
 }
 
+export function facilityLabel(id: string): string {
+  return facilityDefinition(id)?.label ?? id
+}
+
+export function buildProgress(structure: { stage: string; buildElapsed: number; buildDuration: number }): number {
+  if (structure.stage === 'complete') return 100
+  if (structure.buildDuration <= 0) return 0
+  return Math.max(0, Math.min(100, Math.round((structure.buildElapsed / structure.buildDuration) * 100)))
+}
+
 export function footprintCells(definition: FacilityDefinition, originX: number, originZ: number): GridCell[] {
   const cells: GridCell[] = []
   for (let x = 0; x < definition.width; x += 1) {

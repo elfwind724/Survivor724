@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { bedSpot, enterFacility, facilityApproach, findFacility, isSleeping, leaveFacility, occupiedFacilityIds } from '@/base/FacilityLife'
+import { isLifeBuilding } from '@/data/outdoorScenery'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { stepWorld } from '@/simulation/SimStep'
 
@@ -38,5 +39,11 @@ describe('facility life', () => {
     expect(hunter.indoorId).toBe(quarters.id)
     expect(hunter.workerState).toBe('Rest')
     expect(isSleeping(hunter)).toBe(true)
+  })
+
+  it('treats kitchen and quarters as open living buildings', () => {
+    expect(isLifeBuilding('kitchen')).toBe(true)
+    expect(isLifeBuilding('quarters')).toBe(true)
+    expect(isLifeBuilding('watchtower')).toBe(false)
   })
 })

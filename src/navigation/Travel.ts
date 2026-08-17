@@ -5,6 +5,7 @@ import { findPath } from './AStar'
 
 export function beginTravel(world: WorldState, survivor: SurvivorState, target: Vec3): boolean {
   leaveFacility(world, survivor)
+  survivor.position.y = 0
   const path = findPath(world, survivor.position, target)
   survivor.pathTarget = cloneVec3(target)
   survivor.pathVersion = world.nav.version

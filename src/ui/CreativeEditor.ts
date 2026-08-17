@@ -1,6 +1,7 @@
 import { ASSET_INDEX, type AssetCategory, type AssetEntry } from '@/data/assetIndex'
 import { CREATIVE_TABS } from '@/data/worldDressing'
 import { suggestedScale } from '@/render/ModelFit'
+import { ThumbnailCache } from '@/render/ThumbnailCache'
 
 export interface EditorBrush {
   assetId: string
@@ -17,6 +18,7 @@ export class CreativeEditor {
   private brush: EditorBrush | null = null
   private hotbar: Array<string | null> = Array.from({ length: HOTBAR_SIZE }, () => null)
   private hoverName = ''
+  private readonly thumbs = new ThumbnailCache()
 
   constructor(
     private readonly root: HTMLElement,
@@ -97,8 +99,9 @@ export class CreativeEditor {
     const slots = items
       .map((entry) => {
         const on = this.brush?.assetId === entry.id ? ' is-on' : ''
+        const thumb = this.thumbs.ask(entry.id)
         return `<button type="button" class="cr-slot${on}" data-asset="${entry.id}" title="${entry.name}">
-          <i class="cr-icon cr-icon-${entry.category}"></i>
+          ${thumb ? `<img class="cr-thumb" data-thumb="${entry.id}" src="${thumb}" alt="">` : `<i class="cr-icon cr-icon-${entry.category}" data-thumb="${entry.id}"></i>`}
           <span>${shortName(entry)}</span>
         </button>`
       })
@@ -109,7 +112,7 @@ export class CreativeEditor {
         const on = id && this.brush?.assetId === id ? ' is-on' : ''
         return `<button type="button" class="cr-hot${on}" data-hot="${index}">
           <em>${index + 1}</em>
-          ${entry ? `<i class="cr-icon cr-icon-${entry.category}"></i><span>${shortName(entry)}</span>` : ''}
+          ${entry ? `${this.thumbs.ask(entry.id) ? `<img class="cr-thumb" data-thumb="${entry.id}" src="${this.thumbs.ask(entry.id)!}" alt="">` : `<i class="cr-icon cr-icon-${entry.category}" data-thumb="${entry.id}"></i>`}<span>${shortName(entry)}</span>` : ''}
         </button>`
       })
       .join('')
@@ -167,6 +170,27 @@ export class CreativeEditor {
       this.root.querySelector<HTMLInputElement>('.cr-search')?.focus()
     })
     if (this.open) search?.focus()
+  }
+
+  tickThumbs(): void {
+    if (!this.open && !this.brush) return
+    this.thumbs.tick()
+    this.root.querySelectorAll<HTMLElement>('[data-thumb]').forEach((node) => {
+      const id = node.dataset.thumb
+      if (!id) return
+      const url = this.thumbs.ask(id)
+      if (!url) return
+      if (node instanceof HTMLImageElement) {
+        if (node.src !== url) node.src = url
+        return
+      }
+      const img = document.createElement('img')
+      img.className = 'cr-thumb'
+      img.dataset.thumb = id
+      img.src = url
+      img.alt = ''
+      node.replaceWith(img)
+    })
   }
 
   private visibleItems(): AssetEntry[] {

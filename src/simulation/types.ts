@@ -250,6 +250,7 @@ export interface WorldState {
   nightSpawnedDay: number
   defenseSectors: DefenseSector[]
   decorations: DecorationState[]
+  scenery: DecorationState[]
   projectiles: ProjectileState[]
   impacts: ImpactState[]
   rosterStrategy: string | null

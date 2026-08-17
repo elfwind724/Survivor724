@@ -5,6 +5,7 @@ import { countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { cellCenter } from '@/navigation/NavGrid'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { BASE } from '@/simulation/baseLayout'
+import { TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { distanceXZ, type NightPost, type StructureState, type SurvivorState, type WorldState } from '@/simulation/types'
 import { equipItem } from '@/survivors/Equipment'
 import { beginTravel, followTravel } from '@/navigation/Travel'
@@ -23,10 +24,10 @@ export function rebuildNightPosts(world: WorldState): void {
   const se = pickTower(towers, (point) => point.x - point.z) ?? { x: BASE.east - 3, y: 0, z: BASE.south + 3 }
   const sw = pickTower(towers, (point) => -point.x - point.z) ?? { x: BASE.west + 3, y: 0, z: BASE.south + 3 }
   world.nightPosts = [
-    { id: 'post-nw', sector: 'north', position: nw, facingYaw: 0, occupantId: null, rangeBonus: TOWER_RANGE_BONUS },
-    { id: 'post-ne', sector: 'east', position: ne, facingYaw: Math.PI / 2, occupantId: null, rangeBonus: TOWER_RANGE_BONUS },
-    { id: 'post-se', sector: 'south', position: se, facingYaw: Math.PI, occupantId: null, rangeBonus: TOWER_RANGE_BONUS },
-    { id: 'post-sw', sector: 'west', position: sw, facingYaw: -Math.PI / 2, occupantId: null, rangeBonus: TOWER_RANGE_BONUS },
+    { id: 'post-nw', sector: 'north', position: { x: nw.x, y: TOWER_STAND_HEIGHT, z: nw.z }, facingYaw: 0, occupantId: null, rangeBonus: TOWER_RANGE_BONUS },
+    { id: 'post-ne', sector: 'east', position: { x: ne.x, y: TOWER_STAND_HEIGHT, z: ne.z }, facingYaw: Math.PI / 2, occupantId: null, rangeBonus: TOWER_RANGE_BONUS },
+    { id: 'post-se', sector: 'south', position: { x: se.x, y: TOWER_STAND_HEIGHT, z: se.z }, facingYaw: Math.PI, occupantId: null, rangeBonus: TOWER_RANGE_BONUS },
+    { id: 'post-sw', sector: 'west', position: { x: sw.x, y: TOWER_STAND_HEIGHT, z: sw.z }, facingYaw: -Math.PI / 2, occupantId: null, rangeBonus: TOWER_RANGE_BONUS },
   ]
 }
 
@@ -74,7 +75,10 @@ export function stepNightCycle(world: WorldState): void {
   if (phase === 'dawn' && world.lastPhase !== 'dawn') {
     world.enemies = []
     for (const post of world.nightPosts) post.occupantId = null
-    for (const survivor of world.survivors) survivor.nightPostId = null
+    for (const survivor of world.survivors) {
+      survivor.nightPostId = null
+      survivor.position.y = 0
+    }
   }
   world.lastPhase = phase
 }
@@ -88,10 +92,15 @@ export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt
   const post = world.nightPosts.find((entry) => entry.id === survivor.nightPostId) ?? assignOnePost(world, survivor)
   if (!post) return
   if (distanceXZ(survivor.position, post.position) > 1.4) {
+    survivor.position.y = 0
     if (!survivor.destination) beginTravel(world, survivor, post.position)
     followTravel(world, survivor, dt)
     return
   }
+
+  survivor.position.y = post.position.y
+  survivor.destination = null
+  survivor.path = []
 
   const enemy = nearestEnemy(world, survivor.position, 30 + watchRangeBonus(world, survivor))
   if (enemy) {

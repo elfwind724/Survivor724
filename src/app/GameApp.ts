@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 import { demolishAt, interactGate, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, structureAt } from '@/base/construction'
 import { decorationNear, placeDecoration, removeDecoration, snapDecor } from '@/base/decorations'
-import { facilityPreviewHeight } from '@/data/facilities'
+import { buildProgress, facilityLabel, facilityPreviewHeight } from '@/data/facilities'
+import { cellCenter } from '@/navigation/NavGrid'
 import { reloadWeapon, tryShoot } from '@/combat/Combat'
 import { equippedWeapon, fireProfile } from '@/data/weapons'
 import { setWorkZone } from '@/base/workZones'
@@ -37,6 +38,8 @@ export class GameApp {
   private readonly defenseBar: DefenseBar
   private readonly input = new Input()
   private readonly loop: GameLoop
+  private readonly tip: HTMLDivElement
+  private readonly labels: HTMLDivElement
   private zoneJob = 'hunt'
   private zoneStart: { x: number; z: number } | null = null
   private lastClickAt = 0
@@ -102,6 +105,11 @@ export class GameApp {
     this.defenseBar = new DefenseBar(defenseRoot, (sector) => {
       this.notice = `增援${sector}，守夜的人会往那边靠` 
     })
+    this.tip = document.createElement('div')
+    this.tip.className = 'world-tip'
+    this.labels = document.createElement('div')
+    this.labels.className = 'world-labels'
+    document.querySelector('#app')?.append(this.tip, this.labels)
     this.loop = new GameLoop(this.step, this.draw)
     possessSurvivor(this.world, 'hunter')
     this.renderer.sync(this.world)
@@ -141,6 +149,8 @@ export class GameApp {
     this.minimap.render(this.world)
     this.defenseBar.render(this.world)
     this.roster.render(this.world)
+    this.editor.tickThumbs()
+    this.updateWorldChrome()
   }
 
   private controlIntent() {
@@ -507,6 +517,36 @@ export class GameApp {
       return
     }
     if (!equippedWeapon(self)) this.notice = '没有装备枪械'
+  }
+
+  private updateWorldChrome(): void {
+    const id = this.renderer.pickStructure(this.world, this.input.mouseX, this.input.mouseY)
+    const structure = id ? this.world.structures.find((entry) => entry.id === id) : undefined
+    if (structure) {
+      const name = facilityLabel(structure.definitionId)
+      const progress = structure.stage === 'complete' ? '' : ` · ${structure.stage === 'blueprint' || structure.stage === 'hauling' ? '蓝图' : '建造中'} ${buildProgress(structure)}%`
+      this.tip.textContent = `${name}${progress}`
+      this.tip.style.left = `${this.input.mouseX + 14}px`
+      this.tip.style.top = `${this.input.mouseY + 16}px`
+      this.tip.classList.add('is-on')
+    } else {
+      this.tip.classList.remove('is-on')
+    }
+
+    const bits: string[] = []
+    for (const entry of this.world.structures) {
+      if (entry.stage === 'complete' || !entry.cells[0]) continue
+      const mid = cellCenter(this.world.nav, {
+        x: entry.cells.reduce((sum, cell) => sum + cell.x, 0) / entry.cells.length,
+        z: entry.cells.reduce((sum, cell) => sum + cell.z, 0) / entry.cells.length,
+      })
+      const screen = this.renderer.worldToScreen(mid.x, 2.4, mid.z)
+      if (!screen) continue
+      bits.push(
+        `<span class="build-tag" style="left:${screen.x}px;top:${screen.y}px">${facilityLabel(entry.definitionId)} ${buildProgress(entry)}%</span>`,
+      )
+    }
+    this.labels.innerHTML = bits.join('')
   }
 
   private resetView(): void {

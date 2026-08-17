@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createEnemy, reloadWeapon, stepProjectiles, towerRangeBonus, tryShoot } from '@/combat/Combat'
 import { reinforceSector } from '@/combat/Defense'
-import { assignedRescuer, stepNightCycle } from '@/combat/Night'
+import { assignedRescuer, stepNightCycle, stepNightDefender } from '@/combat/Night'
+import { TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { fireProfile, magazineSize, muzzleOrigin, readMag } from '@/data/weapons'
 import { duskWarningLevel } from '@/simulation/TimeSystem'
 import { cellCenter, worldToCell } from '@/navigation/NavGrid'
@@ -197,6 +198,22 @@ describe('combat and night', () => {
     const count = world.enemies.length
     stepNightCycle(world)
     expect(world.enemies.length).toBe(count)
+  })
+
+  it('puts a night watcher on the tower top and locks onto an enemy', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    const post = world.nightPosts[0]
+    if (!hunter || !post) throw new Error('missing hunter or post')
+    hunter.equipment.weapon = 'rifle'
+    hunter.nightPostId = post.id
+    hunter.position = { x: post.position.x, y: 0, z: post.position.z }
+    hunter.facingYaw = 0
+    world.time.phase = 'night'
+    world.enemies.push(createEnemy('wanderer', { x: post.position.x, y: 0, z: post.position.z + 12 }, 'lock'))
+    stepNightDefender(world, hunter, 1 / 30)
+    expect(hunter.position.y).toBeCloseTo(TOWER_STAND_HEIGHT, 5)
+    expect(world.projectiles.length).toBeGreaterThan(0)
   })
 
   it('extends fire range when a survivor stands on a watchtower post', () => {

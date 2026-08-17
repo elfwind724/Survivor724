@@ -1,5 +1,6 @@
 import { createCompleteStructure, placeBlueprint } from '@/base/construction'
 import { loadDecorations } from '@/base/decorations'
+import { seedOutdoorScenery } from '@/data/outdoorScenery'
 import { createWorkZone } from '@/base/workZones'
 import { createDeer } from '@/combat/Combat'
 import { createDefenseSectors } from '@/combat/Defense'
@@ -181,6 +182,7 @@ export function createInitialWorld(): WorldState {
     nightSpawnedDay: 0,
     defenseSectors: createDefenseSectors(),
     decorations: loadDecorations(),
+    scenery: seedOutdoorScenery(),
     projectiles: [],
     impacts: [],
     rosterStrategy: 'balanced',
