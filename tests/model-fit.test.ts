@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
-import { attachHeldGun, findHoldBone, heldGunLength, prepareHeldGun } from '@/render/HeldWeapon'
+import { findHoldBone, heldGunLength, prepareHeldGun, snapHeldGun } from '@/render/HeldWeapon'
 import { fitHeldGun, fitToHeight } from '@/render/ModelFit'
 
 describe('model fit', () => {
@@ -42,14 +42,14 @@ describe('model fit', () => {
     root.add(wrist)
     expect(findHoldBone(root)?.name).toBe('WristR')
     root.updateMatrixWorld(true)
-    attachHeldGun(wrist, held, 'pistol')
+    snapHeldGun(root, wrist, held, 'pistol')
     root.updateMatrixWorld(true)
-    expect(held.parent).toBe(wrist)
+    expect(held.parent).toBe(root)
     expect(heldGunLength('pistol')).toBeLessThan(heldGunLength('rifle'))
     expect(held.visible).toBe(true)
     const world = new THREE.Vector3()
     held.getWorldPosition(world)
     expect(world.y).toBeGreaterThan(0.9)
-    expect(world.distanceTo(wrist.position)).toBeLessThan(0.2)
+    expect(world.distanceTo(new THREE.Vector3(-0.22, 1.04, 0.14))).toBeLessThan(0.25)
   })
 })

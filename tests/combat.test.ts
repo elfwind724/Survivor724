@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createEnemy, stepProjectiles, tryShoot } from '@/combat/Combat'
 import { reinforceSector } from '@/combat/Defense'
 import { assignedRescuer, stepNightCycle } from '@/combat/Night'
-import { fireProfile } from '@/data/weapons'
+import { fireProfile, muzzleOrigin } from '@/data/weapons'
 import { duskWarningLevel } from '@/simulation/TimeSystem'
 import { cellCenter } from '@/navigation/NavGrid'
 import { stepWorld } from '@/simulation/SimStep'
@@ -37,6 +37,23 @@ describe('combat and night', () => {
     expect(world.enemies[0]?.health ?? 0).toBeLessThan(before)
     expect(hunter.ammo).toBe(9)
     expect(world.projectiles).toHaveLength(0)
+  })
+
+  it('spawns shots from the raised muzzle, not the belly', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.position = { x: 0, y: 0, z: 0 }
+    hunter.facingYaw = 0
+    hunter.ammo = 8
+    hunter.equipment.weapon = 'rifle'
+    const muzzle = muzzleOrigin(hunter)
+    expect(muzzle.z).toBeGreaterThan(0.8)
+    expect(muzzle.x).toBeGreaterThan(0.1)
+    expect(muzzle.y).toBeGreaterThan(1.5)
+    expect(tryShoot(world, hunter)).toBe(true)
+    expect(world.projectiles[0]?.position.z).toBeCloseTo(muzzle.z, 5)
+    expect(world.projectiles[0]?.position.y).toBeCloseTo(1.72, 5)
   })
 
   it('splits shotgun pellets and keeps other guns as single shots', () => {

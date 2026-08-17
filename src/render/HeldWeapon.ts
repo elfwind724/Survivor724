@@ -2,7 +2,10 @@ import * as THREE from 'three'
 
 const HOLD_NAMES = ['WristR', 'PalmR', 'MiddleHandR', 'RightHand', 'Hand_R', 'mixamorigRightHand']
 
-const _scale = new THREE.Vector3()
+const _pos = new THREE.Vector3()
+const _quat = new THREE.Quaternion()
+const _parentQ = new THREE.Quaternion()
+const _offset = new THREE.Vector3()
 const HOLD_ROTATION = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI / 2, 'XYZ'))
 
 export function findHoldBone(root: THREE.Object3D): THREE.Object3D | null {
@@ -32,6 +35,11 @@ export function heldGunLength(weaponId: string): number {
 export function prepareHeldGun(source: THREE.Object3D): THREE.Group {
   const holder = new THREE.Group()
   holder.add(source)
+  source.traverse((object) => {
+    object.frustumCulled = false
+    object.visible = true
+    if (object instanceof THREE.Mesh) object.geometry = object.geometry.clone()
+  })
   source.updateMatrixWorld(true)
   const box = new THREE.Box3().setFromObject(source)
   const size = box.getSize(new THREE.Vector3())
@@ -43,14 +51,28 @@ export function prepareHeldGun(source: THREE.Object3D): THREE.Group {
     source.position.multiplyScalar(1 / longest)
     source.scale.multiplyScalar(1 / longest)
   }
+  holder.frustumCulled = false
+  holder.visible = true
   return holder
 }
 
-export function attachHeldGun(hand: THREE.Object3D, gun: THREE.Object3D, weaponId: string): void {
-  if (gun.parent !== hand) hand.add(gun)
-  const parent = Math.max(Math.abs(hand.getWorldScale(_scale).x), 0.05)
-  gun.scale.setScalar(heldGunLength(weaponId) / parent)
-  gun.quaternion.copy(HOLD_ROTATION)
-  gun.position.set(0.015, 0.07, 0.02)
+export function snapHeldGun(
+  character: THREE.Object3D,
+  hand: THREE.Object3D,
+  gun: THREE.Object3D,
+  weaponId: string,
+): void {
+  if (gun.parent !== character) character.add(gun)
+  gun.frustumCulled = false
   gun.visible = true
+  hand.updateWorldMatrix(true, false)
+  hand.getWorldPosition(_pos)
+  hand.getWorldQuaternion(_quat)
+  _offset.set(0.02, 0.08, 0.03).applyQuaternion(_quat)
+  _pos.add(_offset)
+  character.worldToLocal(_pos)
+  gun.position.copy(_pos)
+  character.getWorldQuaternion(_parentQ)
+  gun.quaternion.copy(_parentQ.invert().multiply(_quat).multiply(HOLD_ROTATION))
+  gun.scale.setScalar(heldGunLength(weaponId))
 }

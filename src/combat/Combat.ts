@@ -1,7 +1,7 @@
 import { damageStructure } from '@/base/construction'
 import { ENEMY_DEFINITIONS } from '@/data/enemies'
 import { derivedStats } from '@/data/equipment'
-import { fireProfile } from '@/data/weapons'
+import { fireProfile, muzzleOrigin } from '@/data/weapons'
 import { addItem, inventoryOf } from '@/inventory/Inventory'
 import { cellCenter, isBlocked, worldToCell } from '@/navigation/NavGrid'
 import { lookXZ } from '@/controls/CameraWish'
@@ -32,12 +32,7 @@ export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
   survivor.fireCooldown = profile.cooldown
   survivor.ammo -= profile.ammoCost
   const aimJitter = (unitNoise(`${survivor.id}:${world.time.daySeconds.toFixed(2)}`) * 2 - 1) * profile.spread
-  const muzzle = lookXZ(survivor.facingYaw)
-  const origin = {
-    x: survivor.position.x + muzzle.x * 0.62,
-    y: 1.15,
-    z: survivor.position.z + muzzle.z * 0.62,
-  }
+  const origin = muzzleOrigin(survivor)
   for (let index = 0; index < profile.pellets; index += 1) {
     const yaw = survivor.facingYaw + aimJitter + pelletSpread(index, profile.spread)
     const look = lookXZ(yaw)

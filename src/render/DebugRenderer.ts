@@ -7,7 +7,7 @@ import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, SurvivorState, WorldState } from '@/simulation/types'
 import { AssetLibrary } from './AssetLibrary'
 import { pickArmedPose, pickCharacterClip, type CharacterPose } from './CharacterClips'
-import { attachHeldGun, findHoldBone, prepareHeldGun } from './HeldWeapon'
+import { findHoldBone, prepareHeldGun, snapHeldGun } from './HeldWeapon'
 import { fitToHeight, prepareKit, suggestedScale, SURVIVOR_HEIGHT } from './ModelFit'
 
 interface Marker {
@@ -654,7 +654,7 @@ export class DebugRenderer {
     const kit = marker.mesh.getObjectByName('kit')
     const hand = kit ? findHoldBone(kit) : null
     if (existing && existing.userData.weaponAsset === want && weapon && hand) {
-      attachHeldGun(hand, existing, weapon.id)
+      snapHeldGun(marker.mesh, hand, existing, weapon.id)
       return
     }
     if (existing) existing.removeFromParent()
@@ -665,7 +665,7 @@ export class DebugRenderer {
     const gun = prepareHeldGun(raw)
     gun.name = 'held-gun'
     gun.userData.weaponAsset = weapon.assetId
-    attachHeldGun(hand, gun, weapon.id)
+    snapHeldGun(marker.mesh, hand, gun, weapon.id)
   }
 
   private syncViewGun(world: WorldState): void {
