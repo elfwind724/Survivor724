@@ -114,9 +114,12 @@ export class CreativeEditor {
       })
       .join('')
 
+    const hotbar = this.open || this.brush
+      ? `<div class="cr-hotbar" data-hotbar>${bar}</div>`
+      : ''
     this.root.innerHTML = `
       <button type="button" class="cr-toggle${this.open || this.brush ? ' is-open' : ''}" data-action="toggle">装饰</button>
-      <div class="cr-hotbar" data-hotbar>${bar}</div>
+      ${hotbar}
       <div class="cr-overlay${this.open ? ' is-open' : ''}" data-overlay>
         <div class="cr-panel" data-panel>
           <header class="cr-head">

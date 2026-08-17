@@ -66,11 +66,14 @@ export class DebugRenderer {
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMappingExposure = 1.15
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
     this.hemi = new THREE.HemisphereLight(0xdde6d8, 0x2a2f28, 1.1)
-    this.sun = new THREE.DirectionalLight(0xfff1d0, 0.85)
+    this.sun = new THREE.DirectionalLight(0xfff1d0, 1.35)
     this.sun.position.set(28, 48, 16)
     this.sun.castShadow = true
     this.sun.shadow.mapSize.set(2048, 2048)
@@ -587,8 +590,8 @@ export class DebugRenderer {
         this.scene.fog.near = 80
         this.scene.fog.far = 240
       }
-      this.hemi.intensity = 0.62
-      this.sun.intensity = 0.2
+      this.hemi.intensity = 0.78
+      this.sun.intensity = 0.35
       return
     }
     if (world.time.phase === 'dusk') {
@@ -598,8 +601,8 @@ export class DebugRenderer {
         this.scene.fog.near = 80
         this.scene.fog.far = 240
       }
-      this.hemi.intensity = 0.82
-      this.sun.intensity = 0.42
+      this.hemi.intensity = 0.95
+      this.sun.intensity = 0.7
       return
     }
     this.scene.background = new THREE.Color(0x8fa4c4)
@@ -608,8 +611,8 @@ export class DebugRenderer {
       this.scene.fog.near = 90
       this.scene.fog.far = 260
     }
-    this.hemi.intensity = 1.05
-    this.sun.intensity = 0.9
+    this.hemi.intensity = 1.15
+    this.sun.intensity = 1.45
   }
 
   private syncActors(
@@ -1066,22 +1069,41 @@ export class DebugRenderer {
       })
       let light = this.fireLights.get(structure.id)
       if (!light) {
-        light = new THREE.PointLight(0xff8a3a, 1, lamp.distance, 1.6)
+        light = new THREE.PointLight(0xff9a48, lamp.night, lamp.distance, 2)
         light.castShadow = false
         this.scene.add(light)
-        const glow = new THREE.Mesh(
-          new THREE.SphereGeometry(0.22, 10, 10),
-          new THREE.MeshBasicMaterial({ color: 0xffb060, transparent: true, opacity: 0.7, depthWrite: false }),
+        const core = new THREE.Mesh(
+          new THREE.SphereGeometry(0.28, 12, 12),
+          new THREE.MeshBasicMaterial({
+            color: 0xffe08a,
+            transparent: true,
+            opacity: 0.95,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          }),
         )
-        glow.name = 'flame'
-        light.add(glow)
+        core.name = 'flame'
+        const halo = new THREE.Mesh(
+          new THREE.SphereGeometry(0.72, 12, 12),
+          new THREE.MeshBasicMaterial({
+            color: 0xff6a28,
+            transparent: true,
+            opacity: 0.45,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          }),
+        )
+        halo.name = 'halo'
+        light.add(core, halo)
         this.fireLights.set(structure.id, light)
       }
       light.position.set(mid.x, lamp.height, mid.z)
       light.intensity = (night ? lamp.night : lamp.day) * flicker
       light.distance = lamp.distance
       const glow = light.getObjectByName('flame')
-      if (glow) glow.scale.setScalar(0.85 + flicker * 0.4)
+      const halo = light.getObjectByName('halo')
+      if (glow) glow.scale.setScalar(0.9 + flicker * 0.55)
+      if (halo) halo.scale.setScalar(0.95 + flicker * 0.35)
     }
     for (const [id, light] of this.fireLights) {
       if (seen.has(id)) continue
@@ -1196,9 +1218,9 @@ function ghostMaterial(root: THREE.Object3D): void {
 }
 
 function fireLamp(definitionId: string): { height: number; distance: number; day: number; night: number } | null {
-  if (definitionId === 'bonfire') return { height: 1.35, distance: 22, day: 1.1, night: 3.4 }
-  if (definitionId === 'brazier') return { height: 2.8, distance: 16, day: 0.8, night: 2.4 }
-  if (definitionId === 'watchtower') return { height: 5.6, distance: 20, day: 0.7, night: 2.6 }
+  if (definitionId === 'bonfire') return { height: 1.4, distance: 34, day: 18, night: 90 }
+  if (definitionId === 'brazier') return { height: 2.9, distance: 26, day: 12, night: 58 }
+  if (definitionId === 'watchtower') return { height: 5.7, distance: 30, day: 14, night: 70 }
   return null
 }
 

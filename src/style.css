@@ -326,7 +326,7 @@ body,
 #build-menu {
   position: absolute;
   left: var(--hud-safe);
-  bottom: var(--hud-safe);
+  bottom: 88px;
   display: flex;
   align-items: flex-end;
   gap: 10px;
@@ -399,7 +399,7 @@ body,
 #defense-bar {
   position: absolute;
   right: var(--hud-safe);
-  bottom: var(--hud-safe);
+  bottom: 88px;
   pointer-events: auto;
   z-index: var(--z-hud);
 }
@@ -449,7 +449,7 @@ body,
 .roster-root {
   position: absolute;
   left: calc(var(--hud-safe) + 192px);
-  bottom: var(--hud-safe);
+  bottom: 88px;
   z-index: var(--z-hud);
   pointer-events: none;
 }
@@ -561,7 +561,7 @@ body,
 .cr-toggle {
   position: absolute;
   left: calc(var(--hud-safe) + 96px);
-  bottom: var(--hud-safe);
+  bottom: 88px;
   min-width: 88px;
   height: 48px;
   border: 1px solid #6a5a3e;
@@ -580,7 +580,7 @@ body,
 .cr-hotbar {
   position: absolute;
   left: 50%;
-  bottom: var(--hud-safe);
+  bottom: 18px;
   display: flex;
   gap: 4px;
   padding: 6px;
