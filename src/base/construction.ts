@@ -1,3 +1,4 @@
+import { decorationNear, removeDecoration } from '@/base/decorations'
 import { facilityDefinition, footprintCells, wallLineDuration } from '@/data/facilities'
 import { addItem, countItem, createInventory, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
@@ -87,6 +88,11 @@ export function demolishStructure(world: WorldState, structureId: string, refund
 
   delete world.inventories[structure.inventoryId]
   world.structures.splice(index, 1)
+  for (const cell of structure.cells) {
+    const center = cellCenter(world.nav, cell)
+    const extra = decorationNear(world, center.x, center.z, 1.2)
+    if (extra) removeDecoration(world, extra.id)
+  }
   markNavDirty(world)
   return true
 }

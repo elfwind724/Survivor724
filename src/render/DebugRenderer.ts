@@ -338,12 +338,13 @@ export class DebugRenderer {
         marker = { id: structure.id, mesh }
         this.structures.set(structure.id, marker)
       }
-      this.styleStructure(marker.mesh, structure)
       this.kitStructure(world, structure, marker.mesh)
+      this.styleStructure(marker.mesh, structure)
     }
     for (const [id, marker] of this.structures) {
       if (seen.has(id)) continue
-      this.scene.remove(marker.mesh)
+      this.disposeObject(marker.mesh)
+      this.kitted.delete(id)
       this.structures.delete(id)
     }
   }
@@ -366,6 +367,8 @@ export class DebugRenderer {
   }
 
   private styleStructure(root: THREE.Object3D, structure: StructureState): void {
+    const hasKit = root.children.some((child) => child.name === 'kit')
+    if (structure.kind === 'gate') this.styleGateKit(root, structure)
     const meshes = root instanceof THREE.Mesh ? [root] : root.children
     for (const mesh of meshes) {
       if (mesh.name === 'kit' || mesh.parent?.name === 'kit') continue
@@ -378,13 +381,15 @@ export class DebugRenderer {
         material.transparent = true
         mesh.scale.y = 0.22
         mesh.position.y = 0.28
+        mesh.visible = true
         continue
       }
       material.transparent = false
       material.opacity = 1
+      mesh.visible = !hasKit
       if (structure.kind === 'gate') {
-        mesh.scale.y = structure.open ? 0.45 : 1
-        mesh.position.y = structure.open ? 0.55 : baseHeight / 2
+        mesh.scale.y = structure.open ? 0.2 : 1
+        mesh.position.y = structure.open ? 0.25 : baseHeight / 2
       } else {
         const ratio = structure.maxHp > 0 ? structure.hp / structure.maxHp : 1
         mesh.scale.y = 0.35 + 0.65 * ratio
@@ -392,6 +397,41 @@ export class DebugRenderer {
       }
       material.color.set(structure.kind === 'gate' ? 0x8a6a3a : structure.kind === 'building' ? 0x7a5a42 : 0x6b6254)
     }
+  }
+
+  private styleGateKit(root: THREE.Object3D, structure: StructureState): void {
+    for (const child of root.children) {
+      if (child.name !== 'kit') continue
+      if (child.userData.closedX === undefined) {
+        child.userData.closedX = child.position.x
+        child.userData.closedZ = child.position.z
+        child.userData.closedYaw = child.rotation.y
+      }
+      const closedX = Number(child.userData.closedX)
+      const closedZ = Number(child.userData.closedZ)
+      const closedYaw = Number(child.userData.closedYaw)
+      if (structure.open) {
+        child.rotation.y = closedYaw + Math.PI / 2
+        child.position.x = closedX + Math.cos(closedYaw) * 2.8
+        child.position.z = closedZ + Math.sin(closedYaw) * 2.8
+      } else {
+        child.rotation.y = closedYaw
+        child.position.x = closedX
+        child.position.z = closedZ
+      }
+    }
+  }
+
+  private disposeObject(object: THREE.Object3D): void {
+    this.scene.remove(object)
+    object.removeFromParent()
+    object.traverse((child) => {
+      if (!(child instanceof THREE.Mesh) && !(child instanceof THREE.LineSegments)) return
+      child.geometry.dispose()
+      const material = child.material
+      if (Array.isArray(material)) material.forEach((entry) => entry.dispose())
+      else if (material instanceof THREE.Material) material.dispose()
+    })
   }
 
   private syncZones(world: WorldState): void {

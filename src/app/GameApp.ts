@@ -321,12 +321,18 @@ export class GameApp {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
       if (!hit) return
       const structure = structureAt(this.world, { x: hit.x, y: 0, z: hit.z })
-      if (!structure) {
-        this.notice = '没有点到可拆除的建筑'
+      if (structure) {
+        demolishStructure(this.world, structure.id)
+        this.notice = `已拆除 ${structure.definitionId}`
         return
       }
-      demolishStructure(this.world, structure.id)
-      this.notice = `已拆除 ${structure.definitionId}，搬运工会来做剩下的蓝图`
+      const decor = decorationNear(this.world, hit.x, hit.z, 2.4)
+      if (decor) {
+        removeDecoration(this.world, decor.id)
+        this.notice = '已拆除装饰'
+        return
+      }
+      this.notice = '没有点到可拆除的建筑'
       return
     }
 
