@@ -68,14 +68,14 @@ describe('player control', () => {
     possessSurvivor(world, 'hunter')
     const hunter = findSurvivor(world, 'hunter')
     if (!hunter) throw new Error('missing hunter')
-    hunter.position.x = 7.2
+    hunter.position.x = 29.2
     hunter.position.z = 0
 
     for (let i = 0; i < 45; i += 1) {
       stepWorld(world, 1 / 30, { wishX: 1, wishZ: 0, faceX: null, faceZ: null, yawDelta: 0 })
     }
 
-    expect(hunter.position.x).toBeLessThan(8.4)
+    expect(hunter.position.x).toBeLessThan(30.4)
   })
 
   it('cycles through living survivors and resumes AI after release', () => {

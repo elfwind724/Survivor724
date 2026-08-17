@@ -23,13 +23,25 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
   {
     id: 'gate',
     kind: 'gate',
-    width: 2,
+    width: 3,
     depth: 1,
     required: [
-      { itemId: 'wood', count: 4 },
+      { itemId: 'wood', count: 6 },
       { itemId: 'scrap', count: 2 },
     ],
     buildDuration: 8,
+    blocksNav: true,
+  },
+  {
+    id: 'kitchen',
+    kind: 'building',
+    width: 10,
+    depth: 8,
+    required: [
+      { itemId: 'wood', count: 24 },
+      { itemId: 'scrap', count: 8 },
+    ],
+    buildDuration: 18,
     blocksNav: true,
   },
 ]

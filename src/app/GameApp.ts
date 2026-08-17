@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { placeBlueprint, toggleGates } from '@/base/construction'
+import { demolishStructure, placeBlueprint, structureAt, toggleGates } from '@/base/construction'
 import { setWorkZone } from '@/base/workZones'
 import { cameraRelativeWish } from '@/controls/CameraWish'
 import { Input } from '@/controls/Input'
@@ -15,7 +15,7 @@ import { DebugHud } from '@/ui/DebugHud'
 import { Minimap } from '@/ui/Minimap'
 import { GameLoop } from './GameLoop'
 
-type BuildMode = 'none' | 'wall' | 'gate'
+type BuildMode = 'none' | 'wall' | 'gate' | 'kitchen' | 'demolish'
 
 export class GameApp {
   private readonly world: WorldState
@@ -29,7 +29,7 @@ export class GameApp {
   private zoneStart: { x: number; z: number } | null = null
   private lastClickAt = 0
   private lastClickId: string | null = null
-  private notice = 'WASD 移动 · 鼠标朝向 · 单击选人 · 双击/Enter 接管 · Tab 切换 · F 第一人称 · X 交还AI · B/N 建造'
+  private notice = '滚轮缩放 · Q/E 转镜头 · B墙 N门 K厨房 R拆除 · WASD 移动 · 双击接管'
 
   constructor(canvas: HTMLCanvasElement, hudRoot: HTMLElement, minimapCanvas: HTMLCanvasElement) {
     this.world = createInitialWorld()
@@ -42,6 +42,7 @@ export class GameApp {
     this.refreshHud()
     this.minimap.render(this.world)
     canvas.addEventListener('pointerdown', this.onWorldClick)
+    canvas.addEventListener('wheel', this.onWheel, { passive: false })
     canvas.addEventListener('contextmenu', (event) => event.preventDefault())
     minimapCanvas.addEventListener('pointerdown', this.onMinimapDown)
     minimapCanvas.addEventListener('pointerup', this.onMinimapUp)
@@ -60,6 +61,10 @@ export class GameApp {
   }
 
   private readonly step = (dt: number): void => {
+    if (this.world.player.view === 'topdown') {
+      if (this.input.isDown('KeyQ')) this.renderer.rotateBy(-dt * 1.35)
+      if (this.input.isDown('KeyE')) this.renderer.rotateBy(dt * 1.35)
+    }
     stepWorld(this.world, dt, this.controlIntent())
   }
 
@@ -114,6 +119,8 @@ export class GameApp {
     }
     if (event.code === 'KeyB') this.buildMode = this.buildMode === 'wall' ? 'none' : 'wall'
     if (event.code === 'KeyN') this.buildMode = this.buildMode === 'gate' ? 'none' : 'gate'
+    if (event.code === 'KeyK') this.buildMode = this.buildMode === 'kitchen' ? 'none' : 'kitchen'
+    if (event.code === 'KeyR') this.buildMode = this.buildMode === 'demolish' ? 'none' : 'demolish'
     if (event.code === 'KeyG') {
       toggleGates(this.world)
       this.notice = '已切换大门开闭'
@@ -123,7 +130,26 @@ export class GameApp {
     if (event.code === 'Digit3') this.zoneJob = 'scavenge'
   }
 
+  private readonly onWheel = (event: WheelEvent): void => {
+    if (this.world.player.view === 'firstperson') return
+    event.preventDefault()
+    this.renderer.zoomBy(event.deltaY)
+  }
+
   private readonly onWorldClick = (event: PointerEvent): void => {
+    if (this.buildMode === 'demolish' && event.button === 0) {
+      const hit = this.renderer.pickGround(event.clientX, event.clientY)
+      if (!hit) return
+      const structure = structureAt(this.world, { x: hit.x, y: 0, z: hit.z })
+      if (!structure) {
+        this.notice = '没有点到可拆除的建筑'
+        return
+      }
+      demolishStructure(this.world, structure.id)
+      this.notice = `已拆除 ${structure.definitionId}`
+      return
+    }
+
     if (this.buildMode !== 'none' && event.button === 0) {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
       if (!hit) return

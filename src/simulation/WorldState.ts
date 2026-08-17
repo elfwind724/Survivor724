@@ -7,6 +7,14 @@ import { createSurvivor } from '@/survivors/Survivor'
 import { createTimeState } from './TimeSystem'
 import { vec3, type WorldState } from './types'
 
+/** Interior is ~60x56m so a kitchen (10x8) and other rooms can fit. */
+export const BASE = {
+  west: -30,
+  east: 30,
+  south: -26,
+  north: 30,
+} as const
+
 export function createInitialWorld(): WorldState {
   const hunterBag = createInventory('inv-hunter', 8)
   const fisherBag = createInventory('inv-fisher', 6)
@@ -14,8 +22,8 @@ export function createInitialWorld(): WorldState {
   const haulerBag = createInventory('inv-hauler', 8)
   const builderBag = createInventory('inv-builder', 4)
   const warehouseInv = createInventory('inv-warehouse', 400, [
-    { itemId: 'wood', count: 12 },
-    { itemId: 'scrap', count: 6 },
+    { itemId: 'wood', count: 80 },
+    { itemId: 'scrap', count: 24 },
   ])
   const lockerInv = createInventory('inv-locker', 20, [
     { itemId: 'rifle', count: 1 },
@@ -25,11 +33,11 @@ export function createInitialWorld(): WorldState {
     { itemId: 'hammer', count: 1 },
   ])
 
-  const forest = vec3(36, 0, -8)
-  const river = vec3(-28, 0, 18)
-  const ruin = vec3(22, 0, 30)
-  const locker = vec3(4, 0, -2)
-  const warehouse = vec3(0, 0, -6)
+  const forest = vec3(55, 0, -20)
+  const river = vec3(-55, 0, 32)
+  const ruin = vec3(40, 0, 55)
+  const locker = vec3(10, 0, -8)
+  const warehouse = vec3(-10, 0, -8)
 
   const world: WorldState = {
     time: createTimeState(),
@@ -137,30 +145,31 @@ export function createInitialWorld(): WorldState {
     },
     structures: [],
     workZones: [
-      createWorkZone('zone-hunt', 'hunt', 20, -20, 50, 10),
-      createWorkZone('zone-fish', 'fish', -45, 5, -10, 35),
-      createWorkZone('zone-scavenge', 'scavenge', 10, 15, 40, 45),
+      createWorkZone('zone-hunt', 'hunt', 40, -40, 70, 0),
+      createWorkZone('zone-fish', 'fish', -70, 15, -40, 50),
+      createWorkZone('zone-scavenge', 'scavenge', 25, 40, 55, 70),
     ],
   }
 
   seedBaseWalls(world)
-  const blueprintCell = worldToCell(world.nav, vec3(12, 0, 0))
+  const blueprintCell = worldToCell(world.nav, vec3(16, 0, 4))
   placeBlueprint(world, 'wall', blueprintCell.x, blueprintCell.z)
   rebuildNav(world)
   return world
 }
 
 function seedBaseWalls(world: WorldState): void {
-  const west = worldToCell(world.nav, vec3(-8, 0, -8))
-  const east = worldToCell(world.nav, vec3(8, 0, -8))
-  const north = worldToCell(world.nav, vec3(-8, 0, 8))
-  const gate = worldToCell(world.nav, vec3(0, 0, 8))
+  const west = worldToCell(world.nav, vec3(BASE.west, 0, BASE.south))
+  const east = worldToCell(world.nav, vec3(BASE.east, 0, BASE.south))
+  const north = worldToCell(world.nav, vec3(BASE.west, 0, BASE.north))
+  const southEnd = worldToCell(world.nav, vec3(BASE.west, 0, BASE.north))
+  const gate = worldToCell(world.nav, vec3(-1, 0, BASE.north))
 
-  for (let z = west.z; z <= west.z + 16; z += 1) {
+  for (let z = west.z; z <= southEnd.z; z += 1) {
     createCompleteStructure(world, 'wall', west.x, z)
     createCompleteStructure(world, 'wall', east.x, z)
   }
   for (let x = north.x; x < gate.x; x += 1) createCompleteStructure(world, 'wall', x, north.z)
-  for (let x = gate.x + 2; x <= north.x + 16; x += 1) createCompleteStructure(world, 'wall', x, north.z)
+  for (let x = gate.x + 3; x <= east.x; x += 1) createCompleteStructure(world, 'wall', x, north.z)
   createCompleteStructure(world, 'gate', gate.x, gate.z, true)
 }

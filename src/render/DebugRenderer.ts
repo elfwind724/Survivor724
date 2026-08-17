@@ -11,6 +11,8 @@ export class DebugRenderer {
   readonly scene = new THREE.Scene()
   readonly camera: THREE.PerspectiveCamera
   readonly renderer: THREE.WebGLRenderer
+  orbitYaw = 0
+  distance = 42
   private readonly survivors = new Map<string, Marker>()
   private readonly structures = new Map<string, Marker>()
   private readonly extras: THREE.Object3D[] = []
@@ -18,9 +20,9 @@ export class DebugRenderer {
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
-    this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 400)
-    this.camera.position.set(0, 72, 48)
-    this.camera.lookAt(0, 0, 8)
+    this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500)
+    this.camera.position.set(0, 48, 36)
+    this.camera.lookAt(0, 0, 0)
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -31,7 +33,7 @@ export class DebugRenderer {
     this.scene.add(hemi, sun)
 
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(120, 120),
+      new THREE.PlaneGeometry(200, 200),
       new THREE.MeshLambertMaterial({ color: 0x3d4a3a }),
     )
     ground.rotation.x = -Math.PI / 2
@@ -70,6 +72,15 @@ export class DebugRenderer {
     return bestId
   }
 
+  zoomBy(deltaY: number): void {
+    const next = this.distance + Math.sign(deltaY) * 4
+    this.distance = Math.min(90, Math.max(16, next))
+  }
+
+  rotateBy(delta: number): void {
+    this.orbitYaw += delta
+  }
+
   sync(world: WorldState): void {
     this.ensureStatic(world)
     this.syncZones(world)
@@ -78,14 +89,14 @@ export class DebugRenderer {
       let marker = this.survivors.get(survivor.id)
       if (!marker) {
         const mesh = new THREE.Mesh(
-          new THREE.BoxGeometry(1.2, 1.8, 1.2),
+          new THREE.BoxGeometry(1.6, 2.2, 1.6),
           new THREE.MeshLambertMaterial({ color: 0xc4b39a }),
         )
         this.scene.add(mesh)
         marker = { id: survivor.id, mesh }
         this.survivors.set(survivor.id, marker)
       }
-      marker.mesh.position.set(survivor.position.x, 0.9, survivor.position.z)
+      marker.mesh.position.set(survivor.position.x, 1.1, survivor.position.z)
       marker.mesh.rotation.y = survivor.facingYaw
       if (marker.mesh instanceof THREE.Mesh && marker.mesh.material instanceof THREE.MeshLambertMaterial) {
         const controlled = world.player.controlledId === survivor.id
@@ -119,7 +130,13 @@ export class DebugRenderer {
     this.camera.fov = 50
     this.camera.updateProjectionMatrix()
     const target = new THREE.Vector3(focus.position.x, 0, focus.position.z)
-    const desired = new THREE.Vector3(focus.position.x, 28, focus.position.z + 22)
+    const horiz = this.distance * 0.62
+    const height = this.distance * 0.78
+    const desired = new THREE.Vector3(
+      focus.position.x + Math.sin(this.orbitYaw) * horiz,
+      height,
+      focus.position.z + Math.cos(this.orbitYaw) * horiz,
+    )
     this.camera.position.lerp(desired, 0.18)
     this.camera.lookAt(target)
   }
@@ -154,18 +171,22 @@ export class DebugRenderer {
   }
 
   private createStructureMesh(world: WorldState, structure: StructureState): THREE.Mesh {
-    const width = Math.max(1, structure.cells.length)
+    const xs = structure.cells.map((cell) => cell.x)
+    const zs = structure.cells.map((cell) => cell.z)
+    const minX = Math.min(...xs)
+    const maxX = Math.max(...xs)
+    const minZ = Math.min(...zs)
+    const maxZ = Math.max(...zs)
+    const width = (maxX - minX + 1) * world.nav.cellSize
+    const depth = (maxZ - minZ + 1) * world.nav.cellSize
+    const height = structure.kind === 'building' ? 4.2 : 2.6
     const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(width, 2.4, 1),
+      new THREE.BoxGeometry(width, height, depth),
       new THREE.MeshLambertMaterial({ color: 0x6b6254, transparent: true, opacity: 1 }),
     )
-    const first = structure.cells[0]
-    const last = structure.cells[structure.cells.length - 1]
-    if (first && last) {
-      const a = cellCenter(world.nav, first)
-      const b = cellCenter(world.nav, last)
-      mesh.position.set((a.x + b.x) / 2, 1.2, (a.z + b.z) / 2)
-    }
+    const a = cellCenter(world.nav, { x: minX, z: minZ })
+    const b = cellCenter(world.nav, { x: maxX, z: maxZ })
+    mesh.position.set((a.x + b.x) / 2, height / 2, (a.z + b.z) / 2)
     return mesh
   }
 
@@ -182,9 +203,11 @@ export class DebugRenderer {
     }
     material.transparent = false
     material.opacity = 1
-    mesh.scale.y = structure.kind === 'gate' && structure.open ? 0.45 : 1
-    mesh.position.y = structure.kind === 'gate' && structure.open ? 0.55 : 1.2
-    material.color.set(structure.kind === 'gate' ? 0x8a6a3a : 0x6b6254)
+    if (structure.kind === 'gate') {
+      mesh.scale.y = structure.open ? 0.45 : 1
+      mesh.position.y = structure.open ? 0.55 : 1.3
+    }
+    material.color.set(structure.kind === 'gate' ? 0x8a6a3a : structure.kind === 'building' ? 0x7a5a42 : 0x6b6254)
   }
 
   private syncZones(world: WorldState): void {
@@ -211,10 +234,10 @@ export class DebugRenderer {
     for (const container of world.containers) {
       const isLocker = container.kind === 'tool_locker'
       const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(isLocker ? 3 : 6, isLocker ? 2 : 3, isLocker ? 2 : 4),
+        new THREE.BoxGeometry(isLocker ? 4 : 10, isLocker ? 3 : 5, isLocker ? 4 : 8),
         new THREE.MeshLambertMaterial({ color: isLocker ? 0x8a6a3a : 0x6b6254 }),
       )
-      mesh.position.set(container.position.x, isLocker ? 1 : 1.5, container.position.z)
+      mesh.position.set(container.position.x, isLocker ? 1.5 : 2.5, container.position.z)
       this.scene.add(mesh)
       this.extras.push(mesh)
     }

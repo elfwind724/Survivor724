@@ -19,7 +19,7 @@ export type DayWorkerState =
 
 export type WorkerBlockedReason = 'missing_tool' | 'warehouse_full' | 'route_blocked' | null
 
-export type StructureKind = 'wall' | 'gate'
+export type StructureKind = 'wall' | 'gate' | 'building'
 export type StructureStage = 'blueprint' | 'hauling' | 'building' | 'complete'
 
 export interface GridCell {

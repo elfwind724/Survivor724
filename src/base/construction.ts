@@ -2,7 +2,7 @@ import { facilityDefinition, footprintCells } from '@/data/facilities'
 import { addItem, countItem, createInventory, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
 import type { GridCell, StructureState, Vec3, WorldState } from '@/simulation/types'
-import { cellCenter, cellIndex, inBounds, markNavDirty, rebuildNav } from '@/navigation/NavGrid'
+import { cellCenter, cellIndex, inBounds, markNavDirty, rebuildNav, worldToCell } from '@/navigation/NavGrid'
 import { pathExists } from '@/navigation/AStar'
 
 export interface PlaceResult {
@@ -55,6 +55,47 @@ export function toggleGates(world: WorldState): void {
     structure.open = !structure.open
     markNavDirty(world)
   }
+}
+
+export function demolishStructure(world: WorldState, structureId: string): boolean {
+  const index = world.structures.findIndex((entry) => entry.id === structureId)
+  const structure = world.structures[index]
+  if (index < 0 || !structure) return false
+
+  const warehouse = findContainer(world, 'warehouse')
+  if (warehouse) {
+    const stock = inventoryOf(world.inventories, warehouse.inventoryId)
+    const site = inventoryOf(world.inventories, structure.inventoryId)
+    for (const item of site.items) addItem(stock, item.itemId, item.count)
+    site.items = []
+    if (structure.stage === 'complete') {
+      for (const item of structure.required) addItem(stock, item.itemId, item.count)
+    }
+  }
+
+  const removedJobs = new Set(
+    world.jobs.filter((job) => job.targetId === structure.id).map((job) => job.id),
+  )
+  world.jobs = world.jobs.filter((job) => job.targetId !== structure.id)
+  for (const survivor of world.survivors) {
+    if (!survivor.currentJobId || !removedJobs.has(survivor.currentJobId)) continue
+    survivor.currentJobId = null
+    survivor.workerState = 'RestOrNextJob'
+    survivor.path = []
+    survivor.destination = null
+  }
+
+  delete world.inventories[structure.inventoryId]
+  world.structures.splice(index, 1)
+  markNavDirty(world)
+  return true
+}
+
+export function structureAt(world: WorldState, point: Vec3): StructureState | undefined {
+  const cell = worldToCell(world.nav, point)
+  return world.structures.find((structure) =>
+    structure.cells.some((entry) => entry.x === cell.x && entry.z === cell.z),
+  )
 }
 
 export function placeBlueprint(world: WorldState, definitionId: string, originX: number, originZ: number): PlaceResult {

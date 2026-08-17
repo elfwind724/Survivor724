@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { demolishStructure, placeBlueprint } from '@/base/construction'
 import { setWorkZone } from '@/base/workZones'
 import { countItem } from '@/inventory/Inventory'
+import { worldToCell } from '@/navigation/NavGrid'
+import { BASE } from '@/simulation/WorldState'
 import { stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
 
@@ -33,6 +36,28 @@ describe('construction and work zones', () => {
     simulate(world, 90)
     expect(blueprint.stage).toBe('complete')
     expect(world.structures.filter((structure) => structure.stage === 'complete').length).toBeGreaterThan(3)
+  })
+
+  it('starts with a yard large enough for a kitchen', () => {
+    const world = createInitialWorld()
+    expect(BASE.east - BASE.west).toBeGreaterThanOrEqual(50)
+    expect(BASE.north - BASE.south).toBeGreaterThanOrEqual(50)
+    const cell = worldToCell(world.nav, { x: -4, y: 0, z: 8 })
+    const inside = placeBlueprint(world, 'kitchen', cell.x, cell.z)
+    expect(inside.ok).toBe(true)
+  })
+
+  it('demolishes a blueprint and returns hauled materials', () => {
+    const world = createInitialWorld()
+    const blueprint = world.structures.find((structure) => structure.stage !== 'complete')
+    if (!blueprint) throw new Error('missing blueprint')
+    const warehouse = world.inventories['inv-warehouse']
+    if (!warehouse) throw new Error('missing warehouse')
+    const before = countItem(warehouse, 'wood')
+    world.inventories[blueprint.inventoryId]?.items.push({ itemId: 'wood', count: 4 })
+    expect(demolishStructure(world, blueprint.id)).toBe(true)
+    expect(world.structures.some((structure) => structure.id === blueprint.id)).toBe(false)
+    expect(countItem(warehouse, 'wood')).toBe(before + 4)
   })
 
   it('keeps a hunter inside the assigned work zone', () => {

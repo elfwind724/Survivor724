@@ -1,8 +1,8 @@
 import type { GridCell, NavGridState, StructureState, Vec3, WorldState } from '@/simulation/types'
 
 export const NAV_CELL = 1
-export const NAV_SIZE = 96
-export const NAV_ORIGIN = -48
+export const NAV_SIZE = 160
+export const NAV_ORIGIN = -80
 
 export function createNavGrid(): NavGridState {
   return {

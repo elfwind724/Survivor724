@@ -2,14 +2,22 @@ import { describe, expect, it } from 'vitest'
 import { createCompleteStructure, placeBlueprint, setGateOpen } from '@/base/construction'
 import { findPath, pathExists } from '@/navigation/AStar'
 import { isBlocked, rebuildNav, worldToCell } from '@/navigation/NavGrid'
-import { createInitialWorld } from '@/simulation/WorldState'
+import { BASE, createInitialWorld } from '@/simulation/WorldState'
 import { vec3 } from '@/simulation/types'
+
+function forestPosition(world: ReturnType<typeof createInitialWorld>) {
+  const forest = world.nodes.find((node) => node.id === 'node-forest')
+  if (!forest) throw new Error('missing forest')
+  return forest.position
+}
 
 describe('navigation', () => {
   it('paths around complete walls instead of walking through them', () => {
     const world = createInitialWorld()
-    const from = vec3(0, 0, -6)
-    const to = vec3(36, 0, -8)
+    const from = vec3(-10, 0, -8)
+    const forest = world.nodes.find((node) => node.id === 'node-forest')
+    if (!forest) throw new Error('missing forest')
+    const to = forest.position
     const path = findPath(world, from, to)
     expect(path).not.toBeNull()
     const wallHit = path?.some((point) => {
@@ -47,8 +55,8 @@ describe('navigation', () => {
     setGateOpen(world, gate.id, false)
     rebuildNav(world)
 
-    const west = worldToCell(world.nav, vec3(-8, 0, -9))
-    const gap = worldToCell(world.nav, vec3(7, 0, -9))
+    const west = worldToCell(world.nav, vec3(BASE.west, 0, BASE.south - 1))
+    const gap = worldToCell(world.nav, vec3(BASE.east - 1, 0, BASE.south - 1))
     for (let x = west.x; x < gap.x; x += 1) {
       createCompleteStructure(world, 'wall', x, west.z)
     }
@@ -57,6 +65,6 @@ describe('navigation', () => {
     const result = placeBlueprint(world, 'wall', gap.x, west.z)
     expect(result.ok).toBe(false)
     expect(result.reason).toBe('blocks_exit')
-    expect(pathExists(world, vec3(0, 0, -6), vec3(36, 0, -8))).toBe(true)
+    expect(pathExists(world, vec3(-10, 0, -8), forestPosition(world))).toBe(true)
   })
 })
