@@ -1,3 +1,5 @@
+import { assetById } from '@/data/assetIndex'
+import { STRUCTURE_ASSETS } from '@/data/worldDressing'
 import type { GridCell, ItemStack, StructureKind } from '@/simulation/types'
 
 export interface FacilityDefinition {
@@ -9,6 +11,7 @@ export interface FacilityDefinition {
   required: ItemStack[]
   buildDuration: number
   blocksNav: boolean
+  inBuildMenu?: boolean
 }
 
 export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
@@ -136,6 +139,20 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
     buildDuration: 1.4,
     blocksNav: false,
   },
+  {
+    id: 'shelter',
+    label: '房屋',
+    kind: 'building',
+    width: 6,
+    depth: 6,
+    required: [
+      { itemId: 'wood', count: 12 },
+      { itemId: 'scrap', count: 2 },
+    ],
+    buildDuration: 3.2,
+    blocksNav: false,
+    inBuildMenu: false,
+  },
 ]
 
 export function facilityDefinition(id: string): FacilityDefinition | undefined {
@@ -144,6 +161,70 @@ export function facilityDefinition(id: string): FacilityDefinition | undefined {
 
 export function facilityLabel(id: string): string {
   return facilityDefinition(id)?.label ?? id
+}
+
+export function structureLabel(structure: { definitionId: string; visualAssetId?: string }): string {
+  if (structure.visualAssetId) {
+    const mapped = facilityFromAsset(structure.visualAssetId)
+    if (mapped && mapped !== 'shelter') return facilityLabel(mapped)
+    return creativeAssetLabel(structure.visualAssetId)
+  }
+  return facilityLabel(structure.definitionId)
+}
+
+const ASSET_TO_FACILITY: Record<string, string> = Object.fromEntries(
+  Object.entries(STRUCTURE_ASSETS).map(([definitionId, assetId]) => [assetId, definitionId]),
+)
+
+const SCENERY_ASSET = /mountain|tree|rock|log|crop|gold|pine/
+
+export function facilityFromAsset(assetId: string): string | undefined {
+  const entry = assetById(assetId)
+  if (!entry || (entry.category !== 'fort' && entry.category !== 'survival')) return undefined
+  const slug = assetId.split('/')[1] ?? ''
+  if (SCENERY_ASSET.test(slug)) return undefined
+  const exact = ASSET_TO_FACILITY[assetId]
+  if (exact && exact !== 'locker') return exact
+  if (/gate/.test(slug)) return 'gate'
+  if (/wall/.test(slug) && !/tower-house|watch-tower|archery-tower|stone-tower/.test(slug)) return 'wall'
+  if (/watch-tower|watchtower|stone-tower|archery-tower|tower-house/.test(slug)) return 'watchtower'
+  if (slug === 'bonfire') return 'bonfire'
+  if (/torch/.test(slug)) return 'brazier'
+  if (isCreativeBuildingSlug(slug)) return 'shelter'
+  return undefined
+}
+
+export function creativeFootprint(assetId: string, definitionId: string): { width: number; depth: number } {
+  const definition = facilityDefinition(definitionId)
+  if (!definition) return { width: 6, depth: 6 }
+  if (definitionId !== 'shelter') return { width: definition.width, depth: definition.depth }
+  const slug = assetId.split('/')[1] ?? ''
+  if (/castle|fortress|wonder/.test(slug)) return { width: 10, depth: 10 }
+  if (/farm|windmill|market|temple|barrack|town/.test(slug)) return { width: 8, depth: 8 }
+  if (/tent/.test(slug)) return { width: 3, depth: 3 }
+  return { width: 6, depth: 6 }
+}
+
+function isCreativeBuildingSlug(slug: string): boolean {
+  return /house|hut|barrack|castle|fortress|temple|farm|windmill|dock|port|market|mine|encampment|monument|wonder|business|archery|town-center|shack|storage|shed|tent|hall/.test(slug)
+}
+
+function creativeAssetLabel(assetId: string): string {
+  const slug = assetId.split('/')[1] ?? assetId
+  if (/castle/.test(slug)) return '城堡'
+  if (/fortress/.test(slug)) return '要塞'
+  if (/farm/.test(slug)) return '农场'
+  if (/temple/.test(slug)) return '神殿'
+  if (/windmill/.test(slug)) return '风车'
+  if (/barrack/.test(slug)) return '营房'
+  if (/market/.test(slug)) return '市集'
+  if (/dock|port/.test(slug)) return '码头'
+  if (/house|hut/.test(slug)) return '房屋'
+  if (/tent/.test(slug)) return '帐篷'
+  if (/mine/.test(slug)) return '矿坑'
+  if (/shack|shed|storage/.test(slug)) return '工棚'
+  if (/temple|wonder|monument/.test(slug)) return '神殿'
+  return assetById(assetId)?.name ?? '房屋'
 }
 
 export function buildProgress(structure: { stage: string; buildElapsed: number; buildDuration: number }): number {

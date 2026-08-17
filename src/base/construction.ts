@@ -1,5 +1,13 @@
-import { decorationNear, removeDecoration } from '@/base/decorations'
-import { demolishDuration, facilityDefinition, footprintCells, wallLineDuration } from '@/data/facilities'
+import { decorationNear, persistDecorations, placeDecoration, removeDecoration } from '@/base/decorations'
+import { assetById } from '@/data/assetIndex'
+import {
+  creativeFootprint,
+  demolishDuration,
+  facilityDefinition,
+  facilityFromAsset,
+  footprintCells,
+  wallLineDuration,
+} from '@/data/facilities'
 import { addItem, countItem, createInventory, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
 import type { GridCell, StructureState, Vec3, WorldState } from '@/simulation/types'
@@ -192,6 +200,7 @@ export function demolishStructure(world: WorldState, structureId: string, refund
     if (extra) removeDecoration(world, extra.id)
   }
   markNavDirty(world)
+  persistCreativeStructures(world)
   return true
 }
 
@@ -407,23 +416,34 @@ function evaluateCells(
   return { cells, valid: true, reason: null }
 }
 
+export interface CompleteExtras {
+  visualAssetId?: string
+  yaw?: number
+  width?: number
+  depth?: number
+  placedBy?: 'creative'
+}
+
 export function createCompleteStructure(
   world: WorldState,
   definitionId: string,
   originX: number,
   originZ: number,
   open = true,
+  extras?: CompleteExtras,
 ): StructureState {
   const definition = facilityDefinition(definitionId)
   if (!definition) throw new Error(`Unknown facility ${definitionId}`)
   const id = `structure-${world.structures.length + 1}-${definitionId}`
   const inventory = createInventory(`inv-${id}`, 40)
   world.inventories[inventory.id] = inventory
+  const width = extras?.width ?? definition.width
+  const depth = extras?.depth ?? definition.depth
   const structure: StructureState = {
     id,
     definitionId,
     kind: definition.kind,
-    cells: footprintCells(definition, originX, originZ),
+    cells: footprintCells({ ...definition, width, depth }, originX, originZ),
     stage: 'complete',
     inventoryId: inventory.id,
     required: definition.required.map((item) => ({ ...item })),
@@ -433,9 +453,143 @@ export function createCompleteStructure(
     hp: structureHp(definition.kind),
     maxHp: structureHp(definition.kind),
   }
+  if (extras?.visualAssetId) structure.visualAssetId = extras.visualAssetId
+  if (extras?.yaw !== undefined) structure.yaw = extras.yaw
+  if (extras?.placedBy) structure.placedBy = extras.placedBy
   world.structures.push(structure)
   markNavDirty(world)
   return structure
+}
+
+export function previewCreativePlacement(
+  world: WorldState,
+  assetId: string,
+  worldX: number,
+  worldZ: number,
+): { cells: GridCell[]; valid: boolean; reason: string | null; definitionId: string } | null {
+  const definitionId = facilityFromAsset(assetId)
+  if (!definitionId) return null
+  const definition = facilityDefinition(definitionId)
+  if (!definition) return null
+  const size = creativeFootprint(assetId, definitionId)
+  const origin = worldToCell(world.nav, { x: worldX, y: 0, z: worldZ })
+  const originX = origin.x - Math.floor(size.width / 2)
+  const originZ = origin.z - Math.floor(size.depth / 2)
+  const preview = evaluateCells(
+    world,
+    footprintCells({ ...definition, width: size.width, depth: size.depth }, originX, originZ),
+    definition.kind === 'gate',
+  )
+  return { ...preview, definitionId }
+}
+
+export function placeCreativeAsset(
+  world: WorldState,
+  assetId: string,
+  worldX: number,
+  worldZ: number,
+  yaw = 0,
+  scale?: number,
+): { kind: 'structure'; structure: StructureState } | { kind: 'decoration'; decoration: NonNullable<ReturnType<typeof placeDecoration>> } | null {
+  const preview = previewCreativePlacement(world, assetId, worldX, worldZ)
+  if (!preview) {
+    const decoration = placeDecoration(world, assetId, worldX, worldZ, yaw, scale)
+    return decoration ? { kind: 'decoration', decoration } : null
+  }
+  if (!preview.valid || preview.cells.length === 0) return null
+  const first = preview.cells[0]
+  if (!first) return null
+  const size = creativeFootprint(assetId, preview.definitionId)
+  const structure = createCompleteStructure(world, preview.definitionId, first.x, first.z, true, {
+    visualAssetId: assetId,
+    yaw,
+    width: size.width,
+    depth: size.depth,
+    placedBy: 'creative',
+  })
+  persistCreativeStructures(world)
+  return { kind: 'structure', structure }
+}
+
+const CREATIVE_STORAGE_KEY = 'dawn-bastion-creative-structures'
+
+interface SavedCreativeStructure {
+  definitionId: string
+  visualAssetId: string
+  originX: number
+  originZ: number
+  yaw: number
+  width: number
+  depth: number
+}
+
+export function persistCreativeStructures(world: WorldState): void {
+  if (typeof localStorage === 'undefined') return
+  const saved: SavedCreativeStructure[] = world.structures
+    .filter((entry) => entry.placedBy === 'creative' && entry.visualAssetId && entry.cells[0])
+    .map((entry) => {
+      const xs = entry.cells.map((cell) => cell.x)
+      const zs = entry.cells.map((cell) => cell.z)
+      return {
+        definitionId: entry.definitionId,
+        visualAssetId: entry.visualAssetId ?? '',
+        originX: Math.min(...xs),
+        originZ: Math.min(...zs),
+        yaw: entry.yaw ?? 0,
+        width: Math.max(...xs) - Math.min(...xs) + 1,
+        depth: Math.max(...zs) - Math.min(...zs) + 1,
+      }
+    })
+  localStorage.setItem(CREATIVE_STORAGE_KEY, JSON.stringify(saved))
+}
+
+export function loadCreativeStructures(world: WorldState): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    const raw = localStorage.getItem(CREATIVE_STORAGE_KEY)
+    if (!raw) return
+    const saved = JSON.parse(raw) as SavedCreativeStructure[]
+    if (!Array.isArray(saved)) return
+    for (const entry of saved) {
+      if (!facilityDefinition(entry.definitionId) || !assetById(entry.visualAssetId)) continue
+      if (!Number.isFinite(entry.originX) || !Number.isFinite(entry.originZ)) continue
+      const definition = facilityDefinition(entry.definitionId)
+      if (!definition) continue
+      const width = Math.max(1, entry.width || definition.width)
+      const depth = Math.max(1, entry.depth || definition.depth)
+      const cells = footprintCells({ ...definition, width, depth }, entry.originX, entry.originZ)
+      if (!evaluateCells(world, cells, definition.kind === 'gate').valid) continue
+      createCompleteStructure(world, entry.definitionId, entry.originX, entry.originZ, true, {
+        visualAssetId: entry.visualAssetId,
+        yaw: entry.yaw,
+        width,
+        depth,
+        placedBy: 'creative',
+      })
+    }
+  } catch {
+    return
+  }
+}
+
+export function promoteBuildingDecorations(world: WorldState): number {
+  let count = 0
+  const keep = []
+  for (const decoration of world.decorations) {
+    if (!facilityFromAsset(decoration.assetId)) {
+      keep.push(decoration)
+      continue
+    }
+    const placed = placeCreativeAsset(world, decoration.assetId, decoration.x, decoration.z, decoration.yaw, decoration.scale)
+    if (placed?.kind === 'structure') count += 1
+    else keep.push(decoration)
+  }
+  if (count > 0) {
+    world.decorations = keep
+    persistDecorations(world)
+    persistCreativeStructures(world)
+  }
+  return count
 }
 
 export function structureHp(kind: StructureState['kind']): number {

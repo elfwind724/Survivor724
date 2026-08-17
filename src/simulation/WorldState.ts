@@ -1,4 +1,4 @@
-import { createCompleteStructure, placeBlueprint } from '@/base/construction'
+import { createCompleteStructure, loadCreativeStructures, placeBlueprint, promoteBuildingDecorations } from '@/base/construction'
 import { loadDecorations } from '@/base/decorations'
 import { facilityBeds } from '@/base/FacilityLife'
 import { seedOutdoorScenery } from '@/data/outdoorScenery'
@@ -197,6 +197,8 @@ export function createInitialWorld(): WorldState {
   for (const survivor of world.survivors) dressProfession(survivor)
   const blueprintCell = worldToCell(world.nav, vec3(0, 0, BASE.south - 4))
   placeBlueprint(world, 'wall', blueprintCell.x, blueprintCell.z)
+  loadCreativeStructures(world)
+  promoteBuildingDecorations(world)
   rebuildNightPosts(world)
   rebuildNav(world)
   return world

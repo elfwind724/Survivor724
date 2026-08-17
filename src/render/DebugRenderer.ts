@@ -1194,15 +1194,18 @@ export class DebugRenderer {
 
   private kitStructure(world: WorldState, structure: StructureState, root: THREE.Object3D, cellSig: string): void {
     if (structure.stage !== 'complete') return
-    if (this.kitted.get(structure.id) === cellSig) return
+    const kitKey = `${cellSig}|${structure.visualAssetId ?? ''}|${structure.yaw ?? 0}`
+    if (this.kitted.get(structure.id) === kitKey) return
     for (const child of [...root.children]) {
       if (child.name !== 'kit') continue
       root.remove(child)
     }
     const assetId =
+      structure.visualAssetId ??
       STRUCTURE_ASSETS[structure.definitionId] ??
       (structure.kind === 'gate' ? STRUCTURE_ASSETS.gate : structure.kind === 'building' ? STRUCTURE_ASSETS.kitchen : STRUCTURE_ASSETS.wall) ??
       'fort/wooden-wall'
+    this.enqueueAsset(assetId)
     if (structure.kind === 'wall') {
       const pieces: THREE.Object3D[] = []
       for (const cell of structure.cells) {
@@ -1211,7 +1214,7 @@ export class DebugRenderer {
         const center = cellCenter(world.nav, cell)
         kit.position.x += center.x
         kit.position.z += center.z
-        kit.rotation.y = wallYaw(world, structure, cell)
+        kit.rotation.y = wallYaw(world, structure, cell) + (structure.yaw ?? 0)
         kit.scale.x *= 0.22
         kit.scale.z *= 1.8
         pieces.push(kit)
@@ -1228,12 +1231,13 @@ export class DebugRenderer {
       })
       kit.position.x += mid.x
       kit.position.z += mid.z
-      if (structure.kind === 'gate') kit.rotation.y = gateYaw(structure)
+      if (structure.kind === 'gate') kit.rotation.y = (structure.yaw ?? 0) + gateYaw(structure)
+      else if (structure.yaw) kit.rotation.y = structure.yaw
       if (structure.definitionId === 'brazier') kit.scale.multiplyScalar(2.6)
       if (structure.definitionId === 'bonfire') kit.scale.multiplyScalar(1.8)
       root.add(kit)
     }
-    this.kitted.set(structure.id, cellSig)
+    this.kitted.set(structure.id, kitKey)
     for (const child of root.children) {
       if (child.name === 'kit' || child.name === 'interior' || child.name === 'open-shell' || child.name === 'steam') continue
       child.visible = false

@@ -48,7 +48,7 @@ export class BuildMenu {
   }
 
   private render(): void {
-    const items = FACILITY_DEFINITIONS.map((facility) => {
+    const items = FACILITY_DEFINITIONS.filter((facility) => facility.inBuildMenu !== false).map((facility) => {
       const cost = facility.required.map((item) => `${item.count}${itemLabel(item.itemId)}`).join(' ')
       const active = this.selected === facility.id ? ' is-active' : ''
       const size = facility.id === 'wall' ? '点到线' : `${facility.width}×${facility.depth}`

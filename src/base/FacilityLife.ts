@@ -195,5 +195,13 @@ export function interiorProps(world: WorldState, structure: StructureState): Int
       { assetId: 'interior/shelf-large', x: mid.x + 1.8, z: mid.z, yaw: -Math.PI / 2 },
     ]
   }
+  if (structure.definitionId === 'shelter') {
+    return [
+      { assetId: 'interior/table-round-small', x: mid.x, z: mid.z, yaw: 0 },
+      { assetId: 'interior/chair', x: mid.x - 1.2, z: mid.z, yaw: Math.PI / 2 },
+      { assetId: 'interior/chair', x: mid.x + 1.2, z: mid.z, yaw: -Math.PI / 2 },
+      { assetId: 'interior/bed-single', x: mid.x, z: mid.z + 1.8, yaw: 0, scale: 0.4 },
+    ]
+  }
   return []
 }

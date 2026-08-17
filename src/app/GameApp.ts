@@ -1,7 +1,8 @@
 import * as THREE from 'three'
-import { demolishTarget, findStructure, interactGate, markDemolishAt, placeBlueprint, placeWallLine, previewPlacement, previewWallLine } from '@/base/construction'
-import { decorationNear, placeDecoration, removeDecoration, snapDecor } from '@/base/decorations'
-import { buildProgress, durabilityPercent, facilityLabel, facilityPreviewHeight } from '@/data/facilities'
+import { demolishTarget, findStructure, interactGate, markDemolishAt, persistCreativeStructures, placeBlueprint, placeCreativeAsset, placeWallLine, previewCreativePlacement, previewPlacement, previewWallLine } from '@/base/construction'
+import { decorationNear, removeDecoration, snapDecor } from '@/base/decorations'
+import { buildProgress, durabilityPercent, facilityPreviewHeight, structureLabel } from '@/data/facilities'
+import { rebuildNightPosts } from '@/combat/Night'
 import { cellCenter } from '@/navigation/NavGrid'
 import { reloadWeapon, tryShoot } from '@/combat/Combat'
 import { equippedWeapon, fireProfile } from '@/data/weapons'
@@ -107,7 +108,7 @@ export class GameApp {
       if (brush) {
         this.buildMenu.clear()
         this.renderer.enqueueAsset(brush.assetId)
-        this.notice = '左键放置 · 右键拆除装饰 · R 旋转 · -/= 缩放 · I 打开创造栏'
+        this.notice = '左键放置 · 右键拆除 · R 旋转 · -/= 缩放 · I 打开创造栏'
       }
     })
     this.defenseBar = new DefenseBar(defenseRoot, (sector) => {
@@ -380,15 +381,29 @@ export class GameApp {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
       if (!hit) return
       if (button === 0) {
-        const placed = placeDecoration(this.world, brush.assetId, hit.x, hit.z, brush.yaw, brush.scale)
+        const placed = placeCreativeAsset(this.world, brush.assetId, hit.x, hit.z, brush.yaw, brush.scale)
         this.renderer.enqueueAsset(brush.assetId)
-        this.notice = placed ? `已放下 ${placed.assetId.split('/').pop()}` : '无法放置这个素材'
+        if (placed?.kind === 'structure') {
+          if (placed.structure.definitionId === 'watchtower') rebuildNightPosts(this.world)
+          this.notice = `已放下 ${structureLabel(placed.structure)}，可切换内部，拆除会派人来拆`
+          return
+        }
+        this.notice = placed ? `已放下 ${placed.decoration.assetId.split('/').pop()}` : '无法放置这个素材'
         return
       }
       if (button === 2) {
+        const marked = markDemolishAt(this.world, { x: hit.x, y: 0, z: hit.z })
+        if (marked) {
+          persistCreativeStructures(this.world)
+          const name = structureLabel(marked.structure)
+          this.notice = marked.result === 'cancelled'
+            ? `已取消拆除 ${name}`
+            : `已标记拆除 ${name}，工匠会过来拆`
+          return
+        }
         const target = decorationNear(this.world, hit.x, hit.z)
         if (!target) {
-          this.notice = '附近没有装饰'
+          this.notice = '附近没有可拆的东西'
           return
         }
         removeDecoration(this.world, target.id)
@@ -404,7 +419,7 @@ export class GameApp {
       if (!hit) return
       const marked = markDemolishAt(this.world, { x: hit.x, y: 0, z: hit.z })
       if (marked) {
-        const name = facilityLabel(marked.structure.definitionId)
+        const name = structureLabel(marked.structure)
         this.notice = marked.result === 'cancelled'
           ? `已取消拆除 ${name}`
           : `已标记拆除 ${name}，工匠会过来拆`
@@ -504,11 +519,35 @@ export class GameApp {
     const brush = this.editor.getBrush()
     if (brush && this.world.player.view !== 'firstperson' && !this.editor.isOpen()) {
       const hover = this.renderer.pickGround(this.input.mouseX, this.input.mouseY)
-      this.renderer.clearBuildPreview()
       if (!hover) {
+        this.renderer.clearBuildPreview()
         this.renderer.setDecorationPreview(null)
         return
       }
+      const preview = previewCreativePlacement(this.world, brush.assetId, hover.x, hover.z)
+      if (preview) {
+        this.renderer.setBuildPreview(
+          this.world,
+          preview.cells,
+          preview.valid,
+          facilityPreviewHeight(preview.definitionId),
+        )
+        const mid = preview.cells[0]
+          ? cellCenter(this.world.nav, {
+              x: preview.cells.reduce((sum, cell) => sum + cell.x, 0) / preview.cells.length,
+              z: preview.cells.reduce((sum, cell) => sum + cell.z, 0) / preview.cells.length,
+            })
+          : { x: hover.x, z: hover.z }
+        this.renderer.setDecorationPreview({
+          assetId: brush.assetId,
+          x: mid.x,
+          z: mid.z,
+          yaw: brush.yaw,
+          scale: brush.scale,
+        })
+        return
+      }
+      this.renderer.clearBuildPreview()
       this.renderer.setDecorationPreview({
         assetId: brush.assetId,
         x: snapDecor(hover.x),
@@ -573,7 +612,7 @@ export class GameApp {
     const id = this.renderer.pickStructure(this.world, this.input.mouseX, this.input.mouseY)
     const structure = id ? this.world.structures.find((entry) => entry.id === id) : undefined
     if (structure) {
-      const name = facilityLabel(structure.definitionId)
+      const name = structureLabel(structure)
       const demolishMode = this.buildMenu.getSelected() === 'demolish'
       const hp = structure.kind === 'wall' || structure.kind === 'gate' ? ` · 耐久 ${durabilityPercent(structure)}%` : ''
       const progress = structure.stage === 'complete'
@@ -602,9 +641,9 @@ export class GameApp {
       const screen = this.renderer.worldToScreen(mid.x, 2.4, mid.z)
       if (!screen) continue
       const text = entry.stage === 'demolishing'
-        ? `拆除 ${facilityLabel(entry.definitionId)} ${buildProgress(entry)}%`
+        ? `拆除 ${structureLabel(entry)} ${buildProgress(entry)}%`
         : showBuild
-          ? `${facilityLabel(entry.definitionId)} ${buildProgress(entry)}%`
+          ? `${structureLabel(entry)} ${buildProgress(entry)}%`
           : `耐久 ${durabilityPercent(entry)}%`
       const klass = entry.stage === 'demolishing' ? 'build-tag is-wreck' : showHp ? 'build-tag is-hp' : 'build-tag'
       bits.push(`<span class="${klass}" style="left:${screen.x}px;top:${screen.y}px">${text}</span>`)

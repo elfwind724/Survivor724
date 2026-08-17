@@ -52,6 +52,9 @@ export interface StructureState {
   open: boolean
   hp: number
   maxHp: number
+  visualAssetId?: string
+  yaw?: number
+  placedBy?: 'creative'
 }
 
 export interface WorkZoneState {
