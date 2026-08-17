@@ -1,6 +1,6 @@
 import { AnimationClip } from 'three'
 import { describe, expect, it } from 'vitest'
-import { clipScore, locomotionFromSpeed, pickCharacterClip } from '@/render/CharacterClips'
+import { clipScore, locomotionFromSpeed, pickArmedPose, pickCharacterClip } from '@/render/CharacterClips'
 
 function clip(name: string): AnimationClip {
   return new AnimationClip(name, 1, [])
@@ -26,5 +26,23 @@ describe('character clips', () => {
     expect(locomotionFromSpeed(0)).toBe('idle')
     expect(locomotionFromSpeed(1.2)).toBe('walk')
     expect(locomotionFromSpeed(3.2)).toBe('run')
+  })
+
+  it('uses gun hold and shoot clips when the survivor is armed', () => {
+    const clips = [
+      clip('CharacterArmature|Idle_Neutral'),
+      clip('CharacterArmature|Idle_Gun'),
+      clip('CharacterArmature|Idle_Gun_Pointing'),
+      clip('CharacterArmature|Idle_Gun_Shoot'),
+      clip('CharacterArmature|Run_Shoot'),
+      clip('CharacterArmature|Walk'),
+    ]
+    expect(pickCharacterClip(clips, 'aim')?.name).toBe('CharacterArmature|Idle_Gun_Pointing')
+    expect(pickCharacterClip(clips, 'shoot')?.name).toBe('CharacterArmature|Idle_Gun_Shoot')
+    expect(pickCharacterClip(clips, 'idleGun')?.name).toBe('CharacterArmature|Idle_Gun')
+    expect(pickArmedPose(0, false, { aim: true, shoot: true })).toBe('aim')
+    expect(pickArmedPose(0, true, { aim: true, shoot: true })).toBe('shoot')
+    expect(pickArmedPose(3.2, true, { runShoot: true, shoot: true })).toBe('runShoot')
+    expect(clipScore('CharacterArmature|Idle_Gun', 'idle')).toBe(0)
   })
 })

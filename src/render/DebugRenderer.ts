@@ -6,8 +6,9 @@ import { cellCenter } from '@/navigation/NavGrid'
 import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, SurvivorState, WorldState } from '@/simulation/types'
 import { AssetLibrary } from './AssetLibrary'
-import { locomotionFromSpeed, pickCharacterClip, type Locomotion } from './CharacterClips'
-import { fitHeldGun, fitToHeight, prepareKit, suggestedScale, SURVIVOR_HEIGHT } from './ModelFit'
+import { pickArmedPose, pickCharacterClip, type CharacterPose } from './CharacterClips'
+import { findHoldBone, poseHeldGun, prepareHeldGun } from './HeldWeapon'
+import { fitToHeight, prepareKit, suggestedScale, SURVIVOR_HEIGHT } from './ModelFit'
 
 interface Marker {
   id: string
@@ -16,10 +17,8 @@ interface Marker {
 
 interface CharacterRig {
   mixer: THREE.AnimationMixer
-  idle: THREE.AnimationAction | null
-  walk: THREE.AnimationAction | null
-  run: THREE.AnimationAction | null
-  current: Locomotion
+  poses: Partial<Record<CharacterPose, THREE.AnimationAction>>
+  current: CharacterPose
   lastX: number
   lastZ: number
   displaySpeed: number
@@ -651,34 +650,22 @@ export class DebugRenderer {
     const weapon = equippedWeapon(survivor)
     const want = weapon?.assetId ?? ''
     const existing = marker.mesh.getObjectByName('held-gun')
+    const kit = marker.mesh.getObjectByName('kit')
+    const hand = kit ? findHoldBone(kit) : null
+    const aiming = Boolean(this.rigs.get(survivor.id)?.poses.aim)
     if (existing && existing.userData.weaponAsset === want) {
-      this.poseHeldGun(marker.mesh, existing)
+      if (hand) poseHeldGun(hand, existing, weapon?.id ?? '', aiming)
       return
     }
     if (existing) this.disposeObject(existing)
-    if (!weapon) return
+    if (!weapon || !hand) return
     this.enqueueAsset(weapon.assetId)
-    const gun = this.library.clone(weapon.assetId)
-    if (!gun) return
-    fitHeldGun(gun)
+    const raw = this.library.clone(weapon.assetId)
+    if (!raw) return
+    const gun = prepareHeldGun(raw)
     gun.name = 'held-gun'
     gun.userData.weaponAsset = weapon.assetId
-    marker.mesh.add(gun)
-    this.poseHeldGun(marker.mesh, gun)
-  }
-
-  private poseHeldGun(root: THREE.Object3D, gun: THREE.Object3D): void {
-    const kit = root.getObjectByName('kit')
-    const hand = kit ? findHoldBone(kit) : null
-    if (hand) {
-      if (gun.parent !== hand) hand.add(gun)
-      gun.position.set(0.04, 0.1, 0.08)
-      gun.rotation.set(-Math.PI / 2, 0, Math.PI / 2)
-      return
-    }
-    if (gun.parent !== root) root.add(gun)
-    gun.position.set(0.34, 1.12, 0.36)
-    gun.rotation.set(0.08, 0, -0.18)
+    poseHeldGun(hand, gun, weapon.id, aiming)
   }
 
   private syncViewGun(world: WorldState): void {
@@ -698,13 +685,14 @@ export class DebugRenderer {
     }
     if (!weapon) return
     this.enqueueAsset(weapon.assetId)
-    const gun = this.library.clone(weapon.assetId)
-    if (!gun) return
-    fitHeldGun(gun)
+    const raw = this.library.clone(weapon.assetId)
+    if (!raw) return
+    const gun = prepareHeldGun(raw)
     gun.name = 'view-gun'
     gun.userData.weaponAsset = weapon.assetId
-    gun.position.set(0.28, -0.22, -0.52)
-    gun.rotation.set(0.1, Math.PI, 0)
+    gun.scale.setScalar(weapon.class === 'pistol' || weapon.class === 'revolver' ? 0.34 : 0.7)
+    gun.position.set(0.26, -0.2, -0.48)
+    gun.rotation.set(0.08, Math.PI, 0)
     this.camera.add(gun)
     this.viewGun = gun
   }
@@ -744,16 +732,15 @@ export class DebugRenderer {
     marker.mesh.add(kit)
     const mixer = new THREE.AnimationMixer(kit)
     const clips = this.library.clips(assetId)
-    const idleClip = pickCharacterClip(clips, 'idle')
-    const walkClip = pickCharacterClip(clips, 'walk')
-    const runClip = pickCharacterClip(clips, 'run')
-    const idle = idleClip ? mixer.clipAction(idleClip) : null
-    idle?.play()
+    const poses: CharacterRig['poses'] = {}
+    for (const kind of ['idle', 'walk', 'run', 'idleGun', 'aim', 'shoot', 'runShoot'] as const) {
+      const clip = pickCharacterClip(clips, kind)
+      if (clip) poses[kind] = mixer.clipAction(clip)
+    }
+    poses.idle?.play()
     this.rigs.set(survivor.id, {
       mixer,
-      idle,
-      walk: walkClip ? mixer.clipAction(walkClip) : null,
-      run: runClip ? mixer.clipAction(runClip) : null,
+      poses,
       current: 'idle',
       lastX: survivor.position.x,
       lastZ: survivor.position.z,
@@ -761,19 +748,20 @@ export class DebugRenderer {
     })
   }
 
-  private driveRig(survivor: { id: string; position: { x: number; z: number } }, dt: number): void {
+  private driveRig(survivor: SurvivorState, dt: number): void {
     const rig = this.rigs.get(survivor.id)
     if (!rig) return
     const speed = Math.hypot(survivor.position.x - rig.lastX, survivor.position.z - rig.lastZ) / Math.max(dt, 1 / 120)
     rig.lastX = survivor.position.x
     rig.lastZ = survivor.position.z
     rig.displaySpeed = speed > 0.2 ? speed : rig.displaySpeed * Math.exp(-dt * 12)
-    const next = locomotionFromSpeed(rig.displaySpeed)
+    const armed = Boolean(equippedWeapon(survivor))
+    const next = armed
+      ? pickArmedPose(rig.displaySpeed, survivor.fireCooldown > 0.05, rig.poses)
+      : (rig.displaySpeed > 2.6 ? 'run' : rig.displaySpeed > 0.35 ? 'walk' : 'idle')
     if (next !== rig.current) {
-      const previous = rig[rig.current]
-      const incoming = rig[next]
-      previous?.fadeOut(0.12)
-      incoming?.reset().fadeIn(0.12).play()
+      rig.poses[rig.current]?.fadeOut(0.12)
+      rig.poses[next]?.reset().fadeIn(0.12).play()
       rig.current = next
     }
     rig.mixer.update(dt)
@@ -865,16 +853,6 @@ function ghostMaterial(root: THREE.Object3D): void {
       material.depthWrite = false
     }
   })
-}
-
-function findHoldBone(root: THREE.Object3D): THREE.Object3D | null {
-  let found: THREE.Object3D | null = null
-  root.traverse((object) => {
-    if (found) return
-    const name = object.name.toLowerCase().replace(/[:._\s-]/g, '')
-    if (name.includes('righthand') || name.endsWith('handr') || name === 'rhand') found = object
-  })
-  return found
 }
 
 function tracerColor(weaponId: string): number {

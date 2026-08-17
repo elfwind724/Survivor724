@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
+import { findHoldBone, heldGunLength, prepareHeldGun } from '@/render/HeldWeapon'
 import { fitHeldGun, fitToHeight } from '@/render/ModelFit'
 
 describe('model fit', () => {
@@ -20,5 +21,25 @@ describe('model fit', () => {
     const box = new THREE.Box3().setFromObject(gun)
     const size = box.getSize(new THREE.Vector3())
     expect(Math.max(size.x, size.y, size.z)).toBeCloseTo(0.82, 2)
+  })
+
+  it('parents a recentered gun to WristR, not the ground', () => {
+    const root = new THREE.Group()
+    const wrist = new THREE.Bone()
+    wrist.name = 'WristR'
+    wrist.position.set(-0.22, 1.04, 0.14)
+    root.add(wrist)
+    expect(findHoldBone(root)?.name).toBe('WristR')
+    const raw = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.3, 4))
+    raw.position.set(0, -0.2, 0)
+    const held = prepareHeldGun(raw)
+    wrist.add(held)
+    root.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(held)
+    const size = box.getSize(new THREE.Vector3())
+    expect(Math.max(size.x, size.y, size.z)).toBeCloseTo(1, 2)
+    expect(heldGunLength('pistol')).toBeLessThan(heldGunLength('rifle'))
+    expect(held.parent?.name).toBe('WristR')
+    expect(box.getCenter(new THREE.Vector3()).y).toBeGreaterThan(0.6)
   })
 })
