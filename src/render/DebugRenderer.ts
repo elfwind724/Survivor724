@@ -1,6 +1,11 @@
 import * as THREE from 'three'
-import type { GridCell, StructureState, WorldState } from '@/simulation/types'
+import { assetById } from '@/data/assetIndex'
+import { STRUCTURE_ASSETS, SURVIVOR_ASSETS, worldDressing, type DressingPose } from '@/data/worldDressing'
 import { cellCenter } from '@/navigation/NavGrid'
+import { BASE } from '@/simulation/baseLayout'
+import type { GridCell, StructureState, WorldState } from '@/simulation/types'
+import { AssetLibrary } from './AssetLibrary'
+import { prepareKit, suggestedScale } from './ModelFit'
 
 interface Marker {
   id: string
@@ -26,6 +31,11 @@ export class DebugRenderer {
   private readonly sun: THREE.DirectionalLight
   private preview: THREE.Group | null = null
   private previewKey = ''
+  private readonly library = new AssetLibrary()
+  private readonly dressing: DressingPose[] = worldDressing()
+  private readonly dressingRoot = new THREE.Group()
+  private readonly dressingPlaced = new Set<string>()
+  private readonly kitted = new Set<string>()
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
@@ -35,19 +45,41 @@ export class DebugRenderer {
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    this.renderer.shadowMap.enabled = true
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
     this.hemi = new THREE.HemisphereLight(0xdde6d8, 0x2a2f28, 1.1)
-    this.sun = new THREE.DirectionalLight(0xfff1d0, 0.7)
-    this.sun.position.set(20, 40, 10)
+    this.sun = new THREE.DirectionalLight(0xfff1d0, 0.85)
+    this.sun.position.set(28, 48, 16)
+    this.sun.castShadow = true
+    this.sun.shadow.mapSize.set(2048, 2048)
+    this.sun.shadow.camera.left = -90
+    this.sun.shadow.camera.right = 90
+    this.sun.shadow.camera.top = 90
+    this.sun.shadow.camera.bottom = -90
     this.scene.add(this.hemi, this.sun)
+    this.scene.fog = new THREE.Fog(0x1b2124, 70, 210)
 
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(200, 200),
-      new THREE.MeshLambertMaterial({ color: 0x3d4a3a }),
+      new THREE.PlaneGeometry(360, 360),
+      new THREE.MeshLambertMaterial({ color: 0x3a4a36 }),
     )
     ground.rotation.x = -Math.PI / 2
     ground.name = 'ground'
+    ground.receiveShadow = true
     this.scene.add(ground)
+
+    const yard = new THREE.Mesh(
+      new THREE.PlaneGeometry(BASE.east - BASE.west + 10, BASE.north - BASE.south + 10),
+      new THREE.MeshLambertMaterial({ color: 0x5c5342 }),
+    )
+    yard.rotation.x = -Math.PI / 2
+    yard.position.set((BASE.west + BASE.east) / 2, 0.02, (BASE.south + BASE.north) / 2)
+    yard.receiveShadow = true
+    this.scene.add(yard)
+    this.dressingRoot.name = 'dressing'
+    this.scene.add(this.dressingRoot)
+    this.library.enqueue(this.bootIds())
 
     window.addEventListener('resize', this.resize)
     this.resize()
@@ -199,7 +231,10 @@ export class DebugRenderer {
   }
 
   sync(world: WorldState): void {
+    this.library.tick()
     this.ensureStatic(world)
+    this.kitExtras()
+    this.syncDressing()
     this.syncLighting(world)
     this.syncZones(world)
     this.syncStructures(world)
@@ -208,20 +243,21 @@ export class DebugRenderer {
     for (const survivor of world.survivors) {
       let marker = this.survivors.get(survivor.id)
       if (!marker) {
-        const mesh = new THREE.Mesh(
-          new THREE.BoxGeometry(1.6, 2.2, 1.6),
-          new THREE.MeshLambertMaterial({ color: 0xc4b39a }),
-        )
+        const mesh = this.createSurvivorMarker()
         this.scene.add(mesh)
         marker = { id: survivor.id, mesh }
         this.survivors.set(survivor.id, marker)
       }
-      marker.mesh.position.set(survivor.position.x, 1.1, survivor.position.z)
+      this.kitSurvivor(survivor.id, SURVIVOR_ASSETS[survivor.professionId] ?? 'people/adventurer')
+      const kit = marker.mesh.getObjectByName('kit')
+      marker.mesh.position.set(survivor.position.x, kit ? 0 : 1.1, survivor.position.z)
       marker.mesh.rotation.y = survivor.facingYaw
-      if (marker.mesh instanceof THREE.Mesh && marker.mesh.material instanceof THREE.MeshLambertMaterial) {
+      const fallback = marker.mesh.getObjectByName('fallback')
+      if (fallback instanceof THREE.Mesh && fallback.material instanceof THREE.MeshLambertMaterial) {
         const controlled = world.player.controlledId === survivor.id
         const selected = world.player.selectedId === survivor.id
-        marker.mesh.material.color.set(controlled ? 0xf0d27a : selected ? 0xd8c4a0 : 0xc4b39a)
+        fallback.material.color.set(controlled ? 0xf0d27a : selected ? 0xd8c4a0 : 0xc4b39a)
+        fallback.visible = !kit
       }
     }
     this.updateCamera(world)
@@ -286,6 +322,7 @@ export class DebugRenderer {
         this.structures.set(structure.id, marker)
       }
       this.styleStructure(marker.mesh, structure)
+      this.kitStructure(world, structure, marker.mesh)
     }
     for (const [id, marker] of this.structures) {
       if (seen.has(id)) continue
@@ -314,6 +351,7 @@ export class DebugRenderer {
   private styleStructure(root: THREE.Object3D, structure: StructureState): void {
     const meshes = root instanceof THREE.Mesh ? [root] : root.children
     for (const mesh of meshes) {
+      if (mesh.name === 'kit' || mesh.parent?.name === 'kit') continue
       if (!(mesh instanceof THREE.Mesh) || !(mesh.material instanceof THREE.MeshLambertMaterial)) continue
       const material = mesh.material
       const baseHeight = typeof mesh.userData.baseHeight === 'number' ? mesh.userData.baseHeight : 2.6
@@ -362,13 +400,18 @@ export class DebugRenderer {
 
     for (const container of world.containers) {
       const isLocker = container.kind === 'tool_locker'
+      const group = new THREE.Group()
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(isLocker ? 4 : 10, isLocker ? 3 : 5, isLocker ? 4 : 8),
         new THREE.MeshLambertMaterial({ color: isLocker ? 0x8a6a3a : 0x6b6254 }),
       )
-      mesh.position.set(container.position.x, isLocker ? 1.5 : 2.5, container.position.z)
-      this.scene.add(mesh)
-      this.extras.push(mesh)
+      mesh.name = 'fallback'
+      mesh.position.y = isLocker ? 1.5 : 2.5
+      group.position.set(container.position.x, 0, container.position.z)
+      group.userData.assetId = isLocker ? STRUCTURE_ASSETS.locker : STRUCTURE_ASSETS.warehouse
+      group.add(mesh)
+      this.scene.add(group)
+      this.extras.push(group)
     }
 
     for (const node of world.nodes) {
@@ -385,19 +428,22 @@ export class DebugRenderer {
   private syncLighting(world: WorldState): void {
     if (world.time.phase === 'night') {
       this.scene.background = new THREE.Color(0x0c1014)
+      if (this.scene.fog instanceof THREE.Fog) this.scene.fog.color.set(0x0c1014)
       this.hemi.intensity = 0.28
       this.sun.intensity = 0.08
       return
     }
     if (world.time.phase === 'dusk') {
       this.scene.background = new THREE.Color(0x2a1c16)
+      if (this.scene.fog instanceof THREE.Fog) this.scene.fog.color.set(0x2a1c16)
       this.hemi.intensity = 0.7
       this.sun.intensity = 0.35
       return
     }
-    this.scene.background = new THREE.Color(0x1b2124)
-    this.hemi.intensity = 1.1
-    this.sun.intensity = 0.7
+    this.scene.background = new THREE.Color(0x8fa4c4)
+    if (this.scene.fog instanceof THREE.Fog) this.scene.fog.color.set(0x8fa4c4)
+    this.hemi.intensity = 1.05
+    this.sun.intensity = 0.9
   }
 
   private syncActors(
@@ -433,6 +479,113 @@ export class DebugRenderer {
     }
   }
 
+  private bootIds(): string[] {
+    const ids = [
+      ...Object.values(SURVIVOR_ASSETS),
+      STRUCTURE_ASSETS.wall,
+      STRUCTURE_ASSETS.gate,
+      STRUCTURE_ASSETS.kitchen,
+      STRUCTURE_ASSETS.warehouse,
+      STRUCTURE_ASSETS.locker,
+      'survival/bonfire',
+      'survival/tent',
+      'nature/pine',
+      'nature/tree',
+    ]
+    this.library.enqueue(this.dressing.map((pose) => pose.assetId))
+    return ids
+  }
+
+  private syncDressing(): void {
+    for (const pose of this.dressing) {
+      if (this.dressingPlaced.has(pose.id)) continue
+      const object = this.spawnKit(pose.assetId, pose.scale)
+      if (!object) continue
+      object.position.x += pose.x
+      object.position.z += pose.z
+      object.rotation.y = pose.yaw
+      this.dressingRoot.add(object)
+      this.dressingPlaced.add(pose.id)
+    }
+  }
+
+  private createSurvivorMarker(): THREE.Group {
+    const group = new THREE.Group()
+    const fallback = new THREE.Mesh(
+      new THREE.BoxGeometry(0.7, 1.8, 0.6),
+      new THREE.MeshLambertMaterial({ color: 0xc4b39a }),
+    )
+    fallback.name = 'fallback'
+    fallback.position.y = 0.9
+    fallback.castShadow = true
+    group.add(fallback)
+    return group
+  }
+
+  private kitSurvivor(survivorId: string, assetId: string): void {
+    const marker = this.survivors.get(survivorId)
+    if (!marker || marker.mesh.getObjectByName('kit')) return
+    const kit = this.spawnKit(assetId)
+    if (!kit) return
+    marker.mesh.add(kit)
+  }
+
+  private kitStructure(world: WorldState, structure: StructureState, root: THREE.Object3D): void {
+    if (structure.stage !== 'complete' || this.kitted.has(structure.id)) return
+    const assetId = structure.kind === 'gate' ? STRUCTURE_ASSETS.gate : structure.kind === 'building' ? STRUCTURE_ASSETS.kitchen : STRUCTURE_ASSETS.wall
+    if (structure.kind === 'wall') {
+      const pieces: THREE.Object3D[] = []
+      for (const cell of structure.cells) {
+        const kit = this.spawnKit(assetId)
+        if (!kit) return
+        const center = cellCenter(world.nav, cell)
+        kit.position.x += center.x
+        kit.position.z += center.z
+        kit.rotation.y = wallYaw(structure, cell)
+        kit.scale.x *= 0.22
+        kit.scale.z *= 1.8
+        pieces.push(kit)
+      }
+      for (const piece of pieces) root.add(piece)
+    } else {
+      const kit = this.spawnKit(assetId)
+      if (!kit) return
+      const xs = structure.cells.map((cell) => cell.x)
+      const zs = structure.cells.map((cell) => cell.z)
+      const mid = cellCenter(world.nav, {
+        x: (Math.min(...xs) + Math.max(...xs)) / 2,
+        z: (Math.min(...zs) + Math.max(...zs)) / 2,
+      })
+      kit.position.x += mid.x
+      kit.position.z += mid.z
+      root.add(kit)
+    }
+    this.kitted.add(structure.id)
+    for (const child of root.children) {
+      if (child.name !== 'kit') child.visible = structure.stage !== 'complete'
+    }
+  }
+
+  private kitExtras(): void {
+    for (const extra of this.extras) {
+      if (extra.getObjectByName('kit')) continue
+      const assetId = extra.userData.assetId
+      if (typeof assetId !== 'string') continue
+      const kit = this.spawnKit(assetId)
+      if (!kit) continue
+      extra.add(kit)
+      const fallback = extra.getObjectByName('fallback')
+      if (fallback) fallback.visible = false
+    }
+  }
+
+  private spawnKit(assetId: string, scaleOverride?: number): THREE.Object3D | null {
+    const entry = assetById(assetId)
+    const kit = this.library.clone(assetId)
+    if (!entry || !kit) return null
+    return prepareKit(kit, scaleOverride ?? suggestedScale(entry))
+  }
+
   private readonly resize = (): void => {
     const width = window.innerWidth
     const height = window.innerHeight
@@ -440,4 +593,11 @@ export class DebugRenderer {
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(width, height, false)
   }
+}
+
+function wallYaw(structure: StructureState, cell: GridCell): number {
+  const alongZ = structure.cells.some((entry) => entry.x === cell.x && Math.abs(entry.z - cell.z) === 1)
+  const alongX = structure.cells.some((entry) => entry.z === cell.z && Math.abs(entry.x - cell.x) === 1)
+  if (alongZ && !alongX) return Math.PI / 2
+  return 0
 }
