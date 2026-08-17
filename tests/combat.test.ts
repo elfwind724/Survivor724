@@ -37,6 +37,23 @@ describe('combat and night', () => {
     expect(world.enemies[0]?.health ?? 0).toBeLessThan(before)
     expect(hunter.ammo).toBe(10)
     expect(world.projectiles).toHaveLength(0)
+    expect(world.enemies[0]?.hitFlash ?? 0).toBeGreaterThan(0)
+    expect(world.impacts.some((impact) => impact.kind === 'hit' || impact.kind === 'kill')).toBe(true)
+  })
+
+  it('lets a shot leave the yard through walls and buildings', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.position = { x: 0, y: 0, z: 8 }
+    hunter.facingYaw = 0
+    hunter.ammo = 8
+    hunter.equipment.weapon = 'rifle'
+    world.enemies.push(createEnemy('wanderer', { x: 0, y: 0, z: 36 }, 'outside'))
+    const before = world.enemies[0]?.health ?? 0
+    expect(tryShoot(world, hunter)).toBe(true)
+    flyShots(world, 0.6)
+    expect(world.enemies[0]?.health ?? 0).toBeLessThan(before)
   })
 
   it('spawns shots from the raised muzzle, not the belly', () => {

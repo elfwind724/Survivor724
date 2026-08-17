@@ -18,6 +18,8 @@ export const STRUCTURE_ASSETS: Record<string, string> = {
   workshop: 'fort/shack',
   quarters: 'fort/hut',
   watchtower: 'fort/small-watch-tower',
+  bonfire: 'survival/bonfire',
+  brazier: 'survival/wooden-torch',
 }
 
 export const ENEMY_ASSETS: Record<string, string> = {

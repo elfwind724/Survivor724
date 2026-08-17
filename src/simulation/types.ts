@@ -154,6 +154,15 @@ export interface EnemyState {
   moveSpeed: number
   facingYaw: number
   attackCooldown: number
+  hitFlash: number
+}
+
+export interface ImpactState {
+  id: string
+  kind: 'muzzle' | 'hit' | 'kill'
+  position: Vec3
+  life: number
+  maxLife: number
 }
 
 export interface WildlifeState {
@@ -242,6 +251,7 @@ export interface WorldState {
   defenseSectors: DefenseSector[]
   decorations: DecorationState[]
   projectiles: ProjectileState[]
+  impacts: ImpactState[]
   rosterStrategy: string | null
 }
 

@@ -55,6 +55,8 @@ export class DebugRenderer {
   private decorPreview: THREE.Group | null = null
   private readonly rigs = new Map<string, CharacterRig>()
   private readonly clock = new THREE.Clock()
+  private readonly fireLights = new Map<string, THREE.PointLight>()
+  private readonly impacts = new Map<string, Marker>()
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
@@ -77,7 +79,7 @@ export class DebugRenderer {
     this.sun.shadow.camera.top = 90
     this.sun.shadow.camera.bottom = -90
     this.scene.add(this.hemi, this.sun)
-    this.scene.fog = new THREE.Fog(0x1b2124, 70, 210)
+    this.scene.fog = new THREE.Fog(0x8fa4c4, 90, 260)
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(360, 360),
@@ -267,6 +269,7 @@ export class DebugRenderer {
     this.kitExtras()
     this.syncDressing(world)
     this.syncLighting(world)
+    this.syncFireLights(world)
     this.syncZones(world)
     this.syncStructures(world)
     this.syncEnemies(world, dt)
@@ -299,6 +302,7 @@ export class DebugRenderer {
       }
     }
     this.syncProjectiles(world)
+    this.syncImpacts(world)
     this.syncViewGun(world)
     this.updateCamera(world)
   }
@@ -577,21 +581,33 @@ export class DebugRenderer {
 
   private syncLighting(world: WorldState): void {
     if (world.time.phase === 'night') {
-      this.scene.background = new THREE.Color(0x0c1014)
-      if (this.scene.fog instanceof THREE.Fog) this.scene.fog.color.set(0x0c1014)
-      this.hemi.intensity = 0.28
-      this.sun.intensity = 0.08
+      this.scene.background = new THREE.Color(0x1a2430)
+      if (this.scene.fog instanceof THREE.Fog) {
+        this.scene.fog.color.set(0x1a2430)
+        this.scene.fog.near = 80
+        this.scene.fog.far = 240
+      }
+      this.hemi.intensity = 0.62
+      this.sun.intensity = 0.2
       return
     }
     if (world.time.phase === 'dusk') {
-      this.scene.background = new THREE.Color(0x2a1c16)
-      if (this.scene.fog instanceof THREE.Fog) this.scene.fog.color.set(0x2a1c16)
-      this.hemi.intensity = 0.7
-      this.sun.intensity = 0.35
+      this.scene.background = new THREE.Color(0x3a261c)
+      if (this.scene.fog instanceof THREE.Fog) {
+        this.scene.fog.color.set(0x3a261c)
+        this.scene.fog.near = 80
+        this.scene.fog.far = 240
+      }
+      this.hemi.intensity = 0.82
+      this.sun.intensity = 0.42
       return
     }
     this.scene.background = new THREE.Color(0x8fa4c4)
-    if (this.scene.fog instanceof THREE.Fog) this.scene.fog.color.set(0x8fa4c4)
+    if (this.scene.fog instanceof THREE.Fog) {
+      this.scene.fog.color.set(0x8fa4c4)
+      this.scene.fog.near = 90
+      this.scene.fog.far = 260
+    }
     this.hemi.intensity = 1.05
     this.sun.intensity = 0.9
   }
@@ -641,12 +657,15 @@ export class DebugRenderer {
         this.enemies.set(enemy.id, marker)
       }
       this.kitEnemy(enemy)
+      this.markEnemy(marker.mesh, enemy.hitFlash)
       marker.mesh.position.set(enemy.position.x, 0, enemy.position.z)
       marker.mesh.rotation.y = enemy.facingYaw
       this.driveEnemy(enemy, dt)
       const kit = marker.mesh.getObjectByName('kit')
       const fallback = marker.mesh.getObjectByName('fallback')
       if (fallback) fallback.visible = !kit
+      if (enemy.hitFlash > 0) marker.mesh.scale.setScalar(1.08)
+      else marker.mesh.scale.setScalar(1)
     }
     for (const [id, marker] of this.enemies) {
       if (seen.has(id)) continue
@@ -858,7 +877,7 @@ export class DebugRenderer {
       let marker = this.projectiles.get(shot.id)
       if (!marker) {
         const mesh = new THREE.Mesh(
-          new THREE.BoxGeometry(0.045, 0.045, 0.55),
+          new THREE.BoxGeometry(0.07, 0.07, 0.85),
           new THREE.MeshBasicMaterial({ color: tracerColor(shot.weaponId) }),
         )
         this.scene.add(mesh)
@@ -994,11 +1013,112 @@ export class DebugRenderer {
       kit.position.x += mid.x
       kit.position.z += mid.z
       if (structure.kind === 'gate') kit.rotation.y = gateYaw(structure)
+      if (structure.definitionId === 'brazier') kit.scale.multiplyScalar(2.6)
+      if (structure.definitionId === 'bonfire') kit.scale.multiplyScalar(1.8)
       root.add(kit)
     }
     this.kitted.set(structure.id, cellSig)
     for (const child of root.children) {
       if (child.name !== 'kit') child.visible = false
+    }
+  }
+
+  private markEnemy(root: THREE.Object3D, hitFlash: number): void {
+    let ring = root.getObjectByName('threat')
+    if (!ring) {
+      ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.52, 0.78, 22),
+        new THREE.MeshBasicMaterial({ color: 0xff2a18, side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.95 }),
+      )
+      ring.rotation.x = -Math.PI / 2
+      ring.position.y = 0.07
+      ring.name = 'threat'
+      ring.renderOrder = 28
+      root.add(ring)
+      const box = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(0.95, 2.35, 0.72)),
+        new THREE.LineBasicMaterial({ color: 0xff3a22, depthTest: false }),
+      )
+      box.position.y = 1.18
+      box.name = 'threat-box'
+      box.renderOrder = 29
+      root.add(box)
+    }
+    const pulse = hitFlash > 0 ? 1.25 + hitFlash * 2 : 1
+    ring.scale.set(pulse, pulse, 1)
+    const material = ring instanceof THREE.Mesh ? ring.material : null
+    if (material instanceof THREE.MeshBasicMaterial) material.color.set(hitFlash > 0 ? 0xfff1c8 : 0xff2a18)
+  }
+
+  private syncFireLights(world: WorldState): void {
+    const seen = new Set<string>()
+    const flicker = 0.82 + Math.sin(world.time.daySeconds * 11) * 0.12 + Math.sin(world.time.daySeconds * 19) * 0.06
+    const night = world.time.phase === 'night' || world.time.phase === 'dusk'
+    for (const structure of world.structures) {
+      const lamp = fireLamp(structure.definitionId)
+      if (!lamp || structure.stage !== 'complete' || !structure.cells[0]) continue
+      seen.add(structure.id)
+      const xs = structure.cells.map((cell) => cell.x)
+      const zs = structure.cells.map((cell) => cell.z)
+      const mid = cellCenter(world.nav, {
+        x: (Math.min(...xs) + Math.max(...xs)) / 2,
+        z: (Math.min(...zs) + Math.max(...zs)) / 2,
+      })
+      let light = this.fireLights.get(structure.id)
+      if (!light) {
+        light = new THREE.PointLight(0xff8a3a, 1, lamp.distance, 1.6)
+        light.castShadow = false
+        this.scene.add(light)
+        const glow = new THREE.Mesh(
+          new THREE.SphereGeometry(0.22, 10, 10),
+          new THREE.MeshBasicMaterial({ color: 0xffb060, transparent: true, opacity: 0.7, depthWrite: false }),
+        )
+        glow.name = 'flame'
+        light.add(glow)
+        this.fireLights.set(structure.id, light)
+      }
+      light.position.set(mid.x, lamp.height, mid.z)
+      light.intensity = (night ? lamp.night : lamp.day) * flicker
+      light.distance = lamp.distance
+      const glow = light.getObjectByName('flame')
+      if (glow) glow.scale.setScalar(0.85 + flicker * 0.4)
+    }
+    for (const [id, light] of this.fireLights) {
+      if (seen.has(id)) continue
+      this.scene.remove(light)
+      this.fireLights.delete(id)
+    }
+  }
+
+  private syncImpacts(world: WorldState): void {
+    const seen = new Set<string>()
+    for (const impact of world.impacts) {
+      seen.add(impact.id)
+      let marker = this.impacts.get(impact.id)
+      if (!marker) {
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(impact.kind === 'muzzle' ? 0.12 : 0.28, 8, 8),
+          new THREE.MeshBasicMaterial({
+            color: impact.kind === 'kill' ? 0xffe7a0 : impact.kind === 'muzzle' ? 0xffd080 : 0xff6a3a,
+            transparent: true,
+            opacity: 0.95,
+            depthWrite: false,
+          }),
+        )
+        this.scene.add(mesh)
+        marker = { id: impact.id, mesh }
+        this.impacts.set(impact.id, marker)
+      }
+      const t = Math.max(0, impact.life / impact.maxLife)
+      marker.mesh.position.set(impact.position.x, impact.position.y || 1.3, impact.position.z)
+      marker.mesh.scale.setScalar(impact.kind === 'muzzle' ? 1.2 + (1 - t) * 1.6 : 0.7 + (1 - t) * 2.4)
+      const material = marker.mesh instanceof THREE.Mesh ? marker.mesh.material : null
+      if (material instanceof THREE.MeshBasicMaterial) material.opacity = t
+    }
+    for (const [id, marker] of this.impacts) {
+      if (seen.has(id)) continue
+      this.disposeObject(marker.mesh)
+      this.impacts.delete(id)
     }
   }
 
@@ -1073,6 +1193,13 @@ function ghostMaterial(root: THREE.Object3D): void {
       material.depthWrite = false
     }
   })
+}
+
+function fireLamp(definitionId: string): { height: number; distance: number; day: number; night: number } | null {
+  if (definitionId === 'bonfire') return { height: 1.35, distance: 22, day: 1.1, night: 3.4 }
+  if (definitionId === 'brazier') return { height: 2.8, distance: 16, day: 0.8, night: 2.4 }
+  if (definitionId === 'watchtower') return { height: 5.6, distance: 20, day: 0.7, night: 2.6 }
+  return null
 }
 
 function tracerColor(weaponId: string): number {

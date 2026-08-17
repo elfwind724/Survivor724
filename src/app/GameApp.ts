@@ -130,9 +130,6 @@ export class GameApp {
   }
 
   private readonly step = (dt: number): void => {
-    if (this.world.player.view === 'topdown') {
-      if (this.input.isDown('KeyQ')) this.renderer.rotateBy(-dt * 1.35)
-    }
     stepWorld(this.world, dt, this.controlIntent())
   }
 
@@ -331,7 +328,7 @@ export class GameApp {
     this.pointer.lastY = event.clientY
     if (!this.pointer.dragging) return
     if (this.pointer.button === 2) {
-      this.renderer.rotateBy(dx * 0.007)
+      this.renderer.rotateBy(-dx * 0.007)
       this.renderer.pullSideBy(dy)
     }
     if (this.pointer.button === 0 && !this.editor.getBrush()) this.renderer.panBy(-dx, -dy)

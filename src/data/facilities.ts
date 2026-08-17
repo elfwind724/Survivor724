@@ -113,6 +113,29 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
     buildDuration: 3,
     blocksNav: false,
   },
+  {
+    id: 'bonfire',
+    label: '篝火',
+    kind: 'building',
+    width: 1,
+    depth: 1,
+    required: [{ itemId: 'wood', count: 4 }],
+    buildDuration: 1.2,
+    blocksNav: false,
+  },
+  {
+    id: 'brazier',
+    label: '火柱',
+    kind: 'building',
+    width: 1,
+    depth: 1,
+    required: [
+      { itemId: 'wood', count: 3 },
+      { itemId: 'scrap', count: 1 },
+    ],
+    buildDuration: 1.4,
+    blocksNav: false,
+  },
 ]
 
 export function facilityDefinition(id: string): FacilityDefinition | undefined {
@@ -130,6 +153,7 @@ export function footprintCells(definition: FacilityDefinition, originX: number, 
 }
 
 export function facilityPreviewHeight(definitionId: string): number {
+  if (definitionId === 'bonfire' || definitionId === 'brazier') return 2.2
   return facilityDefinition(definitionId)?.kind === 'building' ? 4.2 : 2.6
 }
 

@@ -7,7 +7,7 @@ import { cellCenter, isBlocked, worldToCell } from '@/navigation/NavGrid'
 import { lookXZ } from '@/controls/CameraWish'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { grantXp } from '@/survivors/Progress'
-import { cloneVec3, distanceXZ, type EnemyState, type ProjectileState, type StructureState, type SurvivorState, type Vec3, type WildlifeState, type WorldState } from '@/simulation/types'
+import { cloneVec3, distanceXZ, type EnemyState, type ImpactState, type ProjectileState, type StructureState, type SurvivorState, type Vec3, type WildlifeState, type WorldState } from '@/simulation/types'
 
 const HIT_RADIUS = 0.78
 const WILDLIFE_HIT_RADIUS = 0.92
@@ -15,6 +15,7 @@ const PROJECTILE_SUBSTEP = 0.42
 const KILL_XP = { wanderer: 14, runner: 20, deer: 8 } as const
 
 let projectileSerial = 0
+let impactSerial = 0
 
 export function tickCooldowns(world: WorldState, dt: number): void {
   for (const survivor of world.survivors) {
@@ -22,6 +23,15 @@ export function tickCooldowns(world: WorldState, dt: number): void {
   }
   for (const enemy of world.enemies) {
     if (enemy.attackCooldown > 0) enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt)
+    if (enemy.hitFlash > 0) enemy.hitFlash = Math.max(0, enemy.hitFlash - dt)
+  }
+  if (world.impacts.length > 0) {
+    const next: ImpactState[] = []
+    for (const impact of world.impacts) {
+      impact.life -= dt
+      if (impact.life > 0) next.push(impact)
+    }
+    world.impacts = next
   }
 }
 
@@ -39,6 +49,7 @@ export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
   const aimJitter = (unitNoise(`${survivor.id}:${world.time.daySeconds.toFixed(2)}`) * 2 - 1) * profile.spread
   const origin = muzzleOrigin(survivor)
   const range = profile.range + towerRangeBonus(world, survivor)
+  spawnImpact(world, 'muzzle', origin, 0.08)
   for (let index = 0; index < profile.pellets; index += 1) {
     const yaw = survivor.facingYaw + aimJitter + pelletSpread(index, profile.spread)
     const look = lookXZ(yaw)
@@ -167,6 +178,7 @@ export function createEnemy(kind: EnemyState['kind'], position: Vec3, id: string
     moveSpeed: definition.moveSpeed,
     facingYaw: 0,
     attackCooldown: 0,
+    hitFlash: 0,
   }
 }
 
@@ -187,7 +199,7 @@ function advanceProjectile(world: WorldState, shot: ProjectileState, dt: number)
     shot.position.x += dirX * step
     shot.position.z += dirZ * step
     shot.remaining -= step
-    if (blockedByNav(world, shot.position) || impactTarget(world, shot, from)) return true
+    if (impactTarget(world, shot, from)) return true
     if (shot.remaining <= 0) return true
   }
   return false
@@ -213,6 +225,8 @@ function impactTarget(world: WorldState, shot: ProjectileState, from: Vec3): boo
   const owner = world.survivors.find((entry) => entry.id === shot.ownerId)
   if (hit.kind === 'enemy') {
     hit.enemy.health -= shot.damage
+    hit.enemy.hitFlash = 0.18
+    spawnImpact(world, hit.enemy.health <= 0 ? 'kill' : 'hit', { x: hit.enemy.position.x, y: 1.35, z: hit.enemy.position.z }, 0.22)
     if (hit.enemy.health <= 0) {
       if (owner) grantXp(owner, KILL_XP[hit.enemy.kind])
       world.enemies = world.enemies.filter((entry) => entry.id !== hit.enemy.id)
@@ -220,6 +234,7 @@ function impactTarget(world: WorldState, shot: ProjectileState, from: Vec3): boo
     return true
   }
   hit.wildlife.health -= shot.damage
+  spawnImpact(world, 'hit', { x: hit.wildlife.position.x, y: 1.1, z: hit.wildlife.position.z }, 0.18)
   if (hit.wildlife.health <= 0) {
     hit.wildlife.alive = false
     if (owner) grantXp(owner, KILL_XP.deer)
@@ -227,8 +242,14 @@ function impactTarget(world: WorldState, shot: ProjectileState, from: Vec3): boo
   return true
 }
 
-function blockedByNav(world: WorldState, point: Vec3): boolean {
-  return isBlocked(world.nav, worldToCell(world.nav, point))
+function spawnImpact(world: WorldState, kind: ImpactState['kind'], position: Vec3, life: number): void {
+  world.impacts.push({
+    id: `fx-${(impactSerial += 1)}`,
+    kind,
+    position: cloneVec3(position),
+    life,
+    maxLife: life,
+  })
 }
 
 function distToSegment(from: Vec3, to: Vec3, point: Vec3): number {

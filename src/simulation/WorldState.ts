@@ -182,6 +182,7 @@ export function createInitialWorld(): WorldState {
     defenseSectors: createDefenseSectors(),
     decorations: loadDecorations(),
     projectiles: [],
+    impacts: [],
     rosterStrategy: 'balanced',
   }
 
@@ -212,6 +213,11 @@ function seedStarterBuildings(world: WorldState): void {
   seedAt(world, 'watchtower', BASE.east - 3, BASE.north - 3)
   seedAt(world, 'watchtower', BASE.east - 3, BASE.south + 2)
   seedAt(world, 'watchtower', BASE.west + 2, BASE.south + 2)
+  seedAt(world, 'bonfire', 0, 4)
+  seedAt(world, 'brazier', -10, 26)
+  seedAt(world, 'brazier', 8, 26)
+  seedAt(world, 'brazier', -10, -22)
+  seedAt(world, 'brazier', 8, -22)
 }
 
 function bindContainersToBuildings(world: WorldState): void {

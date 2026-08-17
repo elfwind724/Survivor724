@@ -197,8 +197,9 @@ describe('construction and work zones', () => {
     const world = createInitialWorld()
     const ids = world.structures.filter((structure) => structure.stage === 'complete').map((structure) => structure.definitionId)
     expect(world.survivors).toHaveLength(5)
-    expect(ids).toEqual(expect.arrayContaining(['kitchen', 'warehouse', 'hall', 'workshop', 'quarters', 'watchtower']))
+    expect(ids).toEqual(expect.arrayContaining(['kitchen', 'warehouse', 'hall', 'workshop', 'quarters', 'watchtower', 'bonfire', 'brazier']))
     expect(ids.filter((id) => id === 'watchtower')).toHaveLength(4)
+    expect(ids.filter((id) => id === 'brazier').length).toBeGreaterThanOrEqual(2)
     expect(world.structures.filter((structure) => structure.kind === 'gate').length).toBeGreaterThanOrEqual(2)
   })
 

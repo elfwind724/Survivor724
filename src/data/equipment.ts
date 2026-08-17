@@ -86,7 +86,7 @@ export function derivedStats(base: SurvivorAttributes, loadout: EquipmentLoadout
     total,
     attackPower: Math.round(10 + total.strength * 2),
     attackCooldown: Math.max(0.28, 0.72 - total.agility * 0.018),
-    moveSpeed: 2.15 + total.agility * 0.08,
+    moveSpeed: 5.4 + total.agility * 0.14,
     maxHealth: 70 + total.constitution * 5,
     defense: Math.round(total.constitution * 0.7),
     workRate: 1 + total.intelligence * 0.035,
