@@ -7,7 +7,7 @@ import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, SurvivorState, WorldState } from '@/simulation/types'
 import { AssetLibrary } from './AssetLibrary'
 import { pickArmedPose, pickCharacterClip, type CharacterPose } from './CharacterClips'
-import { findHoldBone, poseHeldGun, prepareHeldGun } from './HeldWeapon'
+import { findHoldBone, prepareHeldGun, snapHeldGun } from './HeldWeapon'
 import { fitToHeight, prepareKit, suggestedScale, SURVIVOR_HEIGHT } from './ModelFit'
 
 interface Marker {
@@ -266,11 +266,11 @@ export class DebugRenderer {
         this.survivors.set(survivor.id, marker)
       }
       this.kitSurvivor(survivor)
-      this.syncHeldGun(survivor)
       const kit = marker.mesh.getObjectByName('kit')
       marker.mesh.position.set(survivor.position.x, 0, survivor.position.z)
       marker.mesh.rotation.y = survivor.facingYaw
       this.driveRig(survivor, dt)
+      this.syncHeldGun(survivor)
       const fallback = marker.mesh.getObjectByName('fallback')
       if (fallback instanceof THREE.Mesh && fallback.material instanceof THREE.MeshLambertMaterial) {
         const controlled = world.player.controlledId === survivor.id
@@ -652,12 +652,11 @@ export class DebugRenderer {
     const existing = marker.mesh.getObjectByName('held-gun')
     const kit = marker.mesh.getObjectByName('kit')
     const hand = kit ? findHoldBone(kit) : null
-    const aiming = Boolean(this.rigs.get(survivor.id)?.poses.aim)
-    if (existing && existing.userData.weaponAsset === want) {
-      if (hand) poseHeldGun(hand, existing, weapon?.id ?? '', aiming)
+    if (existing && existing.userData.weaponAsset === want && weapon && hand) {
+      snapHeldGun(marker.mesh, hand, existing, weapon.id)
       return
     }
-    if (existing) this.disposeObject(existing)
+    if (existing) existing.removeFromParent()
     if (!weapon || !hand) return
     this.enqueueAsset(weapon.assetId)
     const raw = this.library.clone(weapon.assetId)
@@ -665,7 +664,7 @@ export class DebugRenderer {
     const gun = prepareHeldGun(raw)
     gun.name = 'held-gun'
     gun.userData.weaponAsset = weapon.assetId
-    poseHeldGun(hand, gun, weapon.id, aiming)
+    snapHeldGun(marker.mesh, hand, gun, weapon.id)
   }
 
   private syncViewGun(world: WorldState): void {
@@ -679,8 +678,7 @@ export class DebugRenderer {
       return
     }
     if (this.viewGun) {
-      this.camera.remove(this.viewGun)
-      this.disposeObject(this.viewGun)
+      this.viewGun.removeFromParent()
       this.viewGun = null
     }
     if (!weapon) return
@@ -704,16 +702,20 @@ export class DebugRenderer {
       let marker = this.projectiles.get(shot.id)
       if (!marker) {
         const mesh = new THREE.Mesh(
-          new THREE.CapsuleGeometry(0.035, 0.28, 3, 6),
+          new THREE.BoxGeometry(0.06, 0.06, 0.72),
           new THREE.MeshBasicMaterial({ color: tracerColor(shot.weaponId) }),
         )
-        mesh.rotation.x = Math.PI / 2
         this.scene.add(mesh)
         marker = { id: shot.id, mesh }
         this.projectiles.set(shot.id, marker)
       }
-      marker.mesh.position.set(shot.position.x, shot.position.y || 1.15, shot.position.z)
-      marker.mesh.lookAt(shot.position.x + shot.velocity.x, 1.15, shot.position.z + shot.velocity.z)
+      const y = shot.position.y || 1.15
+      marker.mesh.position.set(shot.position.x, y, shot.position.z)
+      marker.mesh.lookAt(
+        shot.position.x + shot.velocity.x,
+        y + shot.velocity.y,
+        shot.position.z + shot.velocity.z,
+      )
     }
     for (const [id, marker] of this.projectiles) {
       if (seen.has(id)) continue

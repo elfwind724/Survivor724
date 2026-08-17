@@ -2,6 +2,14 @@ import * as THREE from 'three'
 
 const HOLD_NAMES = ['WristR', 'PalmR', 'MiddleHandR', 'RightHand', 'Hand_R', 'mixamorigRightHand']
 
+const _pos = new THREE.Vector3()
+const _fwd = new THREE.Vector3()
+const _up = new THREE.Vector3()
+const _right = new THREE.Vector3()
+const _quat = new THREE.Quaternion()
+const _parentQ = new THREE.Quaternion()
+const _mat = new THREE.Matrix4()
+
 export function findHoldBone(root: THREE.Object3D): THREE.Object3D | null {
   for (const name of HOLD_NAMES) {
     const found = root.getObjectByName(name)
@@ -42,12 +50,28 @@ export function prepareHeldGun(source: THREE.Object3D): THREE.Group {
   return holder
 }
 
-export function poseHeldGun(hand: THREE.Object3D, gun: THREE.Object3D, weaponId: string, aiming: boolean): void {
-  if (gun.parent !== hand) hand.add(gun)
-  const worldScale = hand.getWorldScale(new THREE.Vector3())
-  const parent = Math.max(Math.abs(worldScale.x), 0.05)
-  gun.scale.setScalar(heldGunLength(weaponId) / parent)
-  if (aiming) gun.rotation.set(-Math.PI / 2, 0, Math.PI / 2)
-  else gun.rotation.set(Math.PI, -Math.PI / 2, 0)
-  gun.position.set(0.03, 0.02, 0.05)
+export function snapHeldGun(
+  character: THREE.Object3D,
+  hand: THREE.Object3D,
+  gun: THREE.Object3D,
+  weaponId: string,
+): void {
+  if (gun.parent !== character) character.add(gun)
+  hand.updateWorldMatrix(true, false)
+  hand.getWorldPosition(_pos)
+  character.getWorldQuaternion(_parentQ)
+  _fwd.set(0, 0, 1).applyQuaternion(_parentQ)
+  _right.crossVectors(_up.set(0, 1, 0), _fwd)
+  if (_right.lengthSq() < 1e-6) _right.set(1, 0, 0)
+  else _right.normalize()
+  _up.crossVectors(_fwd, _right).normalize()
+  _pos.addScaledVector(_fwd, 0.1)
+  _pos.addScaledVector(_right, 0.04)
+  _mat.makeBasis(_right, _up, _fwd)
+  _quat.setFromRotationMatrix(_mat)
+  character.worldToLocal(_pos)
+  gun.position.copy(_pos)
+  gun.quaternion.copy(_parentQ.invert().multiply(_quat))
+  gun.scale.setScalar(heldGunLength(weaponId))
+  gun.visible = true
 }
