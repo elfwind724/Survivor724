@@ -169,6 +169,7 @@ export interface ProjectileState {
   velocity: Vec3
   damage: number
   remaining: number
+  range: number
 }
 
 export type DefenseSectorId = 'north' | 'east' | 'west' | 'south'

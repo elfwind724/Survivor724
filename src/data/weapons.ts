@@ -74,10 +74,12 @@ export function muzzleOrigin(survivor: SurvivorState): { x: number; y: number; z
   const rightX = lookZ
   const rightZ = -lookX
   const barrel = profile.weapon?.muzzle ?? 0.2
+  const forward = 0.78 + barrel
+  const side = -0.28
   return {
-    x: survivor.position.x + lookX * (0.58 + barrel) + rightX * 0.22,
-    y: 1.72,
-    z: survivor.position.z + lookZ * (0.58 + barrel) + rightZ * 0.22,
+    x: survivor.position.x + lookX * forward + rightX * side,
+    y: 2.06,
+    z: survivor.position.z + lookZ * forward + rightZ * side,
   }
 }
 

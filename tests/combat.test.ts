@@ -49,11 +49,11 @@ describe('combat and night', () => {
     hunter.equipment.weapon = 'rifle'
     const muzzle = muzzleOrigin(hunter)
     expect(muzzle.z).toBeGreaterThan(0.8)
-    expect(muzzle.x).toBeGreaterThan(0.1)
-    expect(muzzle.y).toBeGreaterThan(1.5)
+    expect(muzzle.x).toBeLessThan(-0.1)
+    expect(muzzle.y).toBeGreaterThan(1.9)
     expect(tryShoot(world, hunter)).toBe(true)
     expect(world.projectiles[0]?.position.z).toBeCloseTo(muzzle.z, 5)
-    expect(world.projectiles[0]?.position.y).toBeCloseTo(1.72, 5)
+    expect(world.projectiles[0]?.position.y).toBeCloseTo(2.06, 5)
   })
 
   it('splits shotgun pellets and keeps other guns as single shots', () => {

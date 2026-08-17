@@ -47,6 +47,7 @@ export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
       velocity: { x: look.x * profile.speed, y: 0, z: look.z * profile.speed },
       damage: profile.damage,
       remaining: profile.range,
+      range: profile.range,
     })
   }
   return true

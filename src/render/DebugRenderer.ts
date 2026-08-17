@@ -703,31 +703,57 @@ export class DebugRenderer {
 
   private syncProjectiles(world: WorldState): void {
     const seen = new Set<string>()
+    const muzzle = new THREE.Vector3()
+    const dir = new THREE.Vector3()
+    const grip = new THREE.Vector3()
     for (const shot of world.projectiles) {
       seen.add(shot.id)
       let marker = this.projectiles.get(shot.id)
       if (!marker) {
         const mesh = new THREE.Mesh(
-          new THREE.BoxGeometry(0.06, 0.06, 0.72),
+          new THREE.BoxGeometry(0.045, 0.045, 0.55),
           new THREE.MeshBasicMaterial({ color: tracerColor(shot.weaponId) }),
         )
         this.scene.add(mesh)
         marker = { id: shot.id, mesh }
         this.projectiles.set(shot.id, marker)
       }
-      const y = shot.position.y || 1.15
-      marker.mesh.position.set(shot.position.x, y, shot.position.z)
-      marker.mesh.lookAt(
-        shot.position.x + shot.velocity.x,
-        y + shot.velocity.y,
-        shot.position.z + shot.velocity.z,
-      )
+      const gun = this.heldGunOf(shot.ownerId)
+      const traveled = Math.max(0, shot.range - shot.remaining)
+      if (gun) {
+        gun.getWorldPosition(grip)
+        muzzle.set(0, 0, 0.92)
+        gun.localToWorld(muzzle)
+        dir.copy(muzzle).sub(grip)
+        if (dir.lengthSq() < 1e-6) dir.set(shot.velocity.x, 0, shot.velocity.z)
+        dir.normalize()
+        marker.mesh.position.copy(muzzle).addScaledVector(dir, traveled)
+        marker.mesh.lookAt(
+          marker.mesh.position.x + dir.x,
+          marker.mesh.position.y + dir.y,
+          marker.mesh.position.z + dir.z,
+        )
+      } else {
+        const y = shot.position.y || 2.06
+        marker.mesh.position.set(shot.position.x, y, shot.position.z)
+        marker.mesh.lookAt(
+          shot.position.x + shot.velocity.x,
+          y + shot.velocity.y,
+          shot.position.z + shot.velocity.z,
+        )
+      }
     }
     for (const [id, marker] of this.projectiles) {
       if (seen.has(id)) continue
       this.disposeObject(marker.mesh)
       this.projectiles.delete(id)
     }
+  }
+
+  private heldGunOf(ownerId: string): THREE.Object3D | null {
+    const marker = this.survivors.get(ownerId)
+    if (marker && !marker.mesh.visible && this.viewGun) return this.viewGun
+    return marker?.mesh.getObjectByName('held-gun') ?? null
   }
 
   private kitSurvivor(survivor: { id: string; professionId: string; position: { x: number; z: number } }): void {
