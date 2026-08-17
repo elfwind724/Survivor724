@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { StructureState, WorldState } from '@/simulation/types'
+import type { GridCell, StructureState, WorldState } from '@/simulation/types'
 import { cellCenter } from '@/navigation/NavGrid'
 
 interface Marker {
@@ -24,6 +24,8 @@ export class DebugRenderer {
   private zones: THREE.Object3D[] = []
   private readonly hemi: THREE.HemisphereLight
   private readonly sun: THREE.DirectionalLight
+  private preview: THREE.Group | null = null
+  private previewKey = ''
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
@@ -101,6 +103,99 @@ export class DebugRenderer {
 
   recenter(): void {
     this.followEnabled = true
+  }
+
+  setBuildPreview(
+    world: WorldState,
+    cells: GridCell[],
+    valid: boolean,
+    height = 2.6,
+    anchor: GridCell | null = null,
+  ): void {
+    const key = `${valid}:${height}:${anchor ? `${anchor.x},${anchor.z}` : '-'}:${cells.map((cell) => `${cell.x},${cell.z}`).join(';')}`
+    if (key === this.previewKey) return
+    this.clearBuildPreview()
+    this.previewKey = key
+    if (cells.length === 0 && !anchor) return
+
+    const group = new THREE.Group()
+    group.renderOrder = 20
+    const color = valid ? 0x7ad0ff : 0xe15b4a
+    const positions: number[] = []
+    for (const cell of cells) {
+      this.pushCellFrame(world, cell, height, positions)
+      const fill = new THREE.Mesh(
+        new THREE.PlaneGeometry(world.nav.cellSize * 0.9, world.nav.cellSize * 0.9),
+        new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.22,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        }),
+      )
+      const center = cellCenter(world.nav, cell)
+      fill.rotation.x = -Math.PI / 2
+      fill.position.set(center.x, 0.07, center.z)
+      fill.renderOrder = 18
+      group.add(fill)
+    }
+    if (anchor) this.pushCellFrame(world, anchor, height + 0.45, positions)
+
+    if (positions.length > 0) {
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+      const lines = new THREE.LineSegments(
+        geometry,
+        new THREE.LineBasicMaterial({ color: valid ? 0xb7e7ff : 0xff8a7a, depthTest: false }),
+      )
+      lines.renderOrder = 21
+      group.add(lines)
+    }
+    this.preview = group
+    this.scene.add(group)
+  }
+
+  clearBuildPreview(): void {
+    this.previewKey = ''
+    if (!this.preview) return
+    this.preview.traverse((object) => {
+      if (!(object instanceof THREE.Mesh) && !(object instanceof THREE.LineSegments)) return
+      object.geometry.dispose()
+      const material = object.material
+      if (Array.isArray(material)) material.forEach((entry) => entry.dispose())
+      else if (material instanceof THREE.Material) material.dispose()
+    })
+    this.scene.remove(this.preview)
+    this.preview = null
+  }
+
+  private pushCellFrame(world: WorldState, cell: GridCell, height: number, positions: number[]): void {
+    const center = cellCenter(world.nav, cell)
+    const s = world.nav.cellSize * 0.48
+    const y0 = 0.08
+    const y1 = height
+    const corners = [
+      [center.x - s, y0, center.z - s],
+      [center.x + s, y0, center.z - s],
+      [center.x + s, y0, center.z + s],
+      [center.x - s, y0, center.z + s],
+      [center.x - s, y1, center.z - s],
+      [center.x + s, y1, center.z - s],
+      [center.x + s, y1, center.z + s],
+      [center.x - s, y1, center.z + s],
+    ]
+    const edges: Array<[number, number]> = [
+      [0, 1], [1, 2], [2, 3], [3, 0],
+      [4, 5], [5, 6], [6, 7], [7, 4],
+      [0, 4], [1, 5], [2, 6], [3, 7],
+    ]
+    for (const [a, b] of edges) {
+      const from = corners[a]
+      const to = corners[b]
+      if (!from || !to) continue
+      positions.push(from[0]!, from[1]!, from[2]!, to[0]!, to[1]!, to[2]!)
+    }
   }
 
   sync(world: WorldState): void {
@@ -199,47 +294,49 @@ export class DebugRenderer {
     }
   }
 
-  private createStructureMesh(world: WorldState, structure: StructureState): THREE.Mesh {
-    const xs = structure.cells.map((cell) => cell.x)
-    const zs = structure.cells.map((cell) => cell.z)
-    const minX = Math.min(...xs)
-    const maxX = Math.max(...xs)
-    const minZ = Math.min(...zs)
-    const maxZ = Math.max(...zs)
-    const width = (maxX - minX + 1) * world.nav.cellSize
-    const depth = (maxZ - minZ + 1) * world.nav.cellSize
+  private createStructureMesh(world: WorldState, structure: StructureState): THREE.Group {
+    const group = new THREE.Group()
     const height = structure.kind === 'building' ? 4.2 : 2.6
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(width, height, depth),
-      new THREE.MeshLambertMaterial({ color: 0x6b6254, transparent: true, opacity: 1 }),
-    )
-    const a = cellCenter(world.nav, { x: minX, z: minZ })
-    const b = cellCenter(world.nav, { x: maxX, z: maxZ })
-    mesh.position.set((a.x + b.x) / 2, height / 2, (a.z + b.z) / 2)
-    return mesh
+    const size = world.nav.cellSize * 0.92
+    for (const cell of structure.cells) {
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(size, height, size),
+        new THREE.MeshLambertMaterial({ color: 0x6b6254, transparent: true, opacity: 1 }),
+      )
+      const center = cellCenter(world.nav, cell)
+      mesh.position.set(center.x, height / 2, center.z)
+      mesh.userData.baseHeight = height
+      group.add(mesh)
+    }
+    return group
   }
 
-  private styleStructure(mesh: THREE.Object3D, structure: StructureState): void {
-    if (!(mesh instanceof THREE.Mesh) || !Array.isArray(mesh.material) && !(mesh.material instanceof THREE.MeshLambertMaterial)) return
-    const material = mesh.material as THREE.MeshLambertMaterial
-    if (structure.stage !== 'complete') {
-      material.color.set(0x3d7ea6)
-      material.opacity = 0.45
-      material.transparent = true
-      mesh.scale.y = 0.25
-      mesh.position.y = 0.3
-      return
+  private styleStructure(root: THREE.Object3D, structure: StructureState): void {
+    const meshes = root instanceof THREE.Mesh ? [root] : root.children
+    for (const mesh of meshes) {
+      if (!(mesh instanceof THREE.Mesh) || !(mesh.material instanceof THREE.MeshLambertMaterial)) continue
+      const material = mesh.material
+      const baseHeight = typeof mesh.userData.baseHeight === 'number' ? mesh.userData.baseHeight : 2.6
+      if (structure.stage !== 'complete') {
+        material.color.set(0x3d7ea6)
+        material.opacity = 0.45
+        material.transparent = true
+        mesh.scale.y = 0.22
+        mesh.position.y = 0.28
+        continue
+      }
+      material.transparent = false
+      material.opacity = 1
+      if (structure.kind === 'gate') {
+        mesh.scale.y = structure.open ? 0.45 : 1
+        mesh.position.y = structure.open ? 0.55 : baseHeight / 2
+      } else {
+        const ratio = structure.maxHp > 0 ? structure.hp / structure.maxHp : 1
+        mesh.scale.y = 0.35 + 0.65 * ratio
+        mesh.position.y = (baseHeight * mesh.scale.y) / 2
+      }
+      material.color.set(structure.kind === 'gate' ? 0x8a6a3a : structure.kind === 'building' ? 0x7a5a42 : 0x6b6254)
     }
-    material.transparent = false
-    material.opacity = 1
-    if (structure.kind === 'gate') {
-      mesh.scale.y = structure.open ? 0.45 : 1
-      mesh.position.y = structure.open ? 0.55 : 1.3
-    } else {
-      const ratio = structure.maxHp > 0 ? structure.hp / structure.maxHp : 1
-      mesh.scale.y = 0.35 + 0.65 * ratio
-    }
-    material.color.set(structure.kind === 'gate' ? 0x8a6a3a : structure.kind === 'building' ? 0x7a5a42 : 0x6b6254)
   }
 
   private syncZones(world: WorldState): void {

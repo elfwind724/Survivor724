@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { demolishStructure, placeBlueprint, structureAt, toggleGates } from '@/base/construction'
+import { demolishStructure, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, structureAt, toggleGates } from '@/base/construction'
+import { facilityPreviewHeight } from '@/data/facilities'
 import { tryShoot } from '@/combat/Combat'
 import { setWorkZone } from '@/base/workZones'
 import { cameraRelativeWish } from '@/controls/CameraWish'
@@ -11,7 +12,7 @@ import { DebugRenderer } from '@/render/DebugRenderer'
 import { findSurvivor } from '@/simulation/EntityRegistry'
 import { skipSeconds, stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
-import type { WorldState } from '@/simulation/types'
+import type { GridCell, WorldState } from '@/simulation/types'
 import { reinforceSector } from '@/combat/Defense'
 import { BuildMenu } from '@/ui/BuildMenu'
 import { DebugHud } from '@/ui/DebugHud'
@@ -32,6 +33,7 @@ export class GameApp {
   private zoneStart: { x: number; z: number } | null = null
   private lastClickAt = 0
   private lastClickId: string | null = null
+  private wallAnchor: GridCell | null = null
   private pointer: {
     button: number
     startX: number
@@ -54,7 +56,14 @@ export class GameApp {
     this.hud = new DebugHud(hudRoot)
     this.minimap = new Minimap(minimapCanvas)
     this.buildMenu = new BuildMenu(buildMenuRoot, (selected) => {
-      this.notice = selected === 'demolish' ? '拆除：单击建筑' : selected ? `已选择，单击地面放置` : '已取消建造'
+      this.wallAnchor = null
+      this.notice = selected === 'demolish'
+        ? '拆除：单击建筑'
+        : selected === 'wall'
+          ? '围墙：先点起点，再点终点，中间自动连成一条'
+          : selected
+            ? '已选择，移动鼠标看边框，再单击放置'
+            : '已取消建造'
     })
     this.defenseBar = new DefenseBar(defenseRoot, (sector) => {
       this.notice = `增援${sector}，守夜的人会往那边靠` 
@@ -95,6 +104,7 @@ export class GameApp {
   }
 
   private readonly draw = (_alpha: number): void => {
+    this.updateBuildPreview()
     this.renderer.sync(this.world)
     this.renderer.draw()
     this.refreshHud()
@@ -139,6 +149,7 @@ export class GameApp {
     }
     if (event.code === 'Escape') {
       if (this.buildMenu.getSelected() || this.buildMenu.isOpen()) {
+        this.wallAnchor = null
         this.buildMenu.clear()
         this.buildMenu.close()
         this.notice = '已关闭建造'
@@ -243,10 +254,27 @@ export class GameApp {
       return
     }
 
+    if (button === 2 && this.wallAnchor) {
+      this.wallAnchor = null
+      this.notice = '已取消墙起点，再点一次重新拉线'
+      return
+    }
+
     if (button === 0 && buildMode && buildMode !== 'demolish') {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
       if (!hit) return
       const cell = worldToCell(this.world.nav, { x: hit.x, y: 0, z: hit.z })
+      if (buildMode === 'wall') {
+        if (!this.wallAnchor) {
+          this.wallAnchor = cell
+          this.notice = '再点终点，中间会连成一条墙'
+          return
+        }
+        const result = placeWallLine(this.world, this.wallAnchor, cell)
+        this.notice = result.ok ? `已放下 ${result.structure?.cells.length ?? 0} 格墙蓝图，搬山一次运完` : `无法连墙：${result.reason}`
+        this.wallAnchor = result.ok ? cell : this.wallAnchor
+        return
+      }
       const result = placeBlueprint(this.world, buildMode, cell.x, cell.z)
       this.notice = result.ok ? `已放置蓝图，搬山会来运材料` : `无法放置：${result.reason}`
       return
@@ -291,6 +319,30 @@ export class GameApp {
     setWorkZone(this.world, this.zoneJob, this.zoneStart.x, this.zoneStart.z, end.x, end.z)
     this.notice = `已更新 ${this.zoneJob} 工作区`
     this.zoneStart = null
+  }
+
+  private updateBuildPreview(): void {
+    const selected = this.buildMenu.getSelected()
+    if (!selected || selected === 'demolish' || this.world.player.view === 'firstperson') {
+      this.renderer.clearBuildPreview()
+      return
+    }
+    const hit = this.renderer.pickGround(this.input.mouseX, this.input.mouseY)
+    if (!hit) {
+      this.renderer.clearBuildPreview()
+      return
+    }
+    const cell = worldToCell(this.world.nav, { x: hit.x, y: 0, z: hit.z })
+    const preview = selected === 'wall' && this.wallAnchor
+      ? previewWallLine(this.world, this.wallAnchor, cell)
+      : previewPlacement(this.world, selected, cell.x, cell.z)
+    this.renderer.setBuildPreview(
+      this.world,
+      preview.cells,
+      preview.valid,
+      facilityPreviewHeight(selected),
+      selected === 'wall' ? this.wallAnchor : null,
+    )
   }
 
   private fireIfPossessed(): void {

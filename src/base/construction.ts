@@ -1,4 +1,4 @@
-import { facilityDefinition, footprintCells } from '@/data/facilities'
+import { facilityDefinition, footprintCells, wallLineDuration } from '@/data/facilities'
 import { addItem, countItem, createInventory, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
 import type { GridCell, StructureState, Vec3, WorldState } from '@/simulation/types'
@@ -98,23 +98,88 @@ export function structureAt(world: WorldState, point: Vec3): StructureState | un
   )
 }
 
+/** Axis-aligned L: walk X first, then Z. Diagonal walls leave 4-connected gaps. */
+export function lineCells(start: GridCell, end: GridCell): GridCell[] {
+  const cells: GridCell[] = [{ x: start.x, z: start.z }]
+  const stepX = Math.sign(end.x - start.x)
+  const stepZ = Math.sign(end.z - start.z)
+  let x = start.x
+  let z = start.z
+  while (x !== end.x) {
+    x += stepX
+    cells.push({ x, z })
+  }
+  while (z !== end.z) {
+    z += stepZ
+    cells.push({ x, z })
+  }
+  return cells
+}
+
+export function previewPlacement(
+  world: WorldState,
+  definitionId: string,
+  originX: number,
+  originZ: number,
+): { cells: GridCell[]; valid: boolean; reason: string | null } {
+  const definition = facilityDefinition(definitionId)
+  if (!definition) return { cells: [], valid: false, reason: 'unknown_facility' }
+  return evaluateCells(world, footprintCells(definition, originX, originZ), definition.kind === 'gate')
+}
+
+export function previewWallLine(
+  world: WorldState,
+  start: GridCell,
+  end: GridCell,
+): { cells: GridCell[]; valid: boolean; reason: string | null } {
+  const raw = lineCells(start, end)
+  if (raw.some((cell) => !inBounds(world.nav, cell))) {
+    return { cells: raw, valid: false, reason: 'out_of_bounds' }
+  }
+  const cells = raw.filter((cell) => !cellOccupied(world, cell))
+  if (cells.length === 0) {
+    return { cells: raw, valid: false, reason: 'overlap' }
+  }
+  if (wouldBlockExit(world, cells, false)) {
+    return { cells, valid: false, reason: 'blocks_exit' }
+  }
+  return { cells, valid: true, reason: null }
+}
+
+export function placeWallLine(world: WorldState, start: GridCell, end: GridCell): PlaceResult {
+  const preview = previewWallLine(world, start, end)
+  if (!preview.valid) return { ok: false, reason: preview.reason, structure: null }
+  const cells = preview.cells
+  const wood = Math.max(1, cells.length)
+  return commitBlueprint(world, 'wall', cells, [{ itemId: 'wood', count: wood }], wallLineDuration(cells.length))
+}
+
 export function placeBlueprint(world: WorldState, definitionId: string, originX: number, originZ: number): PlaceResult {
   const definition = facilityDefinition(definitionId)
   if (!definition) return { ok: false, reason: 'unknown_facility', structure: null }
 
-  const cells = footprintCells(definition, originX, originZ)
-  if (cells.some((cell) => !inBounds(world.nav, cell))) {
-    return { ok: false, reason: 'out_of_bounds', structure: null }
-  }
-  if (cellsOverlap(world, cells)) {
-    return { ok: false, reason: 'overlap', structure: null }
-  }
-  if (definition.blocksNav && wouldBlockExit(world, cells, definition.kind === 'gate')) {
-    return { ok: false, reason: 'blocks_exit', structure: null }
-  }
+  const preview = previewPlacement(world, definitionId, originX, originZ)
+  if (!preview.valid) return { ok: false, reason: preview.reason, structure: null }
+  return commitBlueprint(
+    world,
+    definitionId,
+    preview.cells,
+    definition.required.map((item) => ({ ...item })),
+    definition.buildDuration,
+  )
+}
 
+function commitBlueprint(
+  world: WorldState,
+  definitionId: string,
+  cells: GridCell[],
+  required: StructureState['required'],
+  buildDuration: number,
+): PlaceResult {
+  const definition = facilityDefinition(definitionId)
+  if (!definition) return { ok: false, reason: 'unknown_facility', structure: null }
   const id = `structure-${world.structures.length + 1}-${definitionId}`
-  const inventory = createInventory(`inv-${id}`, 40)
+  const inventory = createInventory(`inv-${id}`, 80)
   world.inventories[inventory.id] = inventory
   const structure: StructureState = {
     id,
@@ -123,15 +188,32 @@ export function placeBlueprint(world: WorldState, definitionId: string, originX:
     cells,
     stage: 'blueprint',
     inventoryId: inventory.id,
-    required: definition.required.map((item) => ({ ...item })),
+    required,
     buildElapsed: 0,
-    buildDuration: definition.buildDuration,
+    buildDuration,
     open: definition.kind === 'gate',
     hp: structureHp(definition.kind),
     maxHp: structureHp(definition.kind),
   }
   world.structures.push(structure)
   return { ok: true, reason: null, structure }
+}
+
+function evaluateCells(
+  world: WorldState,
+  cells: GridCell[],
+  extraIsOpenGate: boolean,
+): { cells: GridCell[]; valid: boolean; reason: string | null } {
+  if (cells.some((cell) => !inBounds(world.nav, cell))) {
+    return { cells, valid: false, reason: 'out_of_bounds' }
+  }
+  if (cellsOverlap(world, cells)) {
+    return { cells, valid: false, reason: 'overlap' }
+  }
+  if (wouldBlockExit(world, cells, extraIsOpenGate)) {
+    return { cells, valid: false, reason: 'blocks_exit' }
+  }
+  return { cells, valid: true, reason: null }
 }
 
 export function createCompleteStructure(
@@ -179,10 +261,14 @@ export function damageStructure(world: WorldState, structure: StructureState, am
   return true
 }
 
-function cellsOverlap(world: WorldState, cells: GridCell[]): boolean {
+function cellOccupied(world: WorldState, cell: GridCell): boolean {
   return world.structures.some((structure) =>
-    structure.cells.some((cell) => cells.some((candidate) => candidate.x === cell.x && candidate.z === cell.z)),
+    structure.cells.some((entry) => entry.x === cell.x && entry.z === cell.z),
   )
+}
+
+function cellsOverlap(world: WorldState, cells: GridCell[]): boolean {
+  return cells.some((cell) => cellOccupied(world, cell))
 }
 
 function wouldBlockExit(world: WorldState, extraCells: GridCell[], extraIsOpenGate: boolean): boolean {

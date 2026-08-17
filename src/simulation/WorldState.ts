@@ -17,7 +17,7 @@ export function createInitialWorld(): WorldState {
   const hunterBag = createInventory('inv-hunter', 8)
   const fisherBag = createInventory('inv-fisher', 6)
   const scavBag = createInventory('inv-scav', 6)
-  const haulerBag = createInventory('inv-hauler', 8)
+  const haulerBag = createInventory('inv-hauler', 32)
   const builderBag = createInventory('inv-builder', 4)
   const warehouseInv = createInventory('inv-warehouse', 1600, [
     { itemId: 'wood', count: 80 },

@@ -51,9 +51,10 @@ export class BuildMenu {
     const items = FACILITY_DEFINITIONS.map((facility) => {
       const cost = facility.required.map((item) => `${item.count}${itemLabel(item.itemId)}`).join(' ')
       const active = this.selected === facility.id ? ' is-active' : ''
+      const size = facility.id === 'wall' ? '点到线' : `${facility.width}×${facility.depth}`
       return `<button type="button" class="build-card${active}" data-id="${facility.id}">
         <strong>${facility.label}</strong>
-        <span>${facility.width}×${facility.depth}</span>
+        <span>${size}</span>
         <span>${cost}</span>
       </button>`
     }).join('')

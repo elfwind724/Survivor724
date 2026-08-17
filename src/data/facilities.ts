@@ -18,8 +18,8 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
     kind: 'wall',
     width: 1,
     depth: 1,
-    required: [{ itemId: 'wood', count: 4 }],
-    buildDuration: 6,
+    required: [{ itemId: 'wood', count: 1 }],
+    buildDuration: 0.8,
     blocksNav: true,
   },
   {
@@ -32,7 +32,7 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
       { itemId: 'wood', count: 6 },
       { itemId: 'scrap', count: 2 },
     ],
-    buildDuration: 8,
+    buildDuration: 2.2,
     blocksNav: true,
   },
   {
@@ -45,7 +45,7 @@ export const FACILITY_DEFINITIONS: readonly FacilityDefinition[] = [
       { itemId: 'wood', count: 24 },
       { itemId: 'scrap', count: 8 },
     ],
-    buildDuration: 18,
+    buildDuration: 5,
     blocksNav: true,
   },
 ]
@@ -62,4 +62,12 @@ export function footprintCells(definition: FacilityDefinition, originX: number, 
     }
   }
   return cells
+}
+
+export function facilityPreviewHeight(definitionId: string): number {
+  return facilityDefinition(definitionId)?.kind === 'building' ? 4.2 : 2.6
+}
+
+export function wallLineDuration(cellCount: number): number {
+  return 0.45 + Math.max(1, cellCount) * 0.05
 }
