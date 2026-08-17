@@ -50,12 +50,51 @@ export function setGateOpen(world: WorldState, structureId: string, open: boolea
   return true
 }
 
-export function toggleGates(world: WorldState): void {
+export function nearestGate(world: WorldState, position: Vec3, radius = 3.4): StructureState | undefined {
+  let best: StructureState | undefined
+  let bestDistance = radius
   for (const structure of world.structures) {
     if (structure.kind !== 'gate' || structure.stage !== 'complete') continue
-    structure.open = !structure.open
-    markNavDirty(world)
+    const spot = gateCenter(world, structure)
+    const distance = Math.hypot(spot.x - position.x, spot.z - position.z)
+    if (distance < bestDistance) {
+      best = structure
+      bestDistance = distance
+    }
   }
+  return best
+}
+
+export function interactGate(world: WorldState, position: Vec3): StructureState | null {
+  const gate = nearestGate(world, position)
+  if (!gate) return null
+  gate.open = !gate.open
+  markNavDirty(world)
+  return gate
+}
+
+export function demolishAt(world: WorldState, point: Vec3, refund = true): { removed: 'cell' | 'structure'; structureId: string } | null {
+  const cell = worldToCell(world.nav, point)
+  const structure = world.structures.find((entry) =>
+    entry.cells.some((entryCell) => entryCell.x === cell.x && entryCell.z === cell.z),
+  )
+  if (!structure) return null
+  if (structure.kind === 'wall' && structure.cells.length > 1) {
+    structure.cells = structure.cells.filter((entry) => entry.x !== cell.x || entry.z !== cell.z)
+    if (structure.required[0] && structure.required[0].itemId === 'wood') {
+      structure.required[0].count = Math.max(1, structure.cells.length)
+    }
+    const warehouse = findContainer(world, 'warehouse')
+    if (refund && warehouse && structure.stage === 'complete') {
+      addItem(inventoryOf(world.inventories, warehouse.inventoryId), 'wood', 1)
+    }
+    const extra = decorationNear(world, cellCenter(world.nav, cell).x, cellCenter(world.nav, cell).z, 1.2)
+    if (extra) removeDecoration(world, extra.id)
+    markNavDirty(world)
+    return { removed: 'cell', structureId: structure.id }
+  }
+  demolishStructure(world, structure.id, refund)
+  return { removed: 'structure', structureId: structure.id }
 }
 
 export function demolishStructure(world: WorldState, structureId: string, refund = true): boolean {
@@ -265,6 +304,18 @@ export function damageStructure(world: WorldState, structure: StructureState, am
   if (structure.hp > 0) return false
   demolishStructure(world, structure.id, false)
   return true
+}
+
+function gateCenter(world: WorldState, structure: StructureState): Vec3 {
+  if (structure.cells.length === 0) return { x: 0, y: 0, z: 0 }
+  let x = 0
+  let z = 0
+  for (const cell of structure.cells) {
+    const center = cellCenter(world.nav, cell)
+    x += center.x
+    z += center.z
+  }
+  return { x: x / structure.cells.length, y: 0, z: z / structure.cells.length }
 }
 
 function cellOccupied(world: WorldState, cell: GridCell): boolean {

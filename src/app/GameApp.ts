@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { demolishStructure, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, structureAt, toggleGates } from '@/base/construction'
+import { demolishAt, interactGate, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, structureAt } from '@/base/construction'
 import { decorationNear, placeDecoration, removeDecoration, snapDecor } from '@/base/decorations'
 import { facilityPreviewHeight } from '@/data/facilities'
 import { tryShoot } from '@/combat/Combat'
@@ -123,7 +123,6 @@ export class GameApp {
   private readonly step = (dt: number): void => {
     if (this.world.player.view === 'topdown') {
       if (this.input.isDown('KeyQ')) this.renderer.rotateBy(-dt * 1.35)
-      if (this.input.isDown('KeyE')) this.renderer.rotateBy(dt * 1.35)
     }
     stepWorld(this.world, dt, this.controlIntent())
   }
@@ -231,9 +230,18 @@ export class GameApp {
       this.renderer.recenter()
       this.notice = '镜头回到当前角色'
     }
-    if (event.code === 'KeyG') {
-      toggleGates(this.world)
-      this.notice = '已切换大门开闭'
+    if (event.code === 'KeyE') {
+      const actor = this.world.player.controlledId
+        ? findSurvivor(this.world, this.world.player.controlledId)
+        : this.world.player.selectedId
+          ? findSurvivor(this.world, this.world.player.selectedId)
+          : undefined
+      if (!actor) {
+        this.notice = '先选中或接管一个人，再到门边按 E'
+        return
+      }
+      const gate = interactGate(this.world, actor.position)
+      this.notice = gate ? (gate.open ? '门开了' : '门关上了') : '旁边没有门'
     }
     if (event.code === 'Digit1') {
       if (this.world.time.phase === 'night') reinforceSector(this.world, 'north')
@@ -332,8 +340,8 @@ export class GameApp {
       if (!hit) return
       const structure = structureAt(this.world, { x: hit.x, y: 0, z: hit.z })
       if (structure) {
-        demolishStructure(this.world, structure.id)
-        this.notice = `已拆除 ${structure.definitionId}`
+        const result = demolishAt(this.world, { x: hit.x, y: 0, z: hit.z })
+        this.notice = result?.removed === 'cell' ? '已拆除这一格墙' : `已拆除 ${structure.definitionId}`
         return
       }
       const decor = decorationNear(this.world, hit.x, hit.z, 2.4)

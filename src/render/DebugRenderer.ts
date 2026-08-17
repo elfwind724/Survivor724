@@ -46,7 +46,7 @@ export class DebugRenderer {
   private readonly library = new AssetLibrary()
   private readonly dressingRoot = new THREE.Group()
   private readonly dressingMeshes = new Map<string, THREE.Object3D>()
-  private readonly kitted = new Set<string>()
+  private readonly kitted = new Map<string, string>()
   private decorPreview: THREE.Group | null = null
   private readonly rigs = new Map<string, CharacterRig>()
   private readonly clock = new THREE.Clock()
@@ -331,14 +331,22 @@ export class DebugRenderer {
     const seen = new Set<string>()
     for (const structure of world.structures) {
       seen.add(structure.id)
+      const cellSig = structure.cells.map((cell) => `${cell.x},${cell.z}`).join(';')
       let marker = this.structures.get(structure.id)
+      if (marker && marker.mesh.userData.cellSig !== cellSig) {
+        this.disposeObject(marker.mesh)
+        this.kitted.delete(structure.id)
+        this.structures.delete(structure.id)
+        marker = undefined
+      }
       if (!marker) {
         const mesh = this.createStructureMesh(world, structure)
+        mesh.userData.cellSig = cellSig
         this.scene.add(mesh)
         marker = { id: structure.id, mesh }
         this.structures.set(structure.id, marker)
       }
-      this.kitStructure(world, structure, marker.mesh)
+      this.kitStructure(world, structure, marker.mesh, cellSig)
       this.styleStructure(marker.mesh, structure)
     }
     for (const [id, marker] of this.structures) {
@@ -675,8 +683,13 @@ export class DebugRenderer {
     rig.mixer.update(dt)
   }
 
-  private kitStructure(world: WorldState, structure: StructureState, root: THREE.Object3D): void {
-    if (structure.stage !== 'complete' || this.kitted.has(structure.id)) return
+  private kitStructure(world: WorldState, structure: StructureState, root: THREE.Object3D, cellSig: string): void {
+    if (structure.stage !== 'complete') return
+    if (this.kitted.get(structure.id) === cellSig) return
+    for (const child of [...root.children]) {
+      if (child.name !== 'kit') continue
+      root.remove(child)
+    }
     const assetId = structure.kind === 'gate' ? STRUCTURE_ASSETS.gate : structure.kind === 'building' ? STRUCTURE_ASSETS.kitchen : STRUCTURE_ASSETS.wall
     if (structure.kind === 'wall') {
       const pieces: THREE.Object3D[] = []
@@ -705,9 +718,9 @@ export class DebugRenderer {
       kit.position.z += mid.z
       root.add(kit)
     }
-    this.kitted.add(structure.id)
+    this.kitted.set(structure.id, cellSig)
     for (const child of root.children) {
-      if (child.name !== 'kit') child.visible = structure.stage !== 'complete'
+      if (child.name !== 'kit') child.visible = false
     }
   }
 

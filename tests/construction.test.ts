@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createCompleteStructure, demolishStructure, lineCells, placeBlueprint, placeWallLine, previewPlacement, previewWallLine } from '@/base/construction'
+import { createCompleteStructure, demolishAt, demolishStructure, interactGate, lineCells, placeBlueprint, placeWallLine, previewPlacement, previewWallLine, setGateOpen } from '@/base/construction'
 import { FACILITY_DEFINITIONS, wallLineDuration } from '@/data/facilities'
 import { setWorkZone } from '@/base/workZones'
 import { countItem } from '@/inventory/Inventory'
@@ -152,5 +152,44 @@ describe('construction and work zones', () => {
 
     simulate(world, 25)
     expect(placed.structure?.stage).toBe('complete')
+  })
+
+  it('demolishes only the clicked wall cell on a long line', () => {
+    const world = createInitialWorld()
+    const start = worldToCell(world.nav, { x: -8, y: 0, z: 6 })
+    const end = worldToCell(world.nav, { x: 8, y: 0, z: 6 })
+    const placed = placeWallLine(world, start, end)
+    const wall = placed.structure
+    if (!wall) throw new Error('missing wall line')
+    const before = wall.cells.length
+    const mid = wall.cells[Math.floor(before / 2)]
+    if (!mid) throw new Error('missing mid cell')
+    const point = {
+      x: world.nav.originX + (mid.x + 0.5) * world.nav.cellSize,
+      y: 0,
+      z: world.nav.originZ + (mid.z + 0.5) * world.nav.cellSize,
+    }
+    expect(demolishAt(world, point)?.removed).toBe('cell')
+    expect(wall.cells).toHaveLength(before - 1)
+    expect(wall.cells.some((cell) => cell.x === mid.x && cell.z === mid.z)).toBe(false)
+  })
+
+  it('opens only the nearby gate when interacting', () => {
+    const world = createInitialWorld()
+    const first = world.structures.find((structure) => structure.kind === 'gate')
+    if (!first?.cells[0]) throw new Error('missing gate')
+    setGateOpen(world, first.id, false)
+    const far = worldToCell(world.nav, { x: 0, y: 0, z: 8 })
+    const extra = createCompleteStructure(world, 'gate', far.x, far.z, false)
+    extra.open = false
+    const spot = {
+      x: world.nav.originX + (first.cells[0].x + 0.5) * world.nav.cellSize,
+      y: 0,
+      z: world.nav.originZ + (first.cells[0].z + 0.5) * world.nav.cellSize,
+    }
+    const toggled = interactGate(world, spot)
+    expect(toggled?.id).toBe(first.id)
+    expect(first.open).toBe(true)
+    expect(extra.open).toBe(false)
   })
 })
