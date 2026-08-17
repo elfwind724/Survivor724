@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyRosterStrategy, assignPost, postLabel } from '@/jobs/Roster'
+import { applyRosterStrategy, assignmentLabel, assignPost, postLabel } from '@/jobs/Roster'
 import { planJobs } from '@/jobs/JobPlanner'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { stepWorld } from '@/simulation/SimStep'
@@ -30,6 +30,15 @@ describe('base roster', () => {
     applyRosterStrategy(world, 'rest')
     planJobs(world)
     expect(world.survivors.every((survivor) => survivor.dayAssignment === null)).toBe(true)
+  })
+
+  it('posts four people onto the four watchtowers in one click', () => {
+    const world = createInitialWorld()
+    applyRosterStrategy(world, 'watch')
+    const posted = world.survivors.filter((survivor) => survivor.dayAssignment === 'watch')
+    expect(posted).toHaveLength(4)
+    expect(new Set(posted.map((survivor) => survivor.watchPostId)).size).toBe(4)
+    expect(assignmentLabel(posted[0]!)).toMatch(/^站岗·/)
   })
 
   it('picks up a cook job after a manual assignment', () => {

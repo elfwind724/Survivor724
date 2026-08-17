@@ -603,10 +603,15 @@ body,
 }
 
 .roster-posts,
+.roster-corners,
 .roster-col:last-child {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+}
+
+.roster-corners {
+  margin-top: 4px;
 }
 
 .roster-post,

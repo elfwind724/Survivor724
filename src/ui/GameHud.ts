@@ -1,6 +1,6 @@
 import { isCooking, isSleeping } from '@/base/FacilityLife'
 import { countItem } from '@/inventory/Inventory'
-import { postLabel } from '@/jobs/Roster'
+import { assignmentLabel, postLabel } from '@/jobs/Roster'
 import { equippedWeapon, INFINITE_AMMO, magazineSize, readMag } from '@/data/weapons'
 import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
 import type { SurvivorState, WorldState } from '@/simulation/types'
@@ -178,7 +178,7 @@ function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
   return {
     id: survivor.id,
     name: survivor.name,
-    job: `${PROFESSION_LABEL[survivor.professionId] ?? survivor.professionId}·${postLabel(survivor.dayAssignment)}`,
+    job: `${PROFESSION_LABEL[survivor.professionId] ?? survivor.professionId}·${assignmentLabel(survivor)}`,
     status: statusLabel(world, survivor),
     selected: world.player.selectedId === survivor.id,
     live: world.player.controlledId === survivor.id,

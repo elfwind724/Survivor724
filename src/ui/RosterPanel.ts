@@ -1,4 +1,4 @@
-import { applyRosterStrategy, assignPost, postLabel, ROSTER_POSTS, ROSTER_STRATEGIES, type RosterPostId, type RosterStrategyId } from '@/jobs/Roster'
+import { applyRosterStrategy, assignmentLabel, assignPost, assignWatch, postLabel, ROSTER_POSTS, ROSTER_STRATEGIES, WATCH_CORNERS, type RosterPostId, type RosterStrategyId } from '@/jobs/Roster'
 import type { WorldState } from '@/simulation/types'
 
 export class RosterPanel {
@@ -30,7 +30,7 @@ export class RosterPanel {
   }
 
   render(world: WorldState): void {
-    const key = `${this.open}:${world.rosterStrategy}:${world.survivors.map((survivor) => `${survivor.id}:${survivor.dayAssignment}:${survivor.workerState}`).join('|')}`
+    const key = `${this.open}:${world.rosterStrategy}:${world.survivors.map((survivor) => `${survivor.id}:${survivor.dayAssignment}:${survivor.watchPostId}:${survivor.workerState}`).join('|')}`
     if (key === this.lastKey) return
     this.lastKey = key
     this.root.innerHTML = this.open ? this.panelHtml(world) : this.toggleHtml()
@@ -47,9 +47,16 @@ export class RosterPanel {
         const on = (survivor.dayAssignment ?? 'idle') === post.id ? ' is-on' : ''
         return `<button type="button" class="roster-post${on}" data-person="${survivor.id}" data-post="${post.id}">${post.label}</button>`
       }).join('')
+      const corners = survivor.dayAssignment === 'watch'
+        ? `<div class="roster-corners">${WATCH_CORNERS.map((corner) => {
+          const on = survivor.watchPostId === corner.id ? ' is-on' : ''
+          return `<button type="button" class="roster-post roster-corner${on}" data-person="${survivor.id}" data-tower="${corner.id}">${corner.label}</button>`
+        }).join('')}</div>`
+        : ''
       return `<div class="roster-person">
-        <header><strong>${escapeHtml(survivor.name)}</strong><span>${postLabel(survivor.dayAssignment)}</span></header>
+        <header><strong>${escapeHtml(survivor.name)}</strong><span>${assignmentLabel(survivor)}</span></header>
         <div class="roster-posts">${posts}</div>
+        ${corners}
       </div>`
     }).join('')
     const strategies = ROSTER_STRATEGIES.map((strategy) => {
@@ -82,6 +89,19 @@ export class RosterPanel {
         if (assignPost(world, id, post)) {
           const name = world.survivors.find((entry) => entry.id === id)?.name ?? id
           this.onChange(`${name} 改去${postLabel(post)}`)
+          this.lastKey = ''
+          this.render(world)
+        }
+      })
+    })
+    this.root.querySelectorAll<HTMLButtonElement>('[data-tower]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const id = button.dataset.person
+        const tower = button.dataset.tower
+        if (!id || !tower) return
+        if (assignWatch(world, tower, id)) {
+          const name = world.survivors.find((entry) => entry.id === id)?.name ?? id
+          this.onChange(`${name} 去${WATCH_CORNERS.find((corner) => corner.id === tower)?.label ?? ''}塔`)
           this.lastKey = ''
           this.render(world)
         }
