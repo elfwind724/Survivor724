@@ -17,7 +17,9 @@ export function reinforceSector(world: WorldState, sector: DefenseSectorId): voi
   for (const entry of world.defenseSectors) {
     entry.order = entry.id === sector ? 'reinforce' : 'hold'
   }
-  const extras = world.survivors.filter((survivor) => !survivor.downed && survivor.id !== world.player.controlledId)
+  const extras = world.survivors.filter(
+    (survivor) => !survivor.downed && survivor.id !== world.player.heroId && survivor.dayAssignment !== 'follow',
+  )
   const sectorPosts = world.nightPosts.filter((post) => post.sector === sector)
   for (const [index, survivor] of extras.entries()) {
     const post = sectorPosts[index % Math.max(1, sectorPosts.length)]

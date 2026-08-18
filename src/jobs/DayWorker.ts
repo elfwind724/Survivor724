@@ -1,4 +1,6 @@
 import { completeStructure, findStructure, finishDemolish, materialsMet, sitePosition, stillNeeded } from '@/base/construction'
+import { isHero } from '@/controls/PlayerControl'
+import { stepFollowHero } from '@/jobs/Follow'
 import { bedSpot, cookSpot, eatSpot, enterFacility, tryEnterAfterArrival } from '@/base/FacilityLife'
 import { derivedStats } from '@/data/equipment'
 import { weaponById } from '@/data/weapons'
@@ -36,7 +38,11 @@ export function shouldReturn(world: WorldState, survivor: SurvivorState): boolea
 }
 
 export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: number): void {
-  if (world.player.controlledId === survivor.id) return
+  if (world.player.controlledId === survivor.id || isHero(world, survivor)) return
+  if (survivor.dayAssignment === 'follow') {
+    stepFollowHero(world, survivor, dt)
+    return
+  }
   if (survivor.dayAssignment === 'watch' || survivor.watchPostId) {
     stepWatch(world, survivor, dt)
     return

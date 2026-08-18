@@ -184,7 +184,9 @@ function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
   return {
     id: survivor.id,
     name: survivor.name,
-    job: `${PROFESSION_LABEL[survivor.professionId] ?? survivor.professionId}·${assignmentLabel(survivor)}`,
+    job: survivor.id === world.player.heroId
+      ? '主角'
+      : `${PROFESSION_LABEL[survivor.professionId] ?? survivor.professionId}·${assignmentLabel(survivor, world.player.heroId)}`,
     status: statusLabel(world, survivor),
     selected: world.player.selectedId === survivor.id,
     live: world.player.controlledId === survivor.id,
@@ -292,7 +294,9 @@ function renderWeaponHud(weapon: HudModel['weapon']): string {
 }
 
 function statusLabel(world: WorldState, survivor: SurvivorState): string {
+  if (survivor.id === world.player.heroId) return '主角'
   if (survivor.downed) return '倒地'
+  if (survivor.dayAssignment === 'follow') return '跟随'
   if (isSleeping(world, survivor)) return '睡觉'
   if (survivor.watchPostId || survivor.dayAssignment === 'watch') {
     if (world.time.phase !== 'night' && survivor.workerState !== 'TravelToTarget') return '站岗'

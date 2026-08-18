@@ -37,7 +37,9 @@ describe('player control', () => {
     expect(possessSurvivor(world, 'hunter')).toBe(true)
     expect(world.survivors.length).toBe(before)
     expect(world.player.controlledId).toBe('hunter')
-    expect(findSurvivor(world, 'hunter')?.currentJobId).toBe('job-hunt')
+    expect(findSurvivor(world, 'hunter')?.name).toBe('冯老师')
+    expect(possessSurvivor(world, 'fisher')).toBe(false)
+    expect(world.player.controlledId).toBe('hunter')
   })
 
   it('strafes first-person D toward screen-right', () => {
@@ -77,7 +79,7 @@ describe('player control', () => {
 
     expect(hunter.position.x).toBeGreaterThan(start.x + 2)
     expect(hunter.workerState).toBe('Idle')
-    expect(world.jobs.find((job) => job.id === 'job-hunt')?.assigneeId).toBe('hunter')
+    expect(world.player.controlledId).toBe('hunter')
   })
 
   it('does not walk through complete walls', () => {
@@ -95,19 +97,14 @@ describe('player control', () => {
     expect(hunter.position.x).toBeLessThan(30.4)
   })
 
-  it('cycles through living survivors and resumes AI after release', () => {
+  it('selects teammates without taking control of them', () => {
     const world = createInitialWorld()
     possessSurvivor(world, 'hunter')
     cycleControlled(world)
-    expect(world.player.controlledId).toBe('fisher')
+    expect(world.player.controlledId).toBe('hunter')
+    expect(world.player.selectedId).toBe('fisher')
     releaseControl(world)
-    expect(world.player.controlledId).toBeNull()
+    expect(world.player.controlledId).toBe('hunter')
     expect(world.player.view).toBe('topdown')
-
-    const fisher = findSurvivor(world, 'fisher')
-    if (!fisher) throw new Error('missing fisher')
-    const start = fisher.workerState
-    stepWorld(world, 1 / 30)
-    expect(fisher.workerState === start || fisher.workerState === 'AcquireEquipment' || fisher.workerState === 'TravelToTarget' || fisher.workerState === 'RestOrNextJob').toBe(true)
   })
 })

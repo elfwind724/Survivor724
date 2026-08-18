@@ -1,4 +1,5 @@
 import { findStructure, materialsMet } from '@/base/construction'
+import { isHero } from '@/controls/PlayerControl'
 import { findSurvivor } from '@/simulation/EntityRegistry'
 import type { JobRecord, WorldState } from '@/simulation/types'
 import { assignJob, createJob } from './JobBoard'
@@ -11,7 +12,7 @@ export function planJobs(world: WorldState): void {
   for (const job of world.jobs) {
     if (!job.assigneeId) continue
     const survivor = findSurvivor(world, job.assigneeId)
-    if (!survivor) {
+    if (!survivor || isHero(world, survivor)) {
       job.assigneeId = null
       continue
     }
@@ -19,6 +20,7 @@ export function planJobs(world: WorldState): void {
   }
 
   for (const survivor of world.survivors) {
+    if (isHero(world, survivor) || survivor.dayAssignment === 'follow') continue
     if (hasActiveJob(world, survivor.currentJobId, survivor.id)) continue
     if (!survivor.dayAssignment) continue
     const job = world.jobs.find(
@@ -31,6 +33,7 @@ export function planJobs(world: WorldState): void {
   }
 
   for (const survivor of world.survivors) {
+    if (isHero(world, survivor) || survivor.dayAssignment === 'follow') continue
     if (hasActiveJob(world, survivor.currentJobId, survivor.id)) continue
     if (survivor.dayAssignment === 'build') {
       const wreck = world.jobs.find(

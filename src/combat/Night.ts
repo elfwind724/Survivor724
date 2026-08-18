@@ -9,6 +9,8 @@ import { TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { distanceXZ, type NightLoot, type NightPost, type NightReport, type StructureState, type SurvivorState, type WorldState } from '@/simulation/types'
 import { equipItem } from '@/survivors/Equipment'
 import { beginTravel, followTravel } from '@/navigation/Travel'
+import { isHero } from '@/controls/PlayerControl'
+import { stepFollowHero } from '@/jobs/Follow'
 import { autoCombat, createEnemy, nearestLivingEnemy } from './Combat'
 
 export const TOWER_RANGE_BONUS = 16
@@ -155,7 +157,12 @@ function makeReport(world: WorldState, outcome: 'won' | 'lost', reason: string):
 }
 
 export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt: number): void {
-  if (survivor.downed) return
+  if (survivor.downed || isHero(world, survivor)) return
+  if (survivor.dayAssignment === 'follow') {
+    stepFollowHero(world, survivor, dt)
+    autoCombat(world, survivor)
+    return
+  }
   if (restockNightAmmo(world, survivor, dt)) return
   const closeThreat = nearestLivingEnemy(world, survivor.position, 10)
   if (!closeThreat && rescueDowned(world, survivor, dt)) return
@@ -230,14 +237,14 @@ export function prepareNightDefense(world: WorldState): void {
 function assignNightPosts(world: WorldState): void {
   for (const post of world.nightPosts) post.occupantId = null
   for (const survivor of world.survivors) {
-    if (survivor.downed || !survivor.watchPostId) continue
+    if (survivor.downed || isHero(world, survivor) || survivor.dayAssignment === 'follow' || !survivor.watchPostId) continue
     const reserved = world.nightPosts.find((post) => post.id === survivor.watchPostId)
     if (!reserved) continue
     reserved.occupantId = survivor.id
     survivor.nightPostId = reserved.id
   }
   for (const survivor of world.survivors) {
-    if (survivor.downed || survivor.watchPostId) continue
+    if (survivor.downed || isHero(world, survivor) || survivor.dayAssignment === 'follow' || survivor.watchPostId) continue
     assignOnePost(world, survivor)
   }
 }

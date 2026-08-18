@@ -8,14 +8,14 @@ describe('game hud', () => {
     const world = createInitialWorld()
     const model = buildHudModel(world, '点头像选人')
     expect(model.cards).toHaveLength(world.survivors.length)
-    expect(model.cards.map((card) => card.name)).toContain('林深')
+    expect(model.cards.map((card) => card.name)).toContain('冯老师')
     for (const card of model.cards) {
       expect(card.bars.map((bar) => bar.label)).toEqual(['血', '饥', '渴'])
       expect(card.bars.every((bar) => bar.value > 0)).toBe(true)
     }
 
     const html = renderHudHtml(model)
-    expect(html).toContain('林深')
+    expect(html).toContain('冯老师')
     expect(html).toContain('血')
     expect(html).toContain('饥')
     expect(html).toContain('渴')

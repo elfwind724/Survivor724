@@ -31,26 +31,26 @@ describe('living loop', () => {
 
   it('walks hungry people to the warehouse to eat, then home to rest', () => {
     const world = createInitialWorld()
-    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    const fisher = world.survivors.find((entry) => entry.id === 'fisher')
     const warehouse = world.inventories['inv-warehouse']
-    if (!hunter || !warehouse) throw new Error('missing hunter')
-    hunter.hunger = 40
-    hunter.thirst = 40
-    hunter.fatigue = 40
-    hunter.position = { x: 0, y: 0, z: 0 }
-    hunter.workerState = 'Idle'
-    hunter.destination = null
-    hunter.path = []
+    if (!fisher || !warehouse) throw new Error('missing fisher')
+    fisher.hunger = 40
+    fisher.thirst = 40
+    fisher.fatigue = 40
+    fisher.position = { x: 0, y: 0, z: 0 }
+    fisher.workerState = 'Idle'
+    fisher.destination = null
+    fisher.path = []
     world.time.daySeconds = 60 + 11 * 60 + 10
     world.time.phase = 'dusk'
     world.lastPhase = 'dusk'
     const meals = countItem(warehouse, 'meal')
     simulate(world, 20)
-    expect(hunter.hunger).toBeGreaterThan(70)
+    expect(fisher.hunger).toBeGreaterThan(70)
     expect(countItem(warehouse, 'meal')).toBeLessThan(meals)
-    expect(['Rest', 'Eat', 'RestOrNextJob']).toContain(hunter.workerState)
+    expect(['Rest', 'Eat', 'RestOrNextJob']).toContain(fisher.workerState)
     simulate(world, 12)
-    expect(hunter.fatigue).toBeLessThan(40)
+    expect(fisher.fatigue).toBeLessThan(40)
   })
 
   it('hurts survivors still in the field when night falls', () => {

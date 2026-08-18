@@ -19,7 +19,20 @@ export function selectedSurvivor(world: WorldState): SurvivorState | undefined {
   return world.player.selectedId ? findSurvivor(world, world.player.selectedId) : undefined
 }
 
+export function heroId(world: WorldState): string {
+  return world.player.heroId
+}
+
+export function isHero(world: WorldState, survivor: { id: string }): boolean {
+  return survivor.id === world.player.heroId
+}
+
+export function heroSurvivor(world: WorldState): SurvivorState | undefined {
+  return findSurvivor(world, world.player.heroId)
+}
+
 export function possessSurvivor(world: WorldState, id: string): boolean {
+  if (id !== world.player.heroId) return false
   const survivor = findSurvivor(world, id)
   if (!survivor) return false
   world.player.selectedId = id
@@ -31,26 +44,16 @@ export function possessSurvivor(world: WorldState, id: string): boolean {
 }
 
 export function releaseControl(world: WorldState): void {
-  const survivor = controlledSurvivor(world)
-  world.player.controlledId = null
   world.player.view = 'topdown'
-  if (!survivor) return
-  survivor.path = []
-  survivor.destination = null
-  survivor.pathTarget = null
-  if (survivor.workerState === 'TravelToTarget' || survivor.workerState === 'AcquireEquipment' || survivor.workerState === 'ReturnToBase' || survivor.workerState === 'ReturnEquipment') {
-    survivor.workerState = 'RestOrNextJob'
-  }
+  possessSurvivor(world, world.player.heroId)
 }
 
 export function cycleControlled(world: WorldState): void {
-  if (world.survivors.length === 0) return
-  const currentId = world.player.controlledId ?? world.player.selectedId
-  const index = world.survivors.findIndex((survivor) => survivor.id === currentId)
-  const next = world.survivors[(index + 1) % world.survivors.length]
-  if (!next) return
-  if (world.player.controlledId) possessSurvivor(world, next.id)
-  else world.player.selectedId = next.id
+  const pool = world.survivors.filter((survivor) => survivor.id !== world.player.heroId)
+  if (pool.length === 0) return
+  const index = pool.findIndex((survivor) => survivor.id === world.player.selectedId)
+  const next = pool[(index + 1) % pool.length]
+  if (next) world.player.selectedId = next.id
 }
 
 export function stepPlayerControl(world: WorldState, dt: number, intent: ControlIntent): void {

@@ -66,7 +66,7 @@ export function createInitialWorld(): WorldState {
     survivors: [
       createSurvivor({
         id: 'hunter',
-        name: '林深',
+        name: '冯老师',
         professionId: 'hunter',
         position: vec3(-2, 0, 0),
         moveSpeed: 3.2,
@@ -76,8 +76,8 @@ export function createInitialWorld(): WorldState {
         fatigue: 0,
         morale: 70,
         inventoryId: hunterBag.id,
-        dayAssignment: 'hunt',
-        currentJobId: 'job-hunt',
+        dayAssignment: null,
+        currentJobId: null,
         workerState: 'Idle',
       }),
       createSurvivor({
@@ -155,15 +155,15 @@ export function createInitialWorld(): WorldState {
       { id: 'tool-locker', kind: 'tool_locker', position: locker, inventoryId: lockerInv.id },
     ],
     jobs: [
-      createJob({ id: 'job-hunt', definitionId: 'hunt', targetId: 'node-forest', assigneeId: 'hunter' }),
       createJob({ id: 'job-fish', definitionId: 'fish', targetId: 'node-river', assigneeId: 'fisher' }),
       createJob({ id: 'job-scavenge', definitionId: 'scavenge', targetId: 'node-ruin', assigneeId: 'scavenger' }),
     ],
     nav: createNavGrid(),
     navDirty: true,
     player: {
+      heroId: 'hunter',
       selectedId: 'hunter',
-      controlledId: null,
+      controlledId: 'hunter',
       view: 'topdown',
     },
     structures: [],

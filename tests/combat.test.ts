@@ -283,9 +283,9 @@ describe('combat and night', () => {
 
   it('puts a night watcher on the tower top and locks onto an enemy', () => {
     const world = createInitialWorld()
-    const hunter = findSurvivor(world, 'hunter')
+    const hunter = findSurvivor(world, 'fisher')
     const post = world.nightPosts[0]
-    if (!hunter || !post) throw new Error('missing hunter or post')
+    if (!hunter || !post) throw new Error('missing fisher or post')
     hunter.equipment.weapon = 'rifle'
     hunter.nightPostId = post.id
     hunter.position = { x: post.position.x, y: 0, z: post.position.z }

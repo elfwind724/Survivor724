@@ -145,6 +145,7 @@ export interface SurvivorState {
 export type CameraView = 'topdown' | 'firstperson'
 
 export interface PlayerState {
+  heroId: string
   selectedId: string | null
   controlledId: string | null
   view: CameraView

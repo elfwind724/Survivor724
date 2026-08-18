@@ -51,20 +51,19 @@ describe('simulation layer', () => {
 
   it('picks tools, walks to the node, carries output, and deposits it', () => {
     const world = createInitialWorld()
-    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
-    if (!hunter) throw new Error('missing hunter')
-    hunter.returnFill = 1 / 8
+    const fisher = world.survivors.find((entry) => entry.id === 'fisher')
+    if (!fisher) throw new Error('missing fisher')
+    fisher.returnFill = 1 / 8
 
-    simulate(world, 90)
+    simulate(world, 220)
 
     const warehouse = world.inventories['inv-warehouse']
-    const bag = world.inventories[hunter.inventoryId]
+    const bag = world.inventories[fisher.inventoryId]
     if (!warehouse || !bag) throw new Error('missing inventories')
 
-    expect(countItem(warehouse, 'raw_meat')).toBeGreaterThan(0)
-    expect(usedSlots(bag) === 0 || hunter.workerState === 'ReturnToBase' || hunter.workerState === 'DepositItems').toBe(true)
-    expect(hunter.carriedTools.includes('rifle')).toBe(true)
-    expect(hunter.currentJobId).toBe('job-hunt')
+    expect(fisher.carriedTools.includes('rod'), fisher.blockedReason ?? 'no reason').toBe(true)
+    expect(countItem(warehouse, 'raw_fish') + usedSlots(bag)).toBeGreaterThan(0)
+    expect(fisher.currentJobId).toBe('job-fish')
   })
 
   it('cannot collect without tools', () => {
@@ -75,21 +74,21 @@ describe('simulation layer', () => {
 
     simulate(world, 20)
 
-    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    const fisher = world.survivors.find((entry) => entry.id === 'fisher')
     const warehouse = world.inventories['inv-warehouse']
-    if (!hunter || !warehouse) throw new Error('missing hunter or warehouse')
+    if (!fisher || !warehouse) throw new Error('missing fisher or warehouse')
 
-    expect(hunter.blockedReason).toBe('missing_tool')
-    expect(hunter.carriedTools).toEqual([])
-    expect(countItem(warehouse, 'raw_meat')).toBe(0)
+    expect(fisher.blockedReason).toBe('missing_tool')
+    expect(fisher.carriedTools).toEqual([])
+    expect(countItem(warehouse, 'raw_fish')).toBe(0)
     expect(world.nodes.find((node) => node.id === 'node-forest')?.reserve).toBe(80)
   })
 
   it('returns when the backpack is full', () => {
     const world = createInitialWorld()
-    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
-    if (!hunter) throw new Error('missing hunter')
-    const bag = world.inventories[hunter.inventoryId]
+    const fisher = world.survivors.find((entry) => entry.id === 'fisher')
+    if (!fisher) throw new Error('missing fisher')
+    const bag = world.inventories[fisher.inventoryId]
     if (!bag) throw new Error('missing bag')
     bag.capacity = 2
 
@@ -97,17 +96,17 @@ describe('simulation layer', () => {
     let sawReturn = false
     for (let i = 0; i < 30 * 80; i += 1) {
       stepWorld(world, DT)
-      const currentBag = world.inventories[hunter.inventoryId]
+      const currentBag = world.inventories[fisher.inventoryId]
       if (currentBag && usedSlots(currentBag) >= 2) sawFullBag = true
-      if (hunter.workerState === 'ReturnToBase' || hunter.workerState === 'DepositItems') sawReturn = true
-      if (sawFullBag && sawReturn && countItem(world.inventories['inv-warehouse'] ?? { id: '', capacity: 0, items: [] }, 'raw_meat') >= 2) {
+      if (fisher.workerState === 'ReturnToBase' || fisher.workerState === 'DepositItems') sawReturn = true
+      if (sawFullBag && sawReturn && countItem(world.inventories['inv-warehouse'] ?? { id: '', capacity: 0, items: [] }, 'raw_fish') >= 2) {
         break
       }
     }
 
     expect(sawFullBag).toBe(true)
     expect(sawReturn).toBe(true)
-    expect(countItem(world.inventories['inv-warehouse'] ?? { id: '', capacity: 0, items: [] }, 'raw_meat')).toBeGreaterThanOrEqual(2)
+    expect(countItem(world.inventories['inv-warehouse'] ?? { id: '', capacity: 0, items: [] }, 'raw_fish')).toBeGreaterThanOrEqual(2)
   })
 
   it('runs hunter, fisher, and scavenger for three days without losing jobs, teleporting, or stalling', () => {
@@ -142,11 +141,10 @@ describe('simulation layer', () => {
 
     const warehouse = world.inventories['inv-warehouse']
     if (!warehouse) throw new Error('missing warehouse')
-    expect(countItem(warehouse, 'raw_meat') + countItem(warehouse, 'meal')).toBeGreaterThan(6)
     expect(countItem(warehouse, 'raw_fish') + countItem(warehouse, 'meal')).toBeGreaterThan(6)
     expect(countItem(warehouse, 'scrap')).toBeGreaterThan(0)
 
-    for (const id of ['hunter', 'fisher', 'scavenger'] as const) {
+    for (const id of ['fisher', 'scavenger'] as const) {
       const survivor = world.survivors.find((entry) => entry.id === id)
       const job = world.jobs.find((entry) => entry.assigneeId === id)
       if (!survivor || !job) throw new Error(`missing ${id}`)

@@ -42,7 +42,7 @@ export class RosterPanel {
   }
 
   private panelHtml(world: WorldState): string {
-    const people = world.survivors.map((survivor) => {
+    const people = world.survivors.filter((survivor) => survivor.id !== world.player.heroId).map((survivor) => {
       const posts = ROSTER_POSTS.map((post) => {
         const on = (survivor.dayAssignment ?? 'idle') === post.id ? ' is-on' : ''
         return `<button type="button" class="roster-post${on}" data-person="${survivor.id}" data-post="${post.id}">${post.label}</button>`
@@ -54,7 +54,7 @@ export class RosterPanel {
         }).join('')}</div>`
         : ''
       return `<div class="roster-person">
-        <header><strong>${escapeHtml(survivor.name)}</strong><span>${assignmentLabel(survivor)}</span></header>
+        <header><strong>${escapeHtml(survivor.name)}</strong><span>${assignmentLabel(survivor, world.player.heroId)}</span></header>
         <div class="roster-posts">${posts}</div>
         ${corners}
       </div>`
@@ -69,7 +69,7 @@ export class RosterPanel {
     return `${this.toggleHtml()}
       <div class="roster-panel is-open">
         <div class="roster-col">
-          <p>点人名下的岗位手动指派</p>
+          <p>只派队员。冯老师是主角，不进岗位表。</p>
           ${people}
         </div>
         <div class="roster-col">

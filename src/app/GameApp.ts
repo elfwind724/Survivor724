@@ -9,7 +9,8 @@ import { equippedWeapon, fireProfile } from '@/data/weapons'
 import { setWorkZone } from '@/base/workZones'
 import { cameraRelativeWish } from '@/controls/CameraWish'
 import { Input } from '@/controls/Input'
-import { cycleControlled, possessSurvivor, releaseControl } from '@/controls/PlayerControl'
+import { cycleControlled, possessSurvivor } from '@/controls/PlayerControl'
+import { toggleFollow } from '@/jobs/Follow'
 import { beginTravel } from '@/navigation/Travel'
 import { worldToCell } from '@/navigation/NavGrid'
 import { DebugRenderer } from '@/render/DebugRenderer'
@@ -60,7 +61,7 @@ export class GameApp {
     lastY: number
     dragging: boolean
   } | null = null
-  private notice = '点头像选人，双击接管 · Q/E 平移镜头 · 右键转镜头'
+  private notice = '冯老师是主角。点队员选中，双击让他们跟随 · Q/E 转镜头'
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -79,10 +80,7 @@ export class GameApp {
       this.world.player.selectedId = id
       this.renderer.recenter()
       this.sheet.open(id)
-      if (kind === 'possess') {
-        possessSurvivor(this.world, id)
-        this.notice = `接管 ${findSurvivor(this.world, id)?.name ?? id}`
-      }
+      if (kind === 'possess') this.handleDirect(id)
     }, (command) => {
       if (command === 'reset-view') this.resetView()
       if (command === 'toggle-interiors') {
@@ -218,16 +216,12 @@ export class GameApp {
     if (event.code === 'Tab') {
       event.preventDefault()
       cycleControlled(this.world)
-      this.renderer.recenter()
-      this.notice = `当前：${this.world.player.controlledId ?? this.world.player.selectedId ?? '无人'}`
+      const name = findSurvivor(this.world, this.world.player.selectedId ?? '')?.name ?? '无人'
+      this.notice = `已选队员 ${name}，双击或回车让他跟随`
     }
     if (event.code === 'Enter') {
       const id = this.world.player.selectedId
-      if (id) {
-        possessSurvivor(this.world, id)
-        this.renderer.recenter()
-        this.notice = `接管 ${findSurvivor(this.world, id)?.name ?? id}`
-      }
+      if (id) this.handleDirect(id)
     }
     if (event.code === 'Escape') {
       if (this.sheet.isOpen()) {
@@ -268,12 +262,16 @@ export class GameApp {
         this.notice = '已关闭建造'
         return
       }
-      releaseControl(this.world)
-      this.notice = '已交还该幸存者，AI 继续工作'
+      possessSurvivor(this.world, this.world.player.heroId)
+      this.notice = '继续操控冯老师'
     }
     if (event.code === 'KeyX') {
-      releaseControl(this.world)
-      this.notice = '已交还该幸存者，AI 继续工作'
+      const id = this.world.player.selectedId
+      if (id && id !== this.world.player.heroId) {
+        const result = toggleFollow(this.world, id)
+        const name = findSurvivor(this.world, id)?.name ?? id
+        this.notice = result === 'follow' ? `${name} 开始跟随` : `${name} 停止跟随`
+      }
     }
     if (event.code === 'KeyF' && this.world.player.controlledId) {
       this.world.player.view = this.world.player.view === 'firstperson' ? 'topdown' : 'firstperson'
@@ -517,15 +515,12 @@ export class GameApp {
       this.lastClickAt = now
       this.lastClickId = id
       this.world.player.selectedId = id
-      this.renderer.recenter()
-      if (doubleClick) {
-        possessSurvivor(this.world, id)
-        this.notice = `接管 ${findSurvivor(this.world, id)?.name ?? id}`
-      }
+      if (id === this.world.player.heroId) this.renderer.recenter()
+      if (doubleClick) this.handleDirect(id)
       return
     }
 
-    if (button === 2 && !this.world.player.controlledId && this.world.player.selectedId) {
+    if (button === 2 && this.world.player.selectedId && this.world.player.selectedId !== this.world.player.heroId) {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
       const survivor = findSurvivor(this.world, this.world.player.selectedId)
       if (!hit || !survivor) return
@@ -690,6 +685,7 @@ export class GameApp {
       return
     }
     const people = this.world.survivors
+      .filter((survivor) => survivor.id !== this.world.player.heroId)
       .map((survivor) => {
         const on = survivor.watchPostId === post.id ? ' is-on' : ''
         return `<button type="button" class="tower-pick${on}" data-watch="${survivor.id}">${survivor.name}${survivor.watchPostId === post.id ? ' · 在岗' : ''}</button>`
@@ -711,6 +707,18 @@ export class GameApp {
       this.towerPostId = null
       this.towerPanel.innerHTML = ''
     })
+  }
+
+  private handleDirect(id: string): void {
+    if (id === this.world.player.heroId) {
+      possessSurvivor(this.world, id)
+      this.renderer.recenter()
+      this.notice = '操控冯老师'
+      return
+    }
+    const result = toggleFollow(this.world, id)
+    const name = findSurvivor(this.world, id)?.name ?? id
+    this.notice = result === 'follow' ? `${name} 开始跟随你` : result === 'idle' ? `${name} 停止跟随` : `无法指挥 ${name}`
   }
 
   private resetView(): void {

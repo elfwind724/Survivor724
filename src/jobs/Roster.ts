@@ -1,6 +1,7 @@
 import { leaveFacility } from '@/base/FacilityLife'
+import { isHero } from '@/controls/PlayerControl'
 import { jobDefinition } from '@/data/jobs'
-import type { WorldState } from '@/simulation/types'
+import type { SurvivorState, WorldState } from '@/simulation/types'
 
 export const ROSTER_POSTS = [
   { id: 'hunt', label: '打猎' },
@@ -10,6 +11,7 @@ export const ROSTER_POSTS = [
   { id: 'build', label: '建造' },
   { id: 'cook', label: '做饭' },
   { id: 'watch', label: '站岗' },
+  { id: 'follow', label: '跟随' },
   { id: 'idle', label: '待命' },
 ] as const
 
@@ -23,7 +25,7 @@ export const WATCH_CORNERS = [
 ] as const
 
 export const ROSTER_STRATEGIES = [
-  { id: 'watch', label: '四角站岗', hint: '四人一键上四座瞭望塔', posts: ['watch', 'watch', 'watch', 'watch', 'idle'] },
+  { id: 'watch', label: '四角站岗', hint: '四名队员一键上四座瞭望塔', posts: ['watch', 'watch', 'watch', 'watch'] },
   { id: 'balanced', label: '均衡上岗', hint: '按职业回各自岗位', posts: ['hunt', 'fish', 'scavenge', 'haul', 'build'] },
   { id: 'food', label: '优先食物', hint: '打猎钓鱼做饭', posts: ['hunt', 'fish', 'cook', 'hunt', 'haul'] },
   { id: 'build', label: '优先建设', hint: '搬运和施工优先', posts: ['haul', 'build', 'build', 'scavenge', 'hunt'] },
@@ -49,7 +51,9 @@ export function watchCornerLabel(postId: string | null): string {
   return WATCH_CORNERS.find((corner) => corner.id === postId)?.label ?? ''
 }
 
-export function assignmentLabel(survivor: { dayAssignment: string | null; watchPostId: string | null }): string {
+export function assignmentLabel(survivor: { id?: string; dayAssignment: string | null; watchPostId: string | null }, heroId?: string): string {
+  if (heroId && survivor.id === heroId) return '主角'
+  if (survivor.dayAssignment === 'follow') return '跟随'
   if (survivor.dayAssignment === 'watch') {
     const corner = watchCornerLabel(survivor.watchPostId)
     return corner ? `站岗·${corner}` : '站岗'
@@ -57,11 +61,15 @@ export function assignmentLabel(survivor: { dayAssignment: string | null; watchP
   return postLabel(survivor.dayAssignment)
 }
 
+export function commandableSurvivors(world: WorldState): SurvivorState[] {
+  return world.survivors.filter((survivor) => !survivor.downed && !isHero(world, survivor))
+}
+
 export function assignPost(world: WorldState, survivorId: string, postId: RosterPostId): boolean {
   const survivor = world.survivors.find((entry) => entry.id === survivorId)
-  if (!survivor || survivor.downed) return false
+  if (!survivor || survivor.downed || isHero(world, survivor)) return false
   const next = postId === 'idle' ? null : postId
-  if (next && !jobDefinition(next) && next !== 'cook' && next !== 'watch') return false
+  if (next && !jobDefinition(next) && next !== 'cook' && next !== 'watch' && next !== 'follow') return false
   survivor.dayAssignment = next
   survivor.currentJobId = null
   survivor.workerState = 'RestOrNextJob'
@@ -92,7 +100,7 @@ export function assignPost(world: WorldState, survivorId: string, postId: Roster
 export function assignWatch(world: WorldState, postId: string, survivorId: string): boolean {
   const survivor = world.survivors.find((entry) => entry.id === survivorId)
   const post = world.nightPosts.find((entry) => entry.id === postId)
-  if (!survivor || !post || survivor.downed) return false
+  if (!survivor || !post || survivor.downed || isHero(world, survivor)) return false
   for (const other of world.survivors) {
     if (other.id === survivor.id || other.watchPostId !== postId) continue
     other.watchPostId = null
@@ -121,15 +129,14 @@ export function applyRosterStrategy(world: WorldState, strategyId: RosterStrateg
     return
   }
   if (strategyId === 'balanced') {
-    for (const survivor of world.survivors) {
-      if (survivor.downed) continue
+    for (const survivor of commandableSurvivors(world)) {
       assignQuiet(world, survivor.id, PROFESSION_POST[survivor.professionId] ?? 'idle')
     }
     return
   }
 
   const remaining = [...strategy.posts] as RosterPostId[]
-  const ready = world.survivors.filter((survivor) => !survivor.downed)
+  const ready = commandableSurvivors(world)
   for (const survivor of ready) {
     const preferred = PROFESSION_POST[survivor.professionId]
     const match = preferred ? remaining.indexOf(preferred) : -1
@@ -139,7 +146,7 @@ export function applyRosterStrategy(world: WorldState, strategyId: RosterStrateg
 }
 
 function assignFourTowers(world: WorldState): void {
-  const ready = world.survivors.filter((survivor) => !survivor.downed)
+  const ready = commandableSurvivors(world)
   for (const [index, corner] of WATCH_CORNERS.entries()) {
     const survivor = ready[index]
     if (!survivor) break
