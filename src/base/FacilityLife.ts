@@ -68,16 +68,20 @@ export function facilityBounds(world: WorldState, structure: StructureState): {
   }
 }
 
+export const BED_SCALE = 0.82
+export const SLEEPER_HEIGHT = 0.62
+
 export function facilityBeds(world: WorldState, structure: StructureState): Vec3[] {
   const bounds = facilityBounds(world, structure)
-  const inset = 1.8
-  const west = bounds.west + inset
-  const east = bounds.east - inset
-  const south = bounds.south + inset
-  const north = bounds.north - inset
+  const insetX = 2.2
+  const west = bounds.west + insetX
+  const east = bounds.east - insetX
+  const south = bounds.south
+  const north = bounds.north
   const count = 5
   const span = Math.max(1, east - west)
-  const z = south + Math.min(2.2, (north - south) * 0.42)
+  const depth = Math.max(1, north - south)
+  const z = south + Math.min(2.6, depth * 0.34)
   return Array.from({ length: count }, (_, index) => ({
     x: west + ((index + 0.5) * span) / count,
     y: 0,
@@ -158,13 +162,13 @@ export function interiorProps(world: WorldState, structure: StructureState): Int
       x: bed.x,
       z: bed.z,
       yaw: Math.PI,
-      scale: 0.4,
+      scale: BED_SCALE,
     }))
     return [
       ...beds,
-      { assetId: 'interior/night-stand', x: bounds.west + 1.7, z: bounds.south + 1.7, yaw: 0, scale: 0.7 },
-      { assetId: 'interior/night-stand', x: bounds.east - 1.7, z: bounds.south + 1.7, yaw: 0, scale: 0.7 },
-      { assetId: 'interior/chair', x: (bounds.west + bounds.east) / 2, z: bounds.south + 1.8, yaw: 0, scale: 0.7 },
+      { assetId: 'interior/night-stand', x: bounds.west + 1.8, z: bounds.north - 1.8, yaw: 0, scale: 0.85 },
+      { assetId: 'interior/night-stand', x: bounds.east - 1.8, z: bounds.north - 1.8, yaw: 0, scale: 0.85 },
+      { assetId: 'interior/chair', x: (bounds.west + bounds.east) / 2, z: bounds.north - 2.0, yaw: 0, scale: 0.85 },
     ]
   }
   if (structure.definitionId === 'kitchen') {
@@ -205,7 +209,7 @@ export function interiorProps(world: WorldState, structure: StructureState): Int
       { assetId: 'interior/table-round-small', x: mid.x, z: mid.z, yaw: 0 },
       { assetId: 'interior/chair', x: mid.x - 1.2, z: mid.z, yaw: Math.PI / 2 },
       { assetId: 'interior/chair', x: mid.x + 1.2, z: mid.z, yaw: -Math.PI / 2 },
-      { assetId: 'interior/bed-single', x: mid.x, z: mid.z + 1.8, yaw: 0, scale: 0.4 },
+      { assetId: 'interior/bed-single', x: mid.x, z: mid.z + 1.8, yaw: 0, scale: 0.7 },
     ]
   }
   return []

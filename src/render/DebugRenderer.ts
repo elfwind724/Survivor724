@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { structureNear } from '@/base/construction'
-import { bedSpot, interiorProps, isCooking, isSleeping, sleeperEuler } from '@/base/FacilityLife'
+import { bedSpot, interiorProps, isCooking, isSleeping, sleeperEuler, SLEEPER_HEIGHT } from '@/base/FacilityLife'
 import { isLifeBuilding, TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { assetById } from '@/data/assetIndex'
 import { equippedWeapon, WEAPONS } from '@/data/weapons'
@@ -316,7 +316,7 @@ export class DebugRenderer {
       if (sleeping) {
         const bed = bedSpot(world, survivor)
         const pose = sleeperEuler()
-        marker.mesh.position.set(bed.x, 0.42, bed.z)
+        marker.mesh.position.set(bed.x, SLEEPER_HEIGHT, bed.z)
         marker.mesh.rotation.order = pose.order
         marker.mesh.rotation.set(pose.x, pose.y, pose.z)
       } else {
@@ -579,7 +579,7 @@ export class DebugRenderer {
     const existing = root.getObjectByName('interior')
     const props = interiorProps(world, structure)
     if (props.length === 0) return
-    const layout = props.map((prop) => `${prop.assetId}:${prop.yaw.toFixed(2)}:${prop.x.toFixed(2)}:${prop.z.toFixed(2)}`).join('|')
+    const layout = props.map((prop) => `${prop.assetId}:${prop.yaw.toFixed(2)}:${prop.scale ?? 1}:${prop.x.toFixed(2)}:${prop.z.toFixed(2)}`).join('|')
     if (existing && existing.userData.layout === layout) return
     if (existing) {
       existing.removeFromParent()

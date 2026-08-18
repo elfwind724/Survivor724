@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bedSpot, enterFacility, facilityApproach, findFacility, interiorProps, isSleeping, leaveFacility, occupiedFacilityIds, sleeperEuler } from '@/base/FacilityLife'
+import { BED_SCALE, bedSpot, enterFacility, facilityApproach, findFacility, interiorProps, isSleeping, leaveFacility, occupiedFacilityIds, sleeperEuler } from '@/base/FacilityLife'
 import { isLifeBuilding } from '@/data/outdoorScenery'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { stepWorld } from '@/simulation/SimStep'
@@ -64,6 +64,8 @@ describe('facility life', () => {
     const beds = interiorProps(world, quarters).filter((prop) => prop.assetId === 'interior/bed-single')
     expect(beds.length).toBe(5)
     expect(beds.every((bed) => Math.abs(bed.yaw - Math.PI) < 1e-6)).toBe(true)
+    expect(beds.every((bed) => (bed.scale ?? 0) >= 0.75)).toBe(true)
+    expect(BED_SCALE).toBeGreaterThanOrEqual(0.75)
     const pose = sleeperEuler()
     expect(pose.order).toBe('YXZ')
     expect(pose.x).toBeCloseTo(-Math.PI / 2, 5)
