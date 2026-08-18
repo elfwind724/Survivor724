@@ -1,12 +1,12 @@
 import { repairStructure } from '@/base/construction'
 import { hordeCounts } from '@/data/enemies'
 import { equippedWeapon, magazineSize, writeMag } from '@/data/weapons'
-import { countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
+import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { cellCenter } from '@/navigation/NavGrid'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { BASE } from '@/simulation/baseLayout'
 import { TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
-import { distanceXZ, type NightPost, type StructureState, type SurvivorState, type WorldState } from '@/simulation/types'
+import { distanceXZ, type NightLoot, type NightPost, type NightReport, type StructureState, type SurvivorState, type WorldState } from '@/simulation/types'
 import { equipItem } from '@/survivors/Equipment'
 import { beginTravel, followTravel } from '@/navigation/Travel'
 import { autoCombat, createEnemy, nearestLivingEnemy } from './Combat'
@@ -72,6 +72,8 @@ export function stepNightCycle(world: WorldState): void {
     issueNightGuns(world)
     world.nightSpawnedDay = world.time.dayIndex
   }
+  if (phase === 'night') checkNightDefeat(world)
+  if (phase === 'aftermath' && world.lastPhase === 'night') settleNight(world)
   if (phase === 'dawn' && world.lastPhase !== 'dawn') {
     world.enemies = []
     for (const post of world.nightPosts) post.occupantId = null
@@ -85,6 +87,73 @@ export function stepNightCycle(world: WorldState): void {
     }
   }
   world.lastPhase = phase
+}
+
+export function nightLootFor(kills: number): NightLoot[] {
+  const fallen = Math.max(0, kills)
+  return [
+    { itemId: 'wood', label: '木', count: 6 + fallen },
+    { itemId: 'scrap', label: '铁', count: 3 + Math.floor(fallen / 2) },
+    { itemId: 'ammo', label: '弹', count: 8 + fallen },
+    { itemId: 'meal', label: '食', count: 2 + Math.floor(fallen / 6) },
+  ]
+}
+
+export function defeatReason(world: WorldState): string | null {
+  if (world.survivors.length > 0 && world.survivors.every((survivor) => survivor.downed)) return '全员倒下，据点没人能守了'
+  if (!hasCore(world, 'warehouse')) return '仓库被毁，物资散尽'
+  if (!hasCore(world, 'hall')) return '市政大厅被毁，指挥中枢没了'
+  return null
+}
+
+export function checkNightDefeat(world: WorldState): boolean {
+  if (world.gameOver) return true
+  const reason = defeatReason(world)
+  if (!reason) return false
+  world.gameOver = true
+  world.nightReport = makeReport(world, 'lost', reason)
+  return true
+}
+
+export function settleNight(world: WorldState): NightReport {
+  if (world.gameOver && world.nightReport) return world.nightReport
+  if (checkNightDefeat(world) && world.nightReport) return world.nightReport
+  const loot = nightLootFor(world.nightKills)
+  const warehouse = findContainer(world, 'warehouse')
+  if (warehouse) {
+    const stock = inventoryOf(world.inventories, warehouse.inventoryId)
+    for (const item of loot) addItem(stock, item.itemId, item.count)
+  }
+  for (const survivor of world.survivors) {
+    if (survivor.downed) continue
+    survivor.morale = Math.min(100, survivor.morale + 6)
+  }
+  const report = makeReport(world, 'won', '守住了这一夜，搜到的残骸进了仓库')
+  report.loot = loot
+  world.nightReport = report
+  return report
+}
+
+function hasCore(world: WorldState, definitionId: string): boolean {
+  return world.structures.some(
+    (structure) =>
+      structure.definitionId === definitionId &&
+      (structure.stage === 'complete' || structure.stage === 'demolishing'),
+  )
+}
+
+function makeReport(world: WorldState, outcome: 'won' | 'lost', reason: string): NightReport {
+  const wallsNow = world.structures.filter((structure) => structure.kind === 'wall' && structure.stage === 'complete').length
+  return {
+    day: world.time.dayIndex,
+    outcome,
+    kills: world.nightKills,
+    spawned: world.nightSpawned,
+    downed: world.survivors.filter((survivor) => survivor.downed).length,
+    wallsLost: Math.max(0, world.nightWalls - wallsNow),
+    loot: [],
+    reason,
+  }
 }
 
 export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt: number): void {
@@ -113,6 +182,10 @@ export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt
 
 function spawnHorde(world: WorldState): void {
   const counts = hordeCounts(world.time.dayIndex)
+  world.nightKills = 0
+  world.nightSpawned = counts.wanderers + counts.runners
+  world.nightWalls = world.structures.filter((structure) => structure.kind === 'wall' && structure.stage === 'complete').length
+  world.nightReport = null
   let serial = 0
   for (let i = 0; i < counts.wanderers; i += 1) {
     world.enemies.push(createEnemy('wanderer', edgePoint(i), `wanderer-${world.time.dayIndex}-${serial}`))

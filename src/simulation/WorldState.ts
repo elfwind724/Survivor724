@@ -188,6 +188,11 @@ export function createInitialWorld(): WorldState {
     impacts: [],
     rosterStrategy: 'balanced',
     showInteriors: true,
+    nightKills: 0,
+    nightSpawned: 0,
+    nightWalls: 0,
+    nightReport: null,
+    gameOver: false,
   }
 
   seedBaseWalls(world)

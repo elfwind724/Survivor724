@@ -65,8 +65,12 @@ export function hudTimeCaption(world: WorldState): string {
     return `距黄昏 ${formatMmSs(secondsUntilDusk(world))}`
   }
   if (world.time.phase === 'dusk') return '日落回营'
+  if (world.gameOver) return '基地沦陷'
   if (world.time.phase === 'night') {
     return world.enemies.length > 0 ? `尸潮 ${world.enemies.length}` : '夜间值守'
+  }
+  if (world.nightReport?.outcome === 'won' && world.time.phase === 'aftermath') {
+    return `守住了 · 击杀 ${world.nightReport.kills}`
   }
   return '清场休整'
 }

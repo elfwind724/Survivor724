@@ -257,6 +257,7 @@ function impactTarget(world: WorldState, shot: ProjectileState, from: Vec3): boo
     spawnImpact(world, hit.enemy.health <= 0 ? 'kill' : 'hit', { x: hit.enemy.position.x, y: 1.35, z: hit.enemy.position.z }, 0.22)
     if (hit.enemy.health <= 0) {
       if (owner) grantXp(owner, KILL_XP[hit.enemy.kind])
+      world.nightKills += 1
       world.enemies = world.enemies.filter((entry) => entry.id !== hit.enemy.id)
     }
     return true

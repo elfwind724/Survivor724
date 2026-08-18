@@ -30,7 +30,7 @@ import { Minimap } from '@/ui/Minimap'
 import { GameLoop } from './GameLoop'
 
 export class GameApp {
-  private readonly world: WorldState
+  private world: WorldState
   private readonly renderer: DebugRenderer
   private readonly hud: GameHud
   private readonly sheet: CharacterSheet
@@ -85,6 +85,11 @@ export class GameApp {
       if (command === 'toggle-interiors') {
         this.world.showInteriors = !this.world.showInteriors
         this.notice = this.world.showInteriors ? '已切换到房屋内部' : '已显示房屋整体'
+      }
+      if (command === 'restart') this.restartRun()
+      if (command === 'ack-night') {
+        this.world.nightReport = null
+        this.notice = '新的一天，继续干活、修墙、备战下一夜'
       }
     })
     this.sheet = new CharacterSheet(sheetRoot)
@@ -150,6 +155,7 @@ export class GameApp {
   }
 
   private readonly step = (dt: number): void => {
+    if (this.world.gameOver) return
     if (this.world.player.view === 'topdown') {
       if (this.world.player.controlledId) {
         if (this.input.isDown('KeyQ')) this.renderer.rotateBy(-dt * 1.6)
@@ -695,6 +701,15 @@ export class GameApp {
     this.world.player.view = 'topdown'
     this.renderer.resetView()
     this.notice = '镜头已复位'
+  }
+
+  private restartRun(): void {
+    this.world = createInitialWorld()
+    this.towerPostId = null
+    this.towerPanel.innerHTML = ''
+    this.wallAnchor = null
+    this.renderer.resetView()
+    this.notice = '新的据点。白天干活建设，夜里守住才能活下去'
   }
 
   private refreshHud(): void {

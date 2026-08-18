@@ -26,6 +26,31 @@ describe('game hud', () => {
     expect(html).not.toContain('Warehouse')
   })
 
+  it('shows a night report overlay after a defense settles', () => {
+    const world = createInitialWorld()
+    world.nightReport = {
+      day: 1,
+      outcome: 'won',
+      kills: 12,
+      spawned: 26,
+      downed: 1,
+      wallsLost: 2,
+      loot: [{ itemId: 'wood', label: '木', count: 18 }],
+      reason: '守住了这一夜，搜到的残骸进了仓库',
+    }
+    world.time.phase = 'aftermath'
+    const html = renderHudHtml(buildHudModel(world))
+    expect(html).toContain('防守成功')
+    expect(html).toContain('继续建设')
+    expect(html).toContain('木+18')
+
+    world.gameOver = true
+    world.nightReport = { ...world.nightReport, outcome: 'lost', reason: '仓库被毁，物资散尽', loot: [] }
+    const lost = renderHudHtml(buildHudModel(world))
+    expect(lost).toContain('防守失败')
+    expect(lost).toContain('重新开始')
+  })
+
   it('shows the current gun magazine and a cooldown ring', () => {
     const world = createInitialWorld()
     const hunter = world.survivors.find((entry) => entry.id === 'hunter')

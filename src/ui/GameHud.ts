@@ -11,7 +11,7 @@ export interface HudPick {
   kind: 'select' | 'possess'
 }
 
-export type HudCommand = 'reset-view' | 'toggle-interiors'
+export type HudCommand = 'reset-view' | 'toggle-interiors' | 'restart' | 'ack-night'
 
 interface HudStock {
   id: string
@@ -58,6 +58,13 @@ export interface HudModel {
     ammoMax: number
     cooldown: number
   } | null
+  report: {
+    title: string
+    reason: string
+    stats: string
+    loot: string
+    lost: boolean
+  } | null
 }
 
 const PROFESSION_LABEL: Record<string, string> = {
@@ -87,6 +94,7 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
     ],
     cards: world.survivors.map((survivor) => cardModel(world, survivor)),
     weapon: focusWeapon(world),
+    report: reportModel(world),
   }
 }
 
@@ -96,7 +104,8 @@ export function hudModelKey(model: HudModel): string {
     .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.job}:${card.status}:${card.ammo ?? '-'}:${card.cooldown.toFixed(2)}`)
     .join('|')
   const weapon = model.weapon ? `${model.weapon.name}:${model.weapon.ammo}/${model.weapon.ammoMax}:${model.weapon.cooldown.toFixed(2)}` : '-'
-  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${stocks}:${cards}:${weapon}`
+  const report = model.report ? `${model.report.lost ? 'L' : 'W'}:${model.report.stats}:${model.report.loot}` : '-'
+  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${stocks}:${cards}:${weapon}:${report}`
 }
 
 export function renderHudHtml(model: HudModel): string {
@@ -122,6 +131,7 @@ export function renderHudHtml(model: HudModel): string {
     </div>
     <div class="hud-roster">${cards}</div>
     ${toast}
+    ${renderReport(model)}
   `
 }
 
@@ -151,14 +161,10 @@ export class GameHud {
     const target = event.target
     if (!(target instanceof Element)) return
     const command = target.closest<HTMLButtonElement>('[data-action]')
-    if (command?.dataset.action === 'reset-view') {
+    const action = command?.dataset.action
+    if (action === 'reset-view' || action === 'toggle-interiors' || action === 'restart' || action === 'ack-night') {
       event.stopPropagation()
-      this.onCommand('reset-view')
-      return
-    }
-    if (command?.dataset.action === 'toggle-interiors') {
-      event.stopPropagation()
-      this.onCommand('toggle-interiors')
+      this.onCommand(action)
       return
     }
     const button = target.closest<HTMLButtonElement>('[data-survivor]')
@@ -236,6 +242,35 @@ function focusWeapon(world: WorldState): HudModel['weapon'] {
     ammoMax: magazineSize(gun.id),
     cooldown: cooldownRatio(survivor),
   }
+}
+
+function reportModel(world: WorldState): HudModel['report'] {
+  const report = world.nightReport
+  if (!report) return null
+  if (report.outcome === 'lost' && !world.gameOver) return null
+  if (report.outcome === 'won' && world.time.phase !== 'aftermath' && !world.gameOver) return null
+  const loot = report.loot.filter((item) => item.count > 0).map((item) => `${item.label}+${item.count}`).join('  ')
+  return {
+    title: report.outcome === 'lost' ? `第 ${report.day} 夜 · 防守失败` : `第 ${report.day} 夜 · 防守成功`,
+    reason: report.reason,
+    stats: `击杀 ${report.kills}/${report.spawned} · 倒地 ${report.downed} · 墙损 ${report.wallsLost}`,
+    loot: loot || '没有搜到残骸',
+    lost: report.outcome === 'lost',
+  }
+}
+
+function renderReport(model: HudModel): string {
+  if (!model.report) return ''
+  const action = model.report.lost
+    ? '<button type="button" class="hud-reset" data-action="restart">重新开始</button>'
+    : '<button type="button" class="hud-reset" data-action="ack-night">继续建设</button>'
+  return `<div class="night-report${model.report.lost ? ' is-lost' : ''}">
+    <strong>${escapeHtml(model.report.title)}</strong>
+    <span>${escapeHtml(model.report.reason)}</span>
+    <span>${escapeHtml(model.report.stats)}</span>
+    <span>${escapeHtml(model.report.loot)}</span>
+    ${action}
+  </div>`
 }
 
 function cooldownRatio(survivor: SurvivorState): number {

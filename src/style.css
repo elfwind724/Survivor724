@@ -77,6 +77,39 @@ body,
   letter-spacing: 0.02em;
 }
 
+.night-report {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  z-index: 36;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 280px;
+  max-width: 420px;
+  padding: 16px 18px;
+  transform: translateX(-50%);
+  border: 1px solid var(--hud-brass);
+  background: var(--hud-panel);
+  pointer-events: auto;
+  color: var(--hud-ink);
+}
+
+.night-report strong {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+}
+
+.night-report span {
+  color: var(--hud-muted);
+  line-height: 1.45;
+}
+
+.night-report.is-lost {
+  border-color: var(--hud-hp);
+}
+
 .hud-phase {
   color: var(--hud-brass);
   font-size: 15px;

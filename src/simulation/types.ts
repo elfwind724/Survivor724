@@ -150,6 +150,23 @@ export interface PlayerState {
   view: CameraView
 }
 
+export interface NightLoot {
+  itemId: string
+  label: string
+  count: number
+}
+
+export interface NightReport {
+  day: number
+  outcome: 'won' | 'lost'
+  kills: number
+  spawned: number
+  downed: number
+  wallsLost: number
+  loot: NightLoot[]
+  reason: string
+}
+
 export interface EnemyState {
   id: string
   kind: 'wanderer' | 'runner'
@@ -259,6 +276,11 @@ export interface WorldState {
   impacts: ImpactState[]
   rosterStrategy: string | null
   showInteriors: boolean
+  nightKills: number
+  nightSpawned: number
+  nightWalls: number
+  nightReport: NightReport | null
+  gameOver: boolean
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

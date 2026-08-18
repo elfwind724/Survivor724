@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { createEnemy, reloadWeapon, stepProjectiles, towerRangeBonus, tryShoot } from '@/combat/Combat'
 import { reinforceSector } from '@/combat/Defense'
-import { assignedRescuer, stepNightCycle, stepNightDefender } from '@/combat/Night'
+import { assignedRescuer, nightLootFor, stepNightCycle, stepNightDefender } from '@/combat/Night'
+import { demolishStructure } from '@/base/construction'
+import { countItem } from '@/inventory/Inventory'
 import { hordeCounts } from '@/data/enemies'
 import { assignWatch } from '@/jobs/Roster'
 import { TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
@@ -192,6 +194,48 @@ describe('combat and night', () => {
     expect(hordeCounts(1).wanderers + hordeCounts(1).runners).toBe(26)
     expect(hordeCounts(3).wanderers).toBe(26)
     expect(hordeCounts(3).runners).toBe(12)
+  })
+
+  it('pays salvage into the warehouse after a survived night', () => {
+    const world = createInitialWorld()
+    const warehouse = world.inventories['inv-warehouse']
+    if (!warehouse) throw new Error('missing warehouse')
+    const wood = countItem(warehouse, 'wood')
+    world.nightKills = 12
+    world.nightSpawned = 26
+    world.nightWalls = 40
+    world.lastPhase = 'night'
+    world.time.phase = 'aftermath'
+    stepNightCycle(world)
+    expect(world.gameOver).toBe(false)
+    expect(world.nightReport?.outcome).toBe('won')
+    expect(world.nightReport?.kills).toBe(12)
+    expect(countItem(warehouse, 'wood')).toBe(wood + nightLootFor(12)[0]!.count)
+    expect(world.nightReport?.loot.some((item) => item.itemId === 'meal' && item.count > 0)).toBe(true)
+  })
+
+  it('ends the game when the whole roster is down', () => {
+    const world = createInitialWorld()
+    world.time.phase = 'night'
+    for (const survivor of world.survivors) {
+      survivor.downed = true
+      survivor.health = 0
+    }
+    stepNightCycle(world)
+    expect(world.gameOver).toBe(true)
+    expect(world.nightReport?.outcome).toBe('lost')
+    expect(world.nightReport?.reason).toContain('全员')
+  })
+
+  it('ends the game when the warehouse is destroyed', () => {
+    const world = createInitialWorld()
+    const warehouse = world.structures.find((entry) => entry.definitionId === 'warehouse')
+    if (!warehouse) throw new Error('missing warehouse')
+    demolishStructure(world, warehouse.id, false)
+    world.time.phase = 'night'
+    stepNightCycle(world)
+    expect(world.gameOver).toBe(true)
+    expect(world.nightReport?.reason).toContain('仓库')
   })
 
   it('spawns a night horde once per night and posts defenders', () => {
