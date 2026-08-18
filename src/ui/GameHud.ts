@@ -1,4 +1,4 @@
-import { isCooking, isSleeping } from '@/base/FacilityLife'
+import { activityCaption } from '@/survivors/Activity'
 import { countItem } from '@/inventory/Inventory'
 import { assignmentLabel, postLabel } from '@/jobs/Roster'
 import { equippedWeapon, INFINITE_AMMO, magazineSize, readMag } from '@/data/weapons'
@@ -90,7 +90,7 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
       { id: 'wood', label: '木', count: warehouse ? countItem(warehouse, 'wood') : 0 },
       { id: 'scrap', label: '铁', count: warehouse ? countItem(warehouse, 'scrap') : 0 },
       { id: 'ammo', label: '弹', count: warehouse ? countItem(warehouse, 'ammo') : 0 },
-      { id: 'food', label: '食', count: warehouse ? countItem(warehouse, 'raw_meat') + countItem(warehouse, 'raw_fish') + countItem(warehouse, 'meal') : 0 },
+      { id: 'food', label: '食', count: warehouse ? countItem(warehouse, 'raw_meat') + countItem(warehouse, 'raw_fish') + countItem(warehouse, 'berry') + countItem(warehouse, 'meal') : 0 },
     ],
     cards: world.survivors.map((survivor) => cardModel(world, survivor)),
     weapon: focusWeapon(world),
@@ -294,37 +294,7 @@ function renderWeaponHud(weapon: HudModel['weapon']): string {
 }
 
 function statusLabel(world: WorldState, survivor: SurvivorState): string {
-  if (survivor.id === world.player.heroId) return '主角'
-  if (survivor.downed) return '倒地'
-  if (survivor.dayAssignment === 'follow') return '跟随'
-  if (isSleeping(world, survivor)) return '睡觉'
-  if (survivor.watchPostId || survivor.dayAssignment === 'watch') {
-    if (world.time.phase !== 'night' && survivor.workerState !== 'TravelToTarget') return '站岗'
-  }
-  if (isCooking(world, survivor)) return '做饭'
-  if (world.time.phase === 'night' || world.time.phase === 'aftermath') return '守夜'
-  switch (survivor.workerState) {
-    case 'AcquireEquipment':
-      return '取工具'
-    case 'TravelToTarget':
-      return '赶路'
-    case 'Work':
-      return survivor.currentJobId?.startsWith('cook') ? '做饭' : '工作'
-    case 'CollectOutput':
-      return '收货'
-    case 'ReturnToBase':
-      return '返程'
-    case 'DepositItems':
-      return '卸货'
-    case 'ReturnEquipment':
-      return '还工具'
-    case 'Eat':
-      return '吃饭'
-    case 'Rest':
-      return '休息'
-    default:
-      return '待命'
-  }
+  return activityCaption(world, survivor)
 }
 
 function escapeHtml(value: string): string {

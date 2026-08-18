@@ -9,7 +9,8 @@ import { ENEMY_ASSETS, gateOpenAsset, STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '
 import { cellCenter, worldToCell } from '@/navigation/NavGrid'
 import { followCameraOffset } from '@/controls/CameraWish'
 import { BASE } from '@/simulation/baseLayout'
-import type { GridCell, StructureState, SurvivorState, WorldState } from '@/simulation/types'
+import type { GridCell, StructureState, SurvivorState, WildlifeState, WorldState } from '@/simulation/types'
+import { wildlifeAsset, wildlifeHeight } from '@/world/Wildlife'
 import { AssetLibrary } from './AssetLibrary'
 import { pickArmedPose, pickCharacterClip, type CharacterPose } from './CharacterClips'
 import { barrelTipWorld, findHoldBone, prepareHeldGun, snapHeldGun } from './HeldWeapon'
@@ -299,7 +300,7 @@ export class DebugRenderer {
     this.syncZones(world)
     this.syncStructures(world)
     this.syncEnemies(world, dt)
-    this.syncActors(world.wildlife, this.wildlife, 1.4, 1.1, 0xb8a078)
+    this.syncWildlife(world, dt)
     for (const survivor of world.survivors) {
       let marker = this.survivors.get(survivor.id)
       if (!marker) {
@@ -792,37 +793,93 @@ export class DebugRenderer {
     this.sun.intensity = 1.45
   }
 
-  private syncActors(
-    actors: Array<{ id: string; position: { x: number; z: number }; facingYaw?: number; alive?: boolean }>,
-    store: Map<string, Marker>,
-    width: number,
-    height: number,
-    color: number,
-  ): void {
+  private syncWildlife(world: WorldState, dt: number): void {
     const seen = new Set<string>()
-    for (const actor of actors) {
-      seen.add(actor.id)
-      let marker = store.get(actor.id)
+    for (const animal of world.wildlife) {
+      if (animal.harvested) continue
+      seen.add(animal.id)
+      let marker = this.wildlife.get(animal.id)
       if (!marker) {
-        const mesh = new THREE.Mesh(
-          new THREE.BoxGeometry(width, height, width * 0.7),
-          new THREE.MeshLambertMaterial({ color }),
-        )
+        const mesh = this.createSurvivorMarker()
         this.scene.add(mesh)
-        marker = { id: actor.id, mesh }
-        store.set(actor.id, marker)
+        marker = { id: animal.id, mesh }
+        this.wildlife.set(animal.id, marker)
       }
-      if (marker.mesh instanceof THREE.Mesh && marker.mesh.material instanceof THREE.MeshLambertMaterial) {
-        marker.mesh.material.color.set(actor.alive === false ? 0x6a5040 : color)
+      this.kitWildlife(animal)
+      const height = wildlifeHeight(animal.kind)
+      marker.mesh.visible = true
+      if (animal.alive) {
+        marker.mesh.position.set(animal.position.x, 0, animal.position.z)
+        marker.mesh.rotation.order = 'YXZ'
+        marker.mesh.rotation.set(0, animal.facingYaw, 0)
+      } else {
+        marker.mesh.position.set(animal.position.x, 0.18, animal.position.z)
+        marker.mesh.rotation.order = 'YXZ'
+        marker.mesh.rotation.set(Math.PI / 2, animal.facingYaw, 0)
       }
-      marker.mesh.position.set(actor.position.x, height / 2, actor.position.z)
-      if (actor.facingYaw !== undefined) marker.mesh.rotation.y = actor.facingYaw
+      this.driveWildlife(animal, dt)
+      const kit = marker.mesh.getObjectByName('kit')
+      const fallback = marker.mesh.getObjectByName('fallback')
+      if (fallback instanceof THREE.Mesh && fallback.material instanceof THREE.MeshLambertMaterial) {
+        fallback.visible = !kit
+        fallback.position.y = height / 2
+        fallback.material.color.set(animal.alive ? 0xb8a078 : 0x6a5040)
+      }
     }
-    for (const [id, marker] of store) {
+    for (const [id, marker] of this.wildlife) {
       if (seen.has(id)) continue
-      this.scene.remove(marker.mesh)
-      store.delete(id)
+      this.disposeObject(marker.mesh)
+      this.rigs.delete(id)
+      this.wildlife.delete(id)
     }
+  }
+
+  private kitWildlife(animal: WildlifeState): void {
+    const marker = this.wildlife.get(animal.id)
+    const assetId = wildlifeAsset(animal.kind)
+    this.enqueueAsset(assetId)
+    if (!marker || marker.mesh.getObjectByName('kit')) return
+    const kit = this.spawnKit(assetId, 1)
+    if (!kit) return
+    fitToHeight(kit, wildlifeHeight(animal.kind))
+    marker.mesh.add(kit)
+    const mixer = new THREE.AnimationMixer(kit)
+    const clips = this.library.clips(assetId)
+    const poses: CharacterRig['poses'] = {}
+    for (const kind of ['idle', 'walk', 'run'] as const) {
+      const clip = pickCharacterClip(clips, kind)
+      if (clip) poses[kind] = mixer.clipAction(clip)
+    }
+    if (!poses.idle && clips[0]) poses.idle = mixer.clipAction(clips[0])
+    poses.idle?.play()
+    this.rigs.set(animal.id, {
+      mixer,
+      poses,
+      current: 'idle',
+      lastX: animal.position.x,
+      lastZ: animal.position.z,
+      displaySpeed: 0,
+    })
+  }
+
+  private driveWildlife(animal: WildlifeState, dt: number): void {
+    const rig = this.rigs.get(animal.id)
+    if (!rig) return
+    if (!animal.alive) {
+      rig.mixer.update(dt)
+      return
+    }
+    const speed = Math.hypot(animal.position.x - rig.lastX, animal.position.z - rig.lastZ) / Math.max(dt, 1 / 120)
+    rig.lastX = animal.position.x
+    rig.lastZ = animal.position.z
+    rig.displaySpeed = speed > 0.15 ? speed : rig.displaySpeed * Math.exp(-dt * 10)
+    const next = !animal.alive ? 'idle' : rig.displaySpeed > 3.2 ? 'run' : rig.displaySpeed > 0.35 ? 'walk' : 'idle'
+    if (next !== rig.current) {
+      rig.poses[rig.current]?.fadeOut(0.12)
+      rig.poses[next]?.reset().fadeIn(0.12).play()
+      rig.current = next
+    }
+    rig.mixer.update(dt)
   }
 
   private syncEnemies(world: WorldState, dt: number): void {
@@ -922,6 +979,12 @@ export class DebugRenderer {
       'food/cooking-pot',
       'food/frying-pan',
       'fort/mountain',
+      'animals/deer',
+      'animals/stag',
+      'animals/fox',
+      'animals/wolf',
+      'animals/cow',
+      'animals/horse',
     ]
     return ids
   }

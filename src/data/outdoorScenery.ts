@@ -58,6 +58,20 @@ export function seedOutdoorScenery(): DecorationState[] {
   add('nature/bush', 28, -44, 0.4, 1)
   add('nature/bush-with-flowers', 22, 52, 1.1, 1)
   add('nature/fern', -40, 46, 2.0, 1)
+
+  add('natureKit/bush-with-flowers', 38, -16, 0.4, 1)
+  add('natureKit/bush', 40, -20, 1.2, 1)
+  add('natureKit/bush', 34, -14, 2.1, 1)
+  add('natureKit/flower-group', 36, -18, 0.6, 1)
+  add('natureKit/clover', 42, -12, 1.4, 1)
+  add('natureKit/tall-grass', 22, 70, 0.3, 1)
+  add('natureKit/tall-grass', 30, 76, 1.8, 1)
+  add('natureKit/grass', 18, 68, 0.9, 1)
+  add('natureKit/flower-group', 28, 64, 0.2, 1)
+  add('natureKit/fern', -50, 36, 1.1, 1)
+  add('natureKit/pebble-round', -54, 32, 0.4, 1)
+  add('natureKit/pine', 64, -20, 0.7, 0.85)
+  add('natureKit/tree', 46, -30, 1.4, 0.85)
   return items
 }
 

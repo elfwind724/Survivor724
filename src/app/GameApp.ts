@@ -20,7 +20,9 @@ import { createInitialWorld } from '@/simulation/WorldState'
 import type { GridCell, WorldState } from '@/simulation/types'
 import { reinforceSector } from '@/combat/Defense'
 import { postForTower } from '@/combat/Night'
+import { isSleeping } from '@/base/FacilityLife'
 import { assignWatch } from '@/jobs/Roster'
+import { activityLines } from '@/survivors/Activity'
 import { BuildMenu } from '@/ui/BuildMenu'
 import { CharacterSheet } from '@/ui/CharacterSheet'
 import { CreativeEditor } from '@/ui/CreativeEditor'
@@ -675,6 +677,19 @@ export class GameApp {
       const klass = entry.stage === 'demolishing' ? 'build-tag is-wreck' : showHp ? 'build-tag is-hp' : 'build-tag'
       bits.push(`<span class="${klass}" style="left:${screen.x}px;top:${screen.y}px">${text}</span>`)
     }
+    for (const survivor of this.world.survivors) {
+      const y = isSleeping(this.world, survivor) ? 1.55 : 3.15
+      const screen = this.renderer.worldToScreen(survivor.position.x, y, survivor.position.z)
+      if (!screen) continue
+      const lines = activityLines(this.world, survivor)
+      const hero = survivor.id === this.world.player.heroId ? ' is-hero' : ''
+      const body = lines.map((line, index) => {
+        if (index === 0) return `<em>${escapeChrome(line)}</em>`
+        if (line.startsWith('+')) return `<i>${escapeChrome(line)}</i>`
+        return `<small>${escapeChrome(line)}</small>`
+      }).join('')
+      bits.push(`<span class="actor-tag${hero}" style="left:${screen.x}px;top:${screen.y}px"><b>${escapeChrome(survivor.name)}</b>${body}</span>`)
+    }
     this.labels.innerHTML = bits.join('')
   }
 
@@ -740,4 +755,14 @@ export class GameApp {
     this.hud.render(this.world, this.notice)
     this.sheet.render(this.world)
   }
+}
+
+function escapeChrome(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => {
+    if (char === '&') return '&amp;'
+    if (char === '<') return '&lt;'
+    if (char === '>') return '&gt;'
+    if (char === '"') return '&quot;'
+    return '&#39;'
+  })
 }

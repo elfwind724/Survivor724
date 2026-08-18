@@ -26,7 +26,7 @@ export function foodAvailable(world: WorldState): boolean {
   const warehouse = findContainer(world, 'warehouse')
   if (!warehouse) return false
   const stock = inventoryOf(world.inventories, warehouse.inventoryId)
-  return countItem(stock, 'meal') > 0 || countItem(stock, 'raw_meat') > 0 || countItem(stock, 'raw_fish') > 0
+  return countItem(stock, 'meal') > 0 || countItem(stock, 'raw_meat') > 0 || countItem(stock, 'raw_fish') > 0 || countItem(stock, 'berry') > 0
 }
 
 export function shouldEat(world: WorldState, survivor: SurvivorState): boolean {
@@ -56,6 +56,11 @@ export function eatOne(world: WorldState, survivor: SurvivorState): boolean {
   if (removeItem(stock, 'raw_meat', 1) || removeItem(stock, 'raw_fish', 1)) {
     survivor.hunger = clampVital(survivor.hunger + 16)
     survivor.thirst = clampVital(survivor.thirst + 6)
+    return true
+  }
+  if (removeItem(stock, 'berry', 1)) {
+    survivor.hunger = clampVital(survivor.hunger + 10)
+    survivor.thirst = clampVital(survivor.thirst + 8)
     return true
   }
   return false
@@ -102,12 +107,12 @@ export function rawFoodCount(world: WorldState, survivor?: SurvivorState): numbe
   let total = 0
   if (survivor) {
     const bag = inventoryOf(world.inventories, survivor.inventoryId)
-    total += countItem(bag, 'raw_meat') + countItem(bag, 'raw_fish')
+    total += countItem(bag, 'raw_meat') + countItem(bag, 'raw_fish') + countItem(bag, 'berry')
   }
   const warehouse = findContainer(world, 'warehouse')
   if (warehouse) {
     const stock = inventoryOf(world.inventories, warehouse.inventoryId)
-    total += countItem(stock, 'raw_meat') + countItem(stock, 'raw_fish')
+    total += countItem(stock, 'raw_meat') + countItem(stock, 'raw_fish') + countItem(stock, 'berry')
   }
   return total
 }

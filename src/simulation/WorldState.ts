@@ -3,7 +3,7 @@ import { loadDecorations } from '@/base/decorations'
 import { facilityBeds } from '@/base/FacilityLife'
 import { seedOutdoorScenery } from '@/data/outdoorScenery'
 import { createWorkZone } from '@/base/workZones'
-import { createDeer } from '@/combat/Combat'
+import { seedWildlife } from '@/world/Wildlife'
 import { createDefenseSectors } from '@/combat/Defense'
 import { rebuildNightPosts } from '@/combat/Night'
 import { createInventory } from '@/inventory/Inventory'
@@ -148,6 +148,7 @@ export function createInitialWorld(): WorldState {
     nodes: [
       { id: 'node-forest', kind: 'hunt', position: forest, reserve: 80, requiredToolId: 'rifle' },
       { id: 'node-river', kind: 'fish', position: river, reserve: 80, requiredToolId: 'rod' },
+      { id: 'node-berry', kind: 'berry', position: vec3(38, 0, -16), reserve: 70, requiredToolId: null },
       { id: 'node-ruin', kind: 'scavenge', position: ruin, reserve: 80, requiredToolId: 'crowbar' },
     ],
     containers: [
@@ -157,6 +158,8 @@ export function createInitialWorld(): WorldState {
     jobs: [
       createJob({ id: 'job-fish', definitionId: 'fish', targetId: 'node-river', assigneeId: 'fisher' }),
       createJob({ id: 'job-scavenge', definitionId: 'scavenge', targetId: 'node-ruin', assigneeId: 'scavenger' }),
+      createJob({ id: 'job-hunt', definitionId: 'hunt', targetId: 'node-forest', assigneeId: null }),
+      createJob({ id: 'job-gather', definitionId: 'gather', targetId: 'node-berry', assigneeId: null }),
     ],
     nav: createNavGrid(),
     navDirty: true,
@@ -170,14 +173,11 @@ export function createInitialWorld(): WorldState {
     workZones: [
       createWorkZone('zone-hunt', 'hunt', 40, -40, 70, 0),
       createWorkZone('zone-fish', 'fish', -70, 15, -40, 50),
+      createWorkZone('zone-gather', 'gather', 28, -30, 50, -4),
       createWorkZone('zone-scavenge', 'scavenge', 25, 40, 55, 70),
     ],
     enemies: [],
-    wildlife: [
-      createDeer('deer-1', vec3(52, 0, -18)),
-      createDeer('deer-2', vec3(58, 0, -24)),
-      createDeer('deer-3', vec3(48, 0, -14)),
-    ],
+    wildlife: seedWildlife(),
     nightPosts: [],
     lastPhase: 'dawn',
     nightSpawnedDay: 0,

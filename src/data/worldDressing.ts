@@ -37,6 +37,8 @@ export const CREATIVE_TABS: Array<{ id: 'all' | AssetCategory; label: string }> 
   { id: 'fort', label: '城墙设施' },
   { id: 'nature', label: '自然' },
   { id: 'natureClump', label: '树丛' },
+  { id: 'natureKit', label: '野地' },
+  { id: 'animals', label: '动物' },
   { id: 'interior', label: '室内' },
   { id: 'survival', label: '生存' },
   { id: 'food', label: '食物' },

@@ -13,6 +13,8 @@ const CATEGORY = {
   自然模型包: 'natureClump',
   自然模型包大多: 'nature',
   食物素材模型: 'food',
+  'Animated Animal Pack-glb': 'animals',
+  'Stylized Nature MegaKit.undefined-glb': 'natureKit',
 }
 
 function walk(dir, out = []) {
@@ -73,6 +75,8 @@ export type AssetCategory =
   | 'survival'
   | 'natureClump'
   | 'nature'
+  | 'natureKit'
+  | 'animals'
   | 'food'
 
 export interface AssetEntry {

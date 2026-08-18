@@ -27,6 +27,10 @@ type SurvivorDraft = Omit<
   | 'thirst'
   | 'attributes'
   | 'equipment'
+  | 'lastYieldItem'
+  | 'lastYieldCount'
+  | 'lastYieldXp'
+  | 'lastYieldAt'
 > & {
   destination?: Vec3 | null
   homePosition?: Vec3
@@ -52,6 +56,10 @@ type SurvivorDraft = Omit<
   thirst?: number
   attributes?: SurvivorAttributes
   equipment?: EquipmentLoadout
+  lastYieldItem?: string | null
+  lastYieldCount?: number
+  lastYieldXp?: number
+  lastYieldAt?: number
 }
 
 export function createSurvivor(input: SurvivorDraft): SurvivorState {
@@ -82,6 +90,10 @@ export function createSurvivor(input: SurvivorDraft): SurvivorState {
     thirst: input.thirst ?? 80,
     attributes: input.attributes ?? defaultAttributes(input.professionId),
     equipment: input.equipment ?? emptyLoadout(),
+    lastYieldItem: input.lastYieldItem ?? null,
+    lastYieldCount: input.lastYieldCount ?? 0,
+    lastYieldXp: input.lastYieldXp ?? 0,
+    lastYieldAt: input.lastYieldAt ?? 0,
   }
 }
 

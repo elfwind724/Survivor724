@@ -6,6 +6,9 @@ import { derivedStats } from '@/data/equipment'
 import { weaponById } from '@/data/weapons'
 import { clearJobTools, syncToolsToEquipment } from '@/survivors/Equipment'
 import { harvestWildlife, tryShoot } from '@/combat/Combat'
+import { countRawFood, firstRawFood, WORK_XP } from '@/data/items'
+import { recordWorkYield } from '@/survivors/Progress'
+import { nearestLivingWildlife } from '@/world/Wildlife'
 import { nodeAllowedForSurvivor } from '@/base/workZones'
 import { WORK_SECONDS, jobDefinition } from '@/data/jobs'
 import { addItem, canAdd, countItem, inventoryOf, removeItem, usedSlots } from '@/inventory/Inventory'
@@ -158,7 +161,7 @@ function startNextAction(world: WorldState, survivor: SurvivorState): void {
       return
     }
     const bag = inventoryOf(world.inventories, survivor.inventoryId)
-    const hasRaw = bag.items.some((item) => item.itemId === 'raw_meat' || item.itemId === 'raw_fish')
+    const hasRaw = countRawFood(bag) > 0
     const target = hasRaw ? cookSpot(world, kitchen) : warehousePosition(world, survivor)
     if (beginTravel(world, survivor, target)) survivor.workerState = 'TravelToTarget'
     return
@@ -229,7 +232,7 @@ function stepTravel(world: WorldState, survivor: SurvivorState, dt: number): voi
   const definition = job ? jobDefinition(job.definitionId) : undefined
   if (definition?.id === 'haul' || definition?.id === 'cook') {
     const bag = inventoryOf(world.inventories, survivor.inventoryId)
-    const hasRaw = bag.items.some((item) => item.itemId === 'raw_meat' || item.itemId === 'raw_fish')
+    const hasRaw = countRawFood(bag) > 0
     if (definition.id === 'cook') {
       const kitchen = job ? findStructure(world, job.targetId) : undefined
       if (kitchen && hasRaw) {
@@ -249,15 +252,21 @@ function stepTravel(world: WorldState, survivor: SurvivorState, dt: number): voi
 function stepWork(world: WorldState, survivor: SurvivorState, dt: number): void {
   const job = currentJob(world, survivor)
   if (job && jobDefinition(job.definitionId)?.id === 'hunt') {
-    const deer = world.wildlife.find((entry) => entry.alive && distanceXZ(entry.position, survivor.position) < 22)
-    if (deer) {
-      if (distanceXZ(deer.position, survivor.position) > 10) {
-        beginTravel(world, survivor, deer.position)
+    const prey = nearestLivingWildlife(world, survivor.position, 42)
+    const carcass = world.wildlife.find((entry) => !entry.alive && !entry.harvested && distanceXZ(entry.position, survivor.position) < 22)
+    if (carcass && distanceXZ(carcass.position, survivor.position) <= 2.2) {
+      survivor.workerState = 'CollectOutput'
+      return
+    }
+    if (prey) {
+      if (distanceXZ(prey.position, survivor.position) > 10) {
+        const aim = survivor.pathTarget
+        if (!aim || distanceXZ(aim, prey.position) > 4) beginTravel(world, survivor, prey.position)
         survivor.workerState = 'TravelToTarget'
         return
       }
-      const dx = deer.position.x - survivor.position.x
-      const dz = deer.position.z - survivor.position.z
+      const dx = prey.position.x - survivor.position.x
+      const dz = prey.position.z - survivor.position.z
       survivor.facingYaw = Math.atan2(dx, dz)
       if (!tryShoot(world, survivor) && survivor.ammo <= 0) {
         survivor.workElapsed += dt
@@ -266,7 +275,12 @@ function stepWork(world: WorldState, survivor: SurvivorState, dt: number): void 
           survivor.workerState = 'CollectOutput'
         }
       }
-      if (!deer.alive) survivor.workerState = 'CollectOutput'
+      if (!prey.alive) survivor.workerState = 'CollectOutput'
+      return
+    }
+    if (carcass) {
+      beginTravel(world, survivor, carcass.position)
+      survivor.workerState = 'TravelToTarget'
       return
     }
   }
@@ -307,6 +321,7 @@ function stepCollect(world: WorldState, survivor: SurvivorState): void {
 
   if (addItem(bag, definition.outputItemId, 1)) {
     node.reserve -= 1
+    recordWorkYield(world, survivor, definition.outputItemId, 1, WORK_XP[definition.id] ?? 3)
   }
 
   if (shouldReturn(world, survivor) || node.reserve <= 0) {
@@ -328,10 +343,13 @@ function stepCookCollect(world: WorldState, survivor: SurvivorState): void {
 
   const bag = inventoryOf(world.inventories, survivor.inventoryId)
   const stock = inventoryOf(world.inventories, warehouse.inventoryId)
-  if (countItem(bag, 'raw_meat') > 0 || countItem(bag, 'raw_fish') > 0) {
-    const raw = countItem(bag, 'raw_meat') > 0 ? 'raw_meat' : 'raw_fish'
-    if (removeItem(bag, raw, 1)) addItem(bag, 'meal', 1)
-    if (shouldReturn(world, survivor) || (countItem(stock, 'raw_meat') + countItem(stock, 'raw_fish') <= 0 && countItem(bag, 'raw_meat') + countItem(bag, 'raw_fish') <= 0)) {
+  const bagRaw = firstRawFood(bag)
+  if (bagRaw) {
+    if (removeItem(bag, bagRaw, 1)) {
+      addItem(bag, 'meal', 1)
+      recordWorkYield(world, survivor, 'meal', 1, WORK_XP.cook ?? 5)
+    }
+    if (shouldReturn(world, survivor) || (countRawFood(stock) <= 0 && countRawFood(bag) <= 0)) {
       beginReturn(world, survivor)
       return
     }
@@ -341,7 +359,7 @@ function stepCookCollect(world: WorldState, survivor: SurvivorState): void {
 
   const space = bag.capacity - usedSlots(bag)
   let take = Math.min(2, space)
-  for (const raw of ['raw_meat', 'raw_fish'] as const) {
+  for (const raw of ['raw_meat', 'raw_fish', 'berry'] as const) {
     if (take <= 0) break
     const have = countItem(stock, raw)
     const moved = Math.min(take, have)
@@ -349,7 +367,7 @@ function stepCookCollect(world: WorldState, survivor: SurvivorState): void {
     if (removeItem(stock, raw, moved)) addItem(bag, raw, moved)
     take -= moved
   }
-  if (countItem(bag, 'raw_meat') + countItem(bag, 'raw_fish') <= 0) {
+  if (countRawFood(bag) <= 0) {
     goHome(world, survivor)
     return
   }

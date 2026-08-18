@@ -140,6 +140,10 @@ export interface SurvivorState {
   xp: number
   attributes: SurvivorAttributes
   equipment: EquipmentLoadout
+  lastYieldItem: string | null
+  lastYieldCount: number
+  lastYieldXp: number
+  lastYieldAt: number
 }
 
 export type CameraView = 'topdown' | 'firstperson'
@@ -187,12 +191,26 @@ export interface ImpactState {
   maxLife: number
 }
 
+export type WildlifeKind = 'deer' | 'stag' | 'fox' | 'wolf' | 'cow' | 'bull' | 'horse' | 'alpaca' | 'donkey'
+export type WildlifeHabitat = 'forest' | 'grass' | 'river'
+export type WildlifeMood = 'graze' | 'wander' | 'flee'
+
 export interface WildlifeState {
   id: string
-  kind: 'deer'
+  kind: WildlifeKind
+  habitat: WildlifeHabitat
+  herdId: string
   position: Vec3
+  home: Vec3
+  destination: Vec3 | null
+  facingYaw: number
   health: number
+  maxHealth: number
   alive: boolean
+  mood: WildlifeMood
+  fleeTimer: number
+  harvested: boolean
+  respawnIn: number
 }
 
 export interface ProjectileState {
@@ -224,7 +242,7 @@ export interface DefenseSector {
 
 export interface ResourceNodeState {
   id: string
-  kind: 'hunt' | 'fish' | 'scavenge' | 'wood'
+  kind: 'hunt' | 'fish' | 'scavenge' | 'wood' | 'berry'
   position: Vec3
   reserve: number
   requiredToolId: string | null

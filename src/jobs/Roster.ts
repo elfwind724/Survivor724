@@ -6,6 +6,7 @@ import type { SurvivorState, WorldState } from '@/simulation/types'
 export const ROSTER_POSTS = [
   { id: 'hunt', label: '打猎' },
   { id: 'fish', label: '钓鱼' },
+  { id: 'gather', label: '采集' },
   { id: 'scavenge', label: '搜刮' },
   { id: 'haul', label: '搬运' },
   { id: 'build', label: '建造' },
@@ -27,7 +28,7 @@ export const WATCH_CORNERS = [
 export const ROSTER_STRATEGIES = [
   { id: 'watch', label: '四角站岗', hint: '四名队员一键上四座瞭望塔', posts: ['watch', 'watch', 'watch', 'watch'] },
   { id: 'balanced', label: '均衡上岗', hint: '按职业回各自岗位', posts: ['hunt', 'fish', 'scavenge', 'haul', 'build'] },
-  { id: 'food', label: '优先食物', hint: '打猎钓鱼做饭', posts: ['hunt', 'fish', 'cook', 'hunt', 'haul'] },
+  { id: 'food', label: '优先食物', hint: '打猎钓鱼采集做饭', posts: ['hunt', 'fish', 'cook', 'gather', 'haul'] },
   { id: 'build', label: '优先建设', hint: '搬运和施工优先', posts: ['haul', 'build', 'build', 'scavenge', 'hunt'] },
   { id: 'scavenge', label: '优先搜刮', hint: '多派人外出搜刮', posts: ['scavenge', 'scavenge', 'haul', 'hunt', 'cook'] },
   { id: 'rest', label: '全体待命', hint: '收回营地休息', posts: ['idle', 'idle', 'idle', 'idle', 'idle'] },
@@ -70,6 +71,9 @@ export function assignPost(world: WorldState, survivorId: string, postId: Roster
   if (!survivor || survivor.downed || isHero(world, survivor)) return false
   const next = postId === 'idle' ? null : postId
   if (next && !jobDefinition(next) && next !== 'cook' && next !== 'watch' && next !== 'follow') return false
+  for (const job of world.jobs) {
+    if (job.assigneeId === survivor.id) job.assigneeId = null
+  }
   survivor.dayAssignment = next
   survivor.currentJobId = null
   survivor.workerState = 'RestOrNextJob'

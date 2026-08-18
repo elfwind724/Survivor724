@@ -71,6 +71,7 @@ describe('facility life', () => {
     expect(pose.x).toBeCloseTo(-Math.PI / 2, 5)
     expect(pose.y).toBeCloseTo(0, 5)
     expect(sleeperWorld({ x: 0, z: 0 }).z).toBeGreaterThan(0.6)
+    expect(sleeperWorld({ x: 0, z: 0 }).y).toBeGreaterThan(0.9)
   })
 
   it('treats kitchen and quarters as open living buildings', () => {

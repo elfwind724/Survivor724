@@ -45,7 +45,14 @@ export function suggestedScale(entry: AssetEntry): number {
     return 0.75
   }
   if (entry.category === 'survival') return 0.4
+  if (entry.category === 'animals') return 1
   if (entry.category === 'nature') return 1
+  if (entry.category === 'natureKit') {
+    if (name.includes('pine') || name.includes('tree')) return 3.6
+    if (name.includes('rock')) return 0.9
+    if (name.includes('grass') || name.includes('flower') || name.includes('clover') || name.includes('fern')) return 0.7
+    return 1
+  }
   if (entry.category === 'natureClump') return name.includes('tree') ? 1.12 : 1.35
   if (entry.category === 'fort') {
     if (name.includes('wall') && !name.includes('tower')) return 4.4

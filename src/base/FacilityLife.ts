@@ -69,7 +69,7 @@ export function facilityBounds(world: WorldState, structure: StructureState): {
 }
 
 export const BED_SCALE = 0.82
-export const SLEEPER_HEIGHT = 0.5
+export const SLEEPER_HEIGHT = 1.02
 export const SLEEPER_ALONG = 1.05
 
 export function facilityBeds(world: WorldState, structure: StructureState): Vec3[] {

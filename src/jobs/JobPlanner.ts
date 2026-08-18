@@ -115,12 +115,12 @@ function planKitchenJobs(world: WorldState): void {
 
 function cookHasWork(world: WorldState): boolean {
   const warehouse = world.inventories['inv-warehouse']
-  if (warehouse && warehouse.items.some((item) => (item.itemId === 'raw_meat' || item.itemId === 'raw_fish') && item.count > 0)) {
+  if (warehouse && warehouse.items.some((item) => (item.itemId === 'raw_meat' || item.itemId === 'raw_fish' || item.itemId === 'berry') && item.count > 0)) {
     return true
   }
   return world.survivors.some((survivor) => {
     const bag = world.inventories[survivor.inventoryId]
-    return !!bag && bag.items.some((item) => (item.itemId === 'raw_meat' || item.itemId === 'raw_fish' || item.itemId === 'meal') && item.count > 0)
+    return !!bag && bag.items.some((item) => (item.itemId === 'raw_meat' || item.itemId === 'raw_fish' || item.itemId === 'berry' || item.itemId === 'meal') && item.count > 0)
   })
 }
 

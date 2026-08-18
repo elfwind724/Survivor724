@@ -7,6 +7,8 @@ export type AssetCategory =
   | 'survival'
   | 'natureClump'
   | 'nature'
+  | 'natureKit'
+  | 'animals'
   | 'food'
 
 export interface AssetEntry {
@@ -18,6 +20,566 @@ export interface AssetEntry {
 }
 
 export const ASSET_INDEX: readonly AssetEntry[] = [
+  {
+    "id": "animals/alpaca",
+    "name": "Alpaca",
+    "category": "animals",
+    "file": "Animated Animal Pack-glb/Alpaca.glb",
+    "bytes": 1053804
+  },
+  {
+    "id": "animals/bull",
+    "name": "Bull",
+    "category": "animals",
+    "file": "Animated Animal Pack-glb/Bull.glb",
+    "bytes": 1038360
+  },
+  {
+    "id": "animals/cow",
+    "name": "Cow",
+    "category": "animals",
+    "file": "Animated Animal Pack-glb/Cow.glb",
+    "bytes": 1028584
+  },
+  {
+    "id": "animals/deer",
+    "name": "Deer",
+    "category": "animals",
+    "file": "Animated Animal Pack-glb/Deer.glb",
+    "bytes": 1007564
+  },
+  {
+    "id": "animals/donkey",
+    "name": "Donkey",
+    "category": "animals",
+    "file": "Animated Animal Pack-glb/Donkey.glb",
+    "bytes": 1093824
+  },
+  {
+    "id": "animals/fox",
+    "name": "Fox",
+    "category": "animals",
+    "file": "Animated Animal Pack-glb/Fox.glb",
+    "bytes": 960228
+  },
+  {
+    "id": "animals/horse",
+    "name": "Horse",
+    "category": "animals",
+    "file": "Animated Animal Pack-glb/Horse.glb",
+    "bytes": 1108124
+  },
+  {
+    "id": "animals/husky",
+    "name": "Husky",
+    "category": "animals",
+    "file": "Animated Animal Pack-glb/Husky.glb",
+    "bytes": 927536
+  },
+  {
+    "id": "animals/shiba-inu",
+    "name": "Shiba Inu",
+    "category": "animals",
+    "file": "Animated Animal Pack-glb/Shiba Inu.glb",
+    "bytes": 851196
+  },
+  {
+    "id": "animals/stag",
+    "name": "Stag",
+    "category": "animals",
+    "file": "Animated Animal Pack-glb/Stag.glb",
+    "bytes": 1044172
+  },
+  {
+    "id": "animals/white-horse",
+    "name": "White Horse",
+    "category": "animals",
+    "file": "Animated Animal Pack-glb/White Horse.glb",
+    "bytes": 1109444
+  },
+  {
+    "id": "animals/wolf",
+    "name": "Wolf",
+    "category": "animals",
+    "file": "Animated Animal Pack-glb/Wolf.glb",
+    "bytes": 986712
+  },
+  {
+    "id": "natureKit/bush-with-flowers",
+    "name": "Bush with Flowers",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Bush with Flowers.glb",
+    "bytes": 809728
+  },
+  {
+    "id": "natureKit/bush",
+    "name": "Bush",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Bush.glb",
+    "bytes": 164712
+  },
+  {
+    "id": "natureKit/clover",
+    "name": "Clover",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Clover-u5SOgBFiut.glb",
+    "bytes": 703820
+  },
+  {
+    "id": "natureKit/clover-2",
+    "name": "Clover",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Clover.glb",
+    "bytes": 694432
+  },
+  {
+    "id": "natureKit/dead-tree",
+    "name": "Dead Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Dead Tree-CD4edbPSGm.glb",
+    "bytes": 2597644
+  },
+  {
+    "id": "natureKit/dead-tree-2",
+    "name": "Dead Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Dead Tree-Mcd2zYqyww.glb",
+    "bytes": 2623500
+  },
+  {
+    "id": "natureKit/dead-tree-3",
+    "name": "Dead Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Dead Tree-MlmK5488ou.glb",
+    "bytes": 2607636
+  },
+  {
+    "id": "natureKit/dead-tree-4",
+    "name": "Dead Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Dead Tree-n8FhMgMldD.glb",
+    "bytes": 2600420
+  },
+  {
+    "id": "natureKit/dead-tree-5",
+    "name": "Dead Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Dead Tree.glb",
+    "bytes": 2604428
+  },
+  {
+    "id": "natureKit/fern",
+    "name": "Fern",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Fern.glb",
+    "bytes": 692724
+  },
+  {
+    "id": "natureKit/flower-group",
+    "name": "Flower Group",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Flower Group-LqTljN6Wg2.glb",
+    "bytes": 1282616
+  },
+  {
+    "id": "natureKit/flower-group-2",
+    "name": "Flower Group",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Flower Group.glb",
+    "bytes": 1242384
+  },
+  {
+    "id": "natureKit/flower-petal",
+    "name": "Flower Petal",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Flower Petal-LqvxG9OBOU.glb",
+    "bytes": 531608
+  },
+  {
+    "id": "natureKit/flower-petal-2",
+    "name": "Flower Petal",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Flower Petal-eVE0j49ux9.glb",
+    "bytes": 531684
+  },
+  {
+    "id": "natureKit/flower-petal-3",
+    "name": "Flower Petal",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Flower Petal-niuBUEJdvM.glb",
+    "bytes": 532064
+  },
+  {
+    "id": "natureKit/flower-petal-4",
+    "name": "Flower Petal",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Flower Petal-tzG4JcqYWs.glb",
+    "bytes": 531684
+  },
+  {
+    "id": "natureKit/flower-petal-5",
+    "name": "Flower Petal",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Flower Petal.glb",
+    "bytes": 531668
+  },
+  {
+    "id": "natureKit/flower-single",
+    "name": "Flower Single",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Flower Single-GvfHo0roi3.glb",
+    "bytes": 1237772
+  },
+  {
+    "id": "natureKit/flower-single-2",
+    "name": "Flower Single",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Flower Single.glb",
+    "bytes": 1222572
+  },
+  {
+    "id": "natureKit/grass-wispy",
+    "name": "Grass Wispy",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Grass Wispy-Msr9zx66VU.glb",
+    "bytes": 97188
+  },
+  {
+    "id": "natureKit/grass-wispy-2",
+    "name": "Grass Wispy",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Grass Wispy.glb",
+    "bytes": 101412
+  },
+  {
+    "id": "natureKit/grass",
+    "name": "Grass",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Grass.glb",
+    "bytes": 79796
+  },
+  {
+    "id": "natureKit/mushroom-laetiporus",
+    "name": "Mushroom Laetiporus",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Mushroom Laetiporus.glb",
+    "bytes": 1262996
+  },
+  {
+    "id": "natureKit/mushroom",
+    "name": "Mushroom",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Mushroom.glb",
+    "bytes": 1208932
+  },
+  {
+    "id": "natureKit/pebble-round",
+    "name": "Pebble Round",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pebble Round-KYtJ6JNXh2.glb",
+    "bytes": 813788
+  },
+  {
+    "id": "natureKit/pebble-round-2",
+    "name": "Pebble Round",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pebble Round-icVsN3lmVy.glb",
+    "bytes": 814208
+  },
+  {
+    "id": "natureKit/pebble-round-3",
+    "name": "Pebble Round",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pebble Round-kAMfq1uJUY.glb",
+    "bytes": 814628
+  },
+  {
+    "id": "natureKit/pebble-round-4",
+    "name": "Pebble Round",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pebble Round-nMf8LHOsbM.glb",
+    "bytes": 815064
+  },
+  {
+    "id": "natureKit/pebble-round-5",
+    "name": "Pebble Round",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pebble Round.glb",
+    "bytes": 813872
+  },
+  {
+    "id": "natureKit/pebble-square",
+    "name": "Pebble Square",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pebble Square-2YtLzwgsWp.glb",
+    "bytes": 813288
+  },
+  {
+    "id": "natureKit/pebble-square-2",
+    "name": "Pebble Square",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pebble Square-6juX57sLHe.glb",
+    "bytes": 816036
+  },
+  {
+    "id": "natureKit/pebble-square-3",
+    "name": "Pebble Square",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pebble Square-Mm4RMgwNO8.glb",
+    "bytes": 815108
+  },
+  {
+    "id": "natureKit/pebble-square-4",
+    "name": "Pebble Square",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pebble Square-l5XiYQj1oD.glb",
+    "bytes": 814232
+  },
+  {
+    "id": "natureKit/pebble-square-5",
+    "name": "Pebble Square",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pebble Square-s71L3q1nXN.glb",
+    "bytes": 814756
+  },
+  {
+    "id": "natureKit/pebble-square-6",
+    "name": "Pebble Square",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pebble Square.glb",
+    "bytes": 812940
+  },
+  {
+    "id": "natureKit/pine",
+    "name": "Pine",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pine-699sFuLCN2.glb",
+    "bytes": 2261060
+  },
+  {
+    "id": "natureKit/pine-2",
+    "name": "Pine",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pine-79gmlLnweB.glb",
+    "bytes": 2221932
+  },
+  {
+    "id": "natureKit/pine-3",
+    "name": "Pine",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pine-Zt62gceKXZ.glb",
+    "bytes": 2219996
+  },
+  {
+    "id": "natureKit/pine-4",
+    "name": "Pine",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pine-rfnxJv0Rqa.glb",
+    "bytes": 2228032
+  },
+  {
+    "id": "natureKit/pine-5",
+    "name": "Pine",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Pine.glb",
+    "bytes": 2147312
+  },
+  {
+    "id": "natureKit/plant-big",
+    "name": "Plant Big",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Plant Big-MbhbP7JrTI.glb",
+    "bytes": 698784
+  },
+  {
+    "id": "natureKit/plant-big-2",
+    "name": "Plant Big",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Plant Big.glb",
+    "bytes": 683868
+  },
+  {
+    "id": "natureKit/plant",
+    "name": "Plant",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Plant-xH5gNlQxAZ.glb",
+    "bytes": 681168
+  },
+  {
+    "id": "natureKit/plant-2",
+    "name": "Plant",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Plant.glb",
+    "bytes": 685820
+  },
+  {
+    "id": "natureKit/rock-medium",
+    "name": "Rock Medium",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Medium-JQxF95498B.glb",
+    "bytes": 1071636
+  },
+  {
+    "id": "natureKit/rock-medium-2",
+    "name": "Rock Medium",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Medium-s1OJ3bBzqc.glb",
+    "bytes": 1064792
+  },
+  {
+    "id": "natureKit/rock-medium-3",
+    "name": "Rock Medium",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Medium.glb",
+    "bytes": 1060940
+  },
+  {
+    "id": "natureKit/rock-path-round-small",
+    "name": "Rock Path Round Small",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Path Round Small-GMttpOEFKT.glb",
+    "bytes": 885132
+  },
+  {
+    "id": "natureKit/rock-path-round-small-2",
+    "name": "Rock Path Round Small",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Path Round Small-yHEdadj5I0.glb",
+    "bytes": 876940
+  },
+  {
+    "id": "natureKit/rock-path-round-small-3",
+    "name": "Rock Path Round Small",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Path Round Small.glb",
+    "bytes": 876836
+  },
+  {
+    "id": "natureKit/rock-path-round-thin",
+    "name": "Rock Path Round Thin",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Path Round Thin.glb",
+    "bytes": 961044
+  },
+  {
+    "id": "natureKit/rock-path-round-wide",
+    "name": "Rock Path Round Wide",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Path Round Wide.glb",
+    "bytes": 1044552
+  },
+  {
+    "id": "natureKit/rock-path-square-smal",
+    "name": "Rock Path Square Smal",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Path Square Smal-cI9XBpVijV.glb",
+    "bytes": 862728
+  },
+  {
+    "id": "natureKit/rock-path-square-smal-2",
+    "name": "Rock Path Square Smal",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Path Square Smal-w4TKZMjjcw.glb",
+    "bytes": 847876
+  },
+  {
+    "id": "natureKit/rock-path-square-smal-3",
+    "name": "Rock Path Square Smal",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Path Square Smal.glb",
+    "bytes": 848472
+  },
+  {
+    "id": "natureKit/rock-path-square-thin",
+    "name": "Rock Path Square Thin",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Path Square Thin.glb",
+    "bytes": 931564
+  },
+  {
+    "id": "natureKit/rock-path-square-wide",
+    "name": "Rock Path Square Wide",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Rock Path Square Wide.glb",
+    "bytes": 963296
+  },
+  {
+    "id": "natureKit/tall-grass",
+    "name": "Tall Grass",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Tall Grass.glb",
+    "bytes": 88020
+  },
+  {
+    "id": "natureKit/tree",
+    "name": "Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Tree-QVOop92WmG.glb",
+    "bytes": 2430844
+  },
+  {
+    "id": "natureKit/tree-2",
+    "name": "Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Tree-aVOxaHRPWe.glb",
+    "bytes": 2479888
+  },
+  {
+    "id": "natureKit/tree-3",
+    "name": "Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Tree-qZtx0AHhcy.glb",
+    "bytes": 2540428
+  },
+  {
+    "id": "natureKit/tree-4",
+    "name": "Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Tree-t9KbsfYdXz.glb",
+    "bytes": 2385268
+  },
+  {
+    "id": "natureKit/tree-5",
+    "name": "Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Tree.glb",
+    "bytes": 2385192
+  },
+  {
+    "id": "natureKit/twisted-tree",
+    "name": "Twisted Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Twisted Tree-7PDBpElkQr.glb",
+    "bytes": 3075984
+  },
+  {
+    "id": "natureKit/twisted-tree-2",
+    "name": "Twisted Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Twisted Tree-8oraKn9m0x.glb",
+    "bytes": 3089768
+  },
+  {
+    "id": "natureKit/twisted-tree-3",
+    "name": "Twisted Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Twisted Tree-9aWlx82xUf.glb",
+    "bytes": 3048260
+  },
+  {
+    "id": "natureKit/twisted-tree-4",
+    "name": "Twisted Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Twisted Tree-GVTsMmuzv7.glb",
+    "bytes": 3028976
+  },
+  {
+    "id": "natureKit/twisted-tree-5",
+    "name": "Twisted Tree",
+    "category": "natureKit",
+    "file": "Stylized Nature MegaKit.undefined-glb/Twisted Tree.glb",
+    "bytes": 3119328
+  },
   {
     "id": "people/zombie",
     "name": "zombie",

@@ -1,4 +1,5 @@
-import { autoCombat, harvestWildlife, stepEnemies, stepProjectiles, stepRevive, stepWildlife, tickCooldowns } from '@/combat/Combat'
+import { autoCombat, harvestWildlife, stepEnemies, stepProjectiles, stepRevive, tickCooldowns } from '@/combat/Combat'
+import { stepWildlife } from '@/world/Wildlife'
 import { stepNightCycle, stepNightDefender } from '@/combat/Night'
 import { type ControlIntent, stepPlayerControl } from '@/controls/PlayerControl'
 import { stepDayWorker } from '@/jobs/DayWorker'

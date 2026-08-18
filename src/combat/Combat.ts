@@ -6,13 +6,15 @@ import { equippedWeapon, fireProfile, INFINITE_AMMO, magazineSize, muzzleOrigin,
 import { cellCenter, isBlocked, worldToCell } from '@/navigation/NavGrid'
 import { lookXZ } from '@/controls/CameraWish'
 import { findContainer } from '@/simulation/EntityRegistry'
-import { grantXp } from '@/survivors/Progress'
+import { WORK_XP } from '@/data/items'
+import { grantXp, recordWorkYield } from '@/survivors/Progress'
+import { markHarvested, nearestLivingWildlife, wildlifeKillXp, wildlifeMeat } from '@/world/Wildlife'
 import { cloneVec3, distanceXZ, type EnemyState, type ImpactState, type ProjectileState, type StructureState, type SurvivorState, type Vec3, type WildlifeState, type WorldState } from '@/simulation/types'
 
 const HIT_RADIUS = 0.78
 const WILDLIFE_HIT_RADIUS = 0.92
 const PROJECTILE_SUBSTEP = 0.42
-const KILL_XP = { wanderer: 14, runner: 20, deer: 8 } as const
+const KILL_XP = { wanderer: 14, runner: 20 } as const
 
 let projectileSerial = 0
 let impactSerial = 0
@@ -50,6 +52,7 @@ export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
   const origin = muzzleOrigin(survivor)
   const range = profile.range + towerRangeBonus(world, survivor)
   const aimed = nearestLivingEnemy(world, survivor.position, range)
+    ?? nearestLivingWildlife(world, survivor.position, range)
   spawnImpact(world, 'muzzle', origin, 0.08)
   for (let index = 0; index < profile.pellets; index += 1) {
     const yaw = survivor.facingYaw + aimJitter + pelletSpread(index, profile.spread)
@@ -59,7 +62,7 @@ export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
     let vz = look.z * profile.speed
     if (aimed) {
       const dx = aimed.position.x - origin.x
-      const dy = 0.95 - origin.y
+      const dy = ('alive' in aimed ? 0.7 : 0.95) - origin.y
       const dz = aimed.position.z - origin.z
       const len = Math.hypot(dx, dy, dz) || 1
       const side = pelletSpread(index, profile.spread)
@@ -146,10 +149,12 @@ export function reloadWeapon(world: WorldState, survivor: SurvivorState): 'ok' |
 export function harvestWildlife(world: WorldState, survivor: SurvivorState): boolean {
   if (survivor.downed) return false
   const bag = inventoryOf(world.inventories, survivor.inventoryId)
-  const carcass = world.wildlife.find((entry) => !entry.alive && distanceXZ(entry.position, survivor.position) < 2)
+  const carcass = world.wildlife.find((entry) => !entry.alive && !entry.harvested && distanceXZ(entry.position, survivor.position) < 2.2)
   if (!carcass) return false
-  if (!addItem(bag, 'raw_meat', 2)) return false
-  world.wildlife = world.wildlife.filter((entry) => entry.id !== carcass.id)
+  const meat = wildlifeMeat(carcass.kind)
+  if (!addItem(bag, 'raw_meat', meat)) return false
+  markHarvested(carcass)
+  recordWorkYield(world, survivor, 'raw_meat', meat, WORK_XP.hunt ?? 6)
   return true
 }
 
@@ -202,13 +207,7 @@ export function stepRevive(world: WorldState, dt: number): void {
   }
 }
 
-export function stepWildlife(world: WorldState, dt: number): void {
-  for (const animal of world.wildlife) {
-    if (!animal.alive) continue
-    animal.position.x += Math.sin(world.time.daySeconds + animal.position.z) * dt * 0.4
-    animal.position.z += Math.cos(world.time.daySeconds + animal.position.x) * dt * 0.4
-  }
-}
+export { createDeer, stepWildlife } from '@/world/Wildlife'
 
 export function createEnemy(kind: EnemyState['kind'], position: Vec3, id: string): EnemyState {
   const definition = ENEMY_DEFINITIONS[kind]
@@ -222,10 +221,6 @@ export function createEnemy(kind: EnemyState['kind'], position: Vec3, id: string
     attackCooldown: 0,
     hitFlash: 0,
   }
-}
-
-export function createDeer(id: string, position: Vec3): WildlifeState {
-  return { id, kind: 'deer', position: cloneVec3(position), health: 28, alive: true }
 }
 
 function advanceProjectile(world: WorldState, shot: ProjectileState, dt: number): boolean {
@@ -280,7 +275,7 @@ function impactTarget(world: WorldState, shot: ProjectileState, from: Vec3): boo
   spawnImpact(world, 'hit', { x: hit.wildlife.position.x, y: 1.1, z: hit.wildlife.position.z }, 0.18)
   if (hit.wildlife.health <= 0) {
     hit.wildlife.alive = false
-    if (owner) grantXp(owner, KILL_XP.deer)
+    if (owner) grantXp(owner, wildlifeKillXp(hit.wildlife.kind))
   }
   return true
 }

@@ -365,6 +365,48 @@ body,
   color: #f0d789;
 }
 
+.actor-tag {
+  position: absolute;
+  min-width: 88px;
+  padding: 3px 7px 4px;
+  border: 1px solid #3a4a38;
+  background: rgba(14, 20, 14, 0.84);
+  color: #e6edd8;
+  font-size: 11px;
+  line-height: 1.25;
+  text-align: center;
+  transform: translate(-50%, -108%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.actor-tag b {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.actor-tag em {
+  display: block;
+  color: #d4e8a0;
+  font-style: normal;
+}
+
+.actor-tag i {
+  display: block;
+  color: #f0c96a;
+  font-style: normal;
+}
+
+.actor-tag small {
+  display: block;
+  color: #9aa890;
+}
+
+.actor-tag.is-hero {
+  border-color: #c9a227;
+}
+
 .cr-thumb {
   display: block;
   width: 100%;

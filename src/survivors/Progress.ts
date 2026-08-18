@@ -1,5 +1,5 @@
 import { applyEquipmentStats } from './Equipment'
-import type { SurvivorState } from '@/simulation/types'
+import type { SurvivorState, WorldState } from '@/simulation/types'
 
 export function xpToNext(level: number): number {
   return 36 + level * 18
@@ -16,6 +16,20 @@ export function grantXp(survivor: SurvivorState, amount: number): boolean {
   }
   if (leveled) applyEquipmentStats(survivor)
   return leveled
+}
+
+export function recordWorkYield(
+  world: WorldState,
+  survivor: SurvivorState,
+  itemId: string,
+  count: number,
+  xp: number,
+): void {
+  if (xp > 0) grantXp(survivor, xp)
+  survivor.lastYieldItem = itemId
+  survivor.lastYieldCount = count
+  survivor.lastYieldXp = xp
+  survivor.lastYieldAt = world.time.dayIndex * world.time.dayLengthSeconds + world.time.daySeconds
 }
 
 export function applyLevelBonus(survivor: SurvivorState): void {
