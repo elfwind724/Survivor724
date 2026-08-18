@@ -4,6 +4,7 @@ import { decorationNear, removeDecoration, snapDecor } from '@/base/decorations'
 import { buildProgress, durabilityPercent, facilityPreviewHeight, structureLabel } from '@/data/facilities'
 import { canUpgrade, facilityCap, hallLevel, markUpgrade, structureLevel, upgradeCost, upgradeProgress } from '@/base/upgrade'
 import { itemLabel } from '@/data/items'
+import { gearLabel } from '@/data/loot'
 import { rebuildNightPosts } from '@/combat/Night'
 import { cellCenter } from '@/navigation/NavGrid'
 import { reloadWeapon, tryShoot } from '@/combat/Combat'
@@ -28,6 +29,7 @@ import { assignWatch } from '@/jobs/Roster'
 import { activityLines } from '@/survivors/Activity'
 import { BuildMenu } from '@/ui/BuildMenu'
 import { CharacterSheet } from '@/ui/CharacterSheet'
+import { equipHotbar, equipItem } from '@/survivors/Equipment'
 import { CreativeEditor } from '@/ui/CreativeEditor'
 import { GameHud } from '@/ui/GameHud'
 import { RosterPanel } from '@/ui/RosterPanel'
@@ -102,6 +104,13 @@ export class GameApp {
         this.sheet.open(id)
         this.notice = '技能面板：点头顶卡片或按 C 可换人看'
       }
+    }, (itemId) => {
+      const actor = this.focusActor()
+      if (!actor) {
+        this.notice = '先选中或接管一个人再换枪'
+        return
+      }
+      if (equipItem(this.world, actor, itemId)) this.notice = `已换上 ${gearLabel(this.world, itemId)}`
     })
     this.sheet = new CharacterSheet(sheetRoot)
     this.minimap = new Minimap(minimapCanvas)
@@ -343,20 +352,9 @@ export class GameApp {
       this.editor.nudgeScale(1 / 1.15)
       this.notice = '缩小装饰'
     }
-    if (event.code.startsWith('Digit') && (this.editor.isOpen() || this.editor.getBrush())) {
-      const index = Number(event.code.slice(5)) - 1
-      if (index >= 0 && index <= 8) {
-        this.editor.pickHotbar(index)
-        return
-      }
-    }
     if (event.code === 'KeyC') this.resetView()
     if (event.code === 'KeyE') {
-      const actor = this.world.player.controlledId
-        ? findSurvivor(this.world, this.world.player.controlledId)
-        : this.world.player.selectedId
-          ? findSurvivor(this.world, this.world.player.selectedId)
-          : undefined
+      const actor = this.focusActor()
       if (!actor) {
         this.notice = '先选中或接管一个人，再到门边按 E'
         return
@@ -364,19 +362,32 @@ export class GameApp {
       const gate = interactGate(this.world, actor.position)
       this.notice = gate ? (gate.open ? '门开了' : '门关上了') : '旁边没有门'
     }
-    if (event.code === 'Digit1') {
-      if (this.world.time.phase === 'night') reinforceSector(this.world, 'north')
-      else this.zoneJob = 'hunt'
+    if (event.code.startsWith('Digit')) {
+      const index = Number(event.code.slice(5)) - 1
+      if (event.shiftKey) {
+        if (index === 0) {
+          if (this.world.time.phase === 'night') reinforceSector(this.world, 'north')
+          else this.zoneJob = 'hunt'
+        } else if (index === 1) {
+          if (this.world.time.phase === 'night') reinforceSector(this.world, 'east')
+          else this.zoneJob = 'fish'
+        } else if (index === 2) {
+          if (this.world.time.phase === 'night') reinforceSector(this.world, 'south')
+          else this.zoneJob = 'scavenge'
+        } else if (index === 3 && this.world.time.phase === 'night') reinforceSector(this.world, 'west')
+        return
+      }
+      if (index >= 0 && index <= 8) {
+        const actor = this.focusActor()
+        if (!actor) {
+          this.notice = '先选中或接管一个人再换枪'
+          return
+        }
+        const equipped = equipHotbar(this.world, actor, index)
+        this.notice = equipped ? `已换上 ${equipped.label}` : '这一格是空的'
+        return
+      }
     }
-    if (event.code === 'Digit2') {
-      if (this.world.time.phase === 'night') reinforceSector(this.world, 'east')
-      else this.zoneJob = 'fish'
-    }
-    if (event.code === 'Digit3') {
-      if (this.world.time.phase === 'night') reinforceSector(this.world, 'south')
-      else this.zoneJob = 'scavenge'
-    }
-    if (event.code === 'Digit4' && this.world.time.phase === 'night') reinforceSector(this.world, 'west')
     if (event.code === 'KeyT') {
       this.world.time.timeScale = this.world.time.timeScale === 1 ? 2 : 1
       this.notice = `时间倍率 ${this.world.time.timeScale}×`
@@ -783,6 +794,12 @@ export class GameApp {
       this.towerPostId = null
       this.towerPanel.innerHTML = ''
     })
+  }
+
+  private focusActor() {
+    if (this.world.player.controlledId) return findSurvivor(this.world, this.world.player.controlledId)
+    if (this.world.player.selectedId) return findSurvivor(this.world, this.world.player.selectedId)
+    return findSurvivor(this.world, this.world.player.heroId)
   }
 
   private handleDirect(id: string): void {

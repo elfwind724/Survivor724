@@ -6,8 +6,9 @@ import { gearLabel, isGearId, nearestGroundLoot } from '@/data/loot'
 import { assignmentLabel, postLabel } from '@/jobs/Roster'
 import { equippedWeapon, INFINITE_AMMO, magazineSize, readMag } from '@/data/weapons'
 import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
-import type { SurvivorState, WorldState } from '@/simulation/types'
+import type { ItemRarity, SurvivorState, WorldState } from '@/simulation/types'
 import { clampVital } from '@/survivors/Vitals'
+import { HOTBAR_SIZE, hotbarOf, type HotbarEntry } from '@/survivors/Equipment'
 
 export interface HudPick {
   id: string
@@ -74,6 +75,14 @@ export interface HudModel {
     ammoMax: number
     cooldown: number
   } | null
+  hotbar: Array<{
+    index: number
+    itemId: string
+    label: string
+    line: string
+    equipped: boolean
+    rarity: ItemRarity | null
+  } | null>
   report: {
     title: string
     reason: string
@@ -134,6 +143,7 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
     },
     cards: world.survivors.map((survivor) => cardModel(world, survivor)),
     weapon: focusWeapon(world),
+    hotbar: hotbarModel(world),
     report: reportModel(world),
   }
 }
@@ -146,8 +156,9 @@ export function hudModelKey(model: HudModel): string {
     .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.job}:${card.status}:${card.ammo ?? '-'}:${card.cooldown.toFixed(2)}:${card.bagUsed}/${card.bagCap}`)
     .join('|')
   const weapon = model.weapon ? `${model.weapon.name}:${model.weapon.ammo}/${model.weapon.ammoMax}:${model.weapon.cooldown.toFixed(2)}` : '-'
+  const hotbar = model.hotbar.map((slot) => slot ? `${slot.itemId}:${slot.equipped ? 1 : 0}` : '-').join(',')
   const report = model.report ? `${model.report.lost ? 'L' : 'W'}:${model.report.stats}:${model.report.loot}` : '-'
-  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.lootHint}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${report}`
+  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.lootHint}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${hotbar}:${report}`
 }
 
 export function renderHudHtml(model: HudModel): string {
@@ -192,6 +203,7 @@ export function renderHudHtml(model: HudModel): string {
       ${renderWeaponHud(model.weapon)}
     </div>
     <div class="hud-roster">${cards}</div>
+    ${renderHotbar(model.hotbar)}
     ${toast}
     ${loot}
     ${renderReport(model)}
@@ -207,6 +219,7 @@ export class GameHud {
     private readonly root: HTMLElement,
     private readonly onPick: (pick: HudPick) => void,
     private readonly onCommand: (command: HudCommand) => void,
+    private readonly onHotbar: (itemId: string) => void = () => undefined,
   ) {
     this.root.classList.add('game-hud')
     this.root.addEventListener('pointerdown', this.onPointerDown)
@@ -228,6 +241,12 @@ export class GameHud {
     if (action === 'reset-view' || action === 'toggle-interiors' || action === 'restart' || action === 'ack-night' || action === 'open-sheet') {
       event.stopPropagation()
       this.onCommand(action)
+      return
+    }
+    const hot = target.closest<HTMLButtonElement>('[data-hotbar]')
+    if (hot?.dataset.hotbar) {
+      event.stopPropagation()
+      this.onHotbar(hot.dataset.hotbar)
       return
     }
     const button = target.closest<HTMLButtonElement>('[data-survivor]')
@@ -297,6 +316,51 @@ function renderCard(card: HudCard): string {
       ${bars}
     </span>
   </button>`
+}
+
+function hotbarModel(world: WorldState): HudModel['hotbar'] {
+  const focus = focusSurvivor(world)
+  if (!focus) return Array.from({ length: HOTBAR_SIZE }, () => null)
+  return hotbarOf(world, focus).map((entry, index) => entryToHud(entry, index))
+}
+
+function entryToHud(entry: HotbarEntry | null, index: number): HudModel['hotbar'][number] {
+  if (!entry) return null
+  return {
+    index,
+    itemId: entry.itemId,
+    label: entry.label,
+    line: entry.line,
+    equipped: entry.equipped,
+    rarity: entry.rarity,
+  }
+}
+
+function renderHotbar(slots: HudModel['hotbar']): string {
+  const cells = slots
+    .map((slot, index) => {
+      if (!slot) {
+        return `<span class="hud-hot is-empty"><em>${index + 1}</em></span>`
+      }
+      const rare = slot.rarity ? ` rarity-${slot.rarity}` : ''
+      const on = slot.equipped ? ' is-on' : ''
+      return `<button type="button" class="hud-hot${on}${rare}" data-hotbar="${escapeHtml(slot.itemId)}">
+        <em>${index + 1}</em>
+        <strong>${escapeHtml(shortHotName(slot.label))}</strong>
+        <small>${escapeHtml(slot.line)}</small>
+      </button>`
+    })
+    .join('')
+  return `<div class="hud-hotbar" data-hotbar-bar>${cells}</div>`
+}
+
+function shortHotName(label: string): string {
+  return label.length > 8 ? `${label.slice(0, 7)}…` : label
+}
+
+function focusSurvivor(world: WorldState): SurvivorState | undefined {
+  const id = world.player.controlledId ?? world.player.selectedId ?? world.player.heroId
+  return world.survivors.find((entry) => entry.id === id)
 }
 
 function focusWeapon(world: WorldState): HudModel['weapon'] {

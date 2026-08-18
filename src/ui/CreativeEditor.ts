@@ -9,14 +9,11 @@ export interface EditorBrush {
   scale: number
 }
 
-const HOTBAR_SIZE = 9
-
 export class CreativeEditor {
   private open = false
   private tab: 'all' | AssetCategory = 'all'
   private query = ''
   private brush: EditorBrush | null = null
-  private hotbar: Array<string | null> = Array.from({ length: HOTBAR_SIZE }, () => null)
   private hoverName = ''
   private readonly thumbs = new ThumbnailCache()
 
@@ -73,18 +70,10 @@ export class CreativeEditor {
     this.onChange()
   }
 
-  pickHotbar(index: number): void {
-    const id = this.hotbar[index]
-    if (!id) return
-    this.selectAsset(id, false)
-  }
-
   private selectAsset(assetId: string, closeAfter: boolean): void {
     const entry = ASSET_INDEX.find((item) => item.id === assetId)
     if (!entry) return
     this.brush = { assetId, yaw: 0, scale: suggestedScale(entry) }
-    this.hotbar = [assetId, ...this.hotbar.filter((id) => id && id !== assetId)].slice(0, HOTBAR_SIZE)
-    while (this.hotbar.length < HOTBAR_SIZE) this.hotbar.push(null)
     if (closeAfter) this.open = false
     this.render()
     this.onChange()
@@ -106,23 +95,8 @@ export class CreativeEditor {
         </button>`
       })
       .join('')
-    const bar = this.hotbar
-      .map((id, index) => {
-        const entry = id ? ASSET_INDEX.find((item) => item.id === id) : undefined
-        const on = id && this.brush?.assetId === id ? ' is-on' : ''
-        return `<button type="button" class="cr-hot${on}" data-hot="${index}">
-          <em>${index + 1}</em>
-          ${entry ? `${this.thumbs.ask(entry.id) ? `<img class="cr-thumb" data-thumb="${entry.id}" src="${this.thumbs.ask(entry.id)!}" alt="">` : `<i class="cr-icon cr-icon-${entry.category}" data-thumb="${entry.id}"></i>`}<span>${shortName(entry)}</span>` : ''}
-        </button>`
-      })
-      .join('')
-
-    const hotbar = this.open || this.brush
-      ? `<div class="cr-hotbar" data-hotbar>${bar}</div>`
-      : ''
     this.root.innerHTML = `
       <button type="button" class="cr-toggle${this.open || this.brush ? ' is-open' : ''}" data-action="toggle">装饰</button>
-      ${hotbar}
       <div class="cr-overlay${this.open ? ' is-open' : ''}" data-overlay>
         <div class="cr-panel" data-panel>
           <header class="cr-head">
@@ -158,9 +132,6 @@ export class CreativeEditor {
         const id = button.dataset.asset
         if (id) this.selectAsset(id, true)
       })
-    })
-    this.root.querySelectorAll<HTMLButtonElement>('[data-hot]').forEach((button) => {
-      button.addEventListener('click', () => this.pickHotbar(Number(button.dataset.hot)))
     })
     const search = this.root.querySelector<HTMLInputElement>('.cr-search')
     search?.addEventListener('keydown', (event) => event.stopPropagation())

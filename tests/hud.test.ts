@@ -74,6 +74,11 @@ describe('game hud', () => {
     const html = renderHudHtml(model)
     expect(html).toContain('∞')
     expect(html).toContain('hud-cd')
+    expect(html).toContain('hud-hotbar')
+    expect(html).toContain('data-hotbar="pistol"')
+    expect(model.hotbar.some((slot) => slot?.itemId === 'pistol' && slot.equipped)).toBe(true)
+    expect(model.hotbar.some((slot) => slot?.itemId === 'rifle')).toBe(true)
+    expect(model.hotbar[0]?.line).toMatch(/\d+-\d+/)
   })
 
   it('drains hunger and thirst while a survivor is working', () => {
