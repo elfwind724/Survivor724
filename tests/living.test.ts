@@ -4,7 +4,8 @@ import { countItem } from '@/inventory/Inventory'
 import { worldToCell } from '@/navigation/NavGrid'
 import { stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
-import { diningSpot, eatAtBase, eatOne } from '@/survivors/Living'
+import { diningSpot, drinkOne, eatAtBase, eatOne } from '@/survivors/Living'
+import { stepVitals } from '@/survivors/Vitals'
 
 const DT = 1 / 30
 
@@ -67,6 +68,41 @@ describe('living loop', () => {
     expect(world.time.phase).toBe('night')
     expect(hunter.health).toBeLessThan(90)
     expect(hunter.hunger).toBeLessThan(70)
+  })
+
+  it('drains about two meals and two waters from a working day, and night no longer refills them', () => {
+    const world = createInitialWorld()
+    const fisher = world.survivors.find((entry) => entry.id === 'fisher')
+    if (!fisher) throw new Error('missing fisher')
+    fisher.hunger = 100
+    fisher.thirst = 100
+    fisher.workerState = 'Work'
+    world.time.phase = 'day'
+    const startHunger = fisher.hunger
+    const startThirst = fisher.thirst
+    for (let i = 0; i < 12 * 60 * 30; i += 1) stepVitals(world, 1 / 30)
+    const dayHunger = startHunger - fisher.hunger
+    const dayThirst = startThirst - fisher.thirst
+    expect(dayHunger).toBeGreaterThan(40)
+    expect(dayThirst).toBeGreaterThan(40)
+    expect(dayHunger).toBeLessThan(90)
+    const afterDayHunger = fisher.hunger
+    world.time.phase = 'night'
+    fisher.workerState = 'Rest'
+    for (let i = 0; i < 30 * 30; i += 1) stepVitals(world, 1 / 30)
+    expect(fisher.hunger).toBeLessThan(afterDayHunger)
+  })
+
+  it('drinks warehouse water to recover thirst', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    const warehouse = world.inventories['inv-warehouse']
+    if (!hunter || !warehouse) throw new Error('missing hunter')
+    hunter.thirst = 30
+    const water = countItem(warehouse, 'water')
+    expect(drinkOne(world, hunter)).toBe(true)
+    expect(hunter.thirst).toBeGreaterThan(70)
+    expect(countItem(warehouse, 'water')).toBe(water - 1)
   })
 
   it('turns raw meat into meals at a finished kitchen', () => {

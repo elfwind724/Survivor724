@@ -26,6 +26,7 @@ describe('game hud', () => {
     expect(html).toContain('仓库')
     expect(html).toContain('背包')
     expect(html).toContain('熟食')
+    expect(html).toContain('水')
     expect(html).not.toContain('AcquireEquipment')
     expect(html).not.toContain('Warehouse')
   })

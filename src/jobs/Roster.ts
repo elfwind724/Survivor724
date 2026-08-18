@@ -10,6 +10,7 @@ export const ROSTER_POSTS = [
   { id: 'scavenge', label: '搜刮' },
   { id: 'haul', label: '搬运' },
   { id: 'build', label: '建造' },
+  { id: 'repair', label: '修理' },
   { id: 'cook', label: '做饭' },
   { id: 'watch', label: '站岗' },
   { id: 'follow', label: '跟随' },
@@ -29,7 +30,7 @@ export const ROSTER_STRATEGIES = [
   { id: 'watch', label: '四角站岗', hint: '四名队员一键上四座瞭望塔', posts: ['watch', 'watch', 'watch', 'watch'] },
   { id: 'balanced', label: '均衡上岗', hint: '按职业回各自岗位', posts: ['hunt', 'fish', 'scavenge', 'haul', 'build'] },
   { id: 'food', label: '优先食物', hint: '打猎钓鱼采集做饭', posts: ['hunt', 'fish', 'cook', 'gather', 'haul'] },
-  { id: 'build', label: '优先建设', hint: '搬运和施工优先', posts: ['haul', 'build', 'build', 'scavenge', 'hunt'] },
+  { id: 'build', label: '优先建设', hint: '搬运、施工和修墙', posts: ['haul', 'build', 'repair', 'scavenge', 'hunt'] },
   { id: 'scavenge', label: '优先搜刮', hint: '多派人外出搜刮', posts: ['scavenge', 'scavenge', 'haul', 'hunt', 'cook'] },
   { id: 'rest', label: '全体待命', hint: '收回营地休息', posts: ['idle', 'idle', 'idle', 'idle', 'idle'] },
 ] as const

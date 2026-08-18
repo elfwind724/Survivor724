@@ -57,6 +57,7 @@ const JOB_SKILL: Record<string, SkillId> = {
   scavenge: 'scavenge',
   build: 'build',
   demolish: 'build',
+  repair: 'build',
   haul: 'haul',
 }
 

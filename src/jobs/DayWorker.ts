@@ -1,4 +1,4 @@
-import { completeStructure, findStructure, finishDemolish, materialsMet, sitePosition, stillNeeded } from '@/base/construction'
+import { completeStructure, findStructure, finishDemolish, materialsMet, needsRepair, REPAIR_HP, repairStructure, sitePosition, stillNeeded } from '@/base/construction'
 import { isHero } from '@/controls/PlayerControl'
 import { stepFollowHero } from '@/jobs/Follow'
 import { bedSpot, cookSpot, eatSpot, enterFacility, tryEnterAfterArrival } from '@/base/FacilityLife'
@@ -16,7 +16,7 @@ import { depositBag } from '@/inventory/Cargo'
 import { addItem, canAdd, countItem, inventoryOf, removeItem, usedSlots } from '@/inventory/Inventory'
 import { beginTravel, followTravel } from '@/navigation/Travel'
 import { findContainer, findJob, findNode } from '@/simulation/EntityRegistry'
-import { diningSpot, eatOne, EAT_SECONDS, shouldEat } from '@/survivors/Living'
+import { diningSpot, drinkOne, eatOne, EAT_SECONDS, hungerThreshold, shouldEat } from '@/survivors/Living'
 import { distanceXZ, type DayPhase, type SurvivorState, type WorldState } from '@/simulation/types'
 
 export function isWorkPhase(phase: DayPhase): boolean {
@@ -73,11 +73,13 @@ export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: nu
     case 'Work':
       if (definition?.id === 'build') stepBuild(world, survivor, dt)
       else if (definition?.id === 'demolish') stepDemolish(world, survivor, dt)
+      else if (definition?.id === 'repair') stepRepair(world, survivor, dt)
       else stepWork(world, survivor, dt)
       break
     case 'CollectOutput':
       if (definition?.id === 'haul') stepHaulCollect(world, survivor)
       else if (definition?.id === 'cook') stepCookCollect(world, survivor)
+      else if (definition?.id === 'repair') stepRepairCollect(world, survivor)
       else stepCollect(world, survivor)
       break
     case 'ReturnToBase':
@@ -169,6 +171,18 @@ function startNextAction(world: WorldState, survivor: SurvivorState): void {
     return
   }
 
+  if (definition.id === 'repair') {
+    const structure = findStructure(world, job.targetId)
+    if (!structure || !needsRepair(structure)) {
+      goHome(world, survivor)
+      return
+    }
+    const bag = inventoryOf(world.inventories, survivor.inventoryId)
+    const target = countItem(bag, 'wood') > 0 ? sitePosition(world, structure) : warehousePosition(world, survivor)
+    if (beginTravel(world, survivor, target)) survivor.workerState = 'TravelToTarget'
+    return
+  }
+
   if (definition.id === 'build' || definition.id === 'demolish') {
     const structure = findStructure(world, job.targetId)
     if (!structure) {
@@ -232,6 +246,11 @@ function stepTravel(world: WorldState, survivor: SurvivorState, dt: number): voi
   if (!followTravel(world, survivor, dt)) return
   const job = currentJob(world, survivor)
   const definition = job ? jobDefinition(job.definitionId) : undefined
+  if (definition?.id === 'repair') {
+    const bag = inventoryOf(world.inventories, survivor.inventoryId)
+    survivor.workerState = countItem(bag, 'wood') > 0 ? 'Work' : 'CollectOutput'
+    return
+  }
   if (definition?.id === 'haul' || definition?.id === 'cook') {
     const bag = inventoryOf(world.inventories, survivor.inventoryId)
     const hasRaw = countRawFood(bag) > 0
@@ -326,6 +345,7 @@ function stepCollect(world: WorldState, survivor: SurvivorState): void {
     node.reserve -= 1
     const extra = extraYieldCount(survivor, skillForJob(definition.id) ?? 'survival', `${node.id}:${node.reserve}`)
     if (extra > 0) addItem(bag, definition.outputItemId, extra)
+    if (definition.id === 'fish' && canAdd(bag, 1)) addItem(bag, 'water', 1)
     recordWorkYield(world, survivor, definition.outputItemId, 1 + extra, WORK_XP[definition.id] ?? 3, skillForJob(definition.id))
   }
 
@@ -433,6 +453,56 @@ function stepHaulDeposit(world: WorldState, survivor: SurvivorState): void {
     return
   }
   startNextAction(world, survivor)
+}
+
+function stepRepairCollect(world: WorldState, survivor: SurvivorState): void {
+  const job = currentJob(world, survivor)
+  const structure = job ? findStructure(world, job.targetId) : undefined
+  const warehouse = findContainer(world, 'warehouse')
+  if (!job || !structure || !needsRepair(structure) || !warehouse) {
+    goHome(world, survivor)
+    return
+  }
+  const bag = inventoryOf(world.inventories, survivor.inventoryId)
+  const stock = inventoryOf(world.inventories, warehouse.inventoryId)
+  const space = bag.capacity - usedSlots(bag)
+  const take = Math.min(2, space, countItem(stock, 'wood'))
+  if (take > 0 && removeItem(stock, 'wood', take)) addItem(bag, 'wood', take)
+  if (countItem(bag, 'wood') <= 0) {
+    goHome(world, survivor)
+    return
+  }
+  if (beginTravel(world, survivor, sitePosition(world, structure))) survivor.workerState = 'TravelToTarget'
+}
+
+function stepRepair(world: WorldState, survivor: SurvivorState, dt: number): void {
+  const job = currentJob(world, survivor)
+  const structure = job ? findStructure(world, job.targetId) : undefined
+  if (!structure || !needsRepair(structure)) {
+    goHome(world, survivor)
+    return
+  }
+  const bag = inventoryOf(world.inventories, survivor.inventoryId)
+  if (countItem(bag, 'wood') <= 0) {
+    if (beginTravel(world, survivor, warehousePosition(world, survivor))) survivor.workerState = 'TravelToTarget'
+    return
+  }
+  survivor.workElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate * skillWorkMult(survivor, 'repair')
+  if (survivor.workElapsed < WORK_SECONDS) return
+  survivor.workElapsed = 0
+  if (!removeItem(bag, 'wood', 1)) {
+    goHome(world, survivor)
+    return
+  }
+  repairStructure(world, structure, REPAIR_HP)
+  recordWorkYield(world, survivor, 'wood', 1, WORK_XP.repair ?? 4, 'build')
+  if (!needsRepair(structure) || countItem(bag, 'wood') <= 0) {
+    if (countItem(bag, 'wood') <= 0 && needsRepair(structure)) {
+      if (beginTravel(world, survivor, warehousePosition(world, survivor))) survivor.workerState = 'TravelToTarget'
+      return
+    }
+    goHome(world, survivor)
+  }
 }
 
 function stepDemolish(world: WorldState, survivor: SurvivorState, dt: number): void {
@@ -558,7 +628,11 @@ function stepEat(world: WorldState, survivor: SurvivorState, dt: number): void {
   survivor.path = []
   survivor.workElapsed += dt
   if (survivor.workElapsed < EAT_SECONDS) return
-  eatOne(world, survivor)
+  if (survivor.hunger < hungerThreshold(world) || survivor.hunger < 84) {
+    if (!eatOne(world, survivor)) drinkOne(world, survivor)
+  } else {
+    drinkOne(world, survivor)
+  }
   survivor.workElapsed = 0
   if (isWorkPhase(world.time.phase)) {
     survivor.workerState = 'RestOrNextJob'

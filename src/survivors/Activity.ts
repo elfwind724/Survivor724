@@ -41,7 +41,7 @@ export function activityCaption(world: WorldState, survivor: SurvivorState): str
     case 'ReturnEquipment':
       return '还工具中'
     case 'Eat':
-      return '吃饭中'
+      return '吃饭喝水中'
     case 'Rest':
       return '休息中'
     default:
@@ -94,6 +94,7 @@ function workCaption(job: string): string {
   if (job === 'cook') return '做饭中'
   if (job === 'build') return '建造中'
   if (job === 'demolish') return '拆除中'
+  if (job === 'repair') return '修理中'
   if (job === 'haul') return '搬运中'
   return '工作中'
 }
@@ -103,6 +104,7 @@ function travelCaption(job: string): string {
   if (job === 'fish') return '去钓鱼'
   if (job === 'gather') return '去采果'
   if (job === 'cook') return '去厨房'
+  if (job === 'repair') return '去修缮'
   return '赶路中'
 }
 

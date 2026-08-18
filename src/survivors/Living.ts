@@ -6,6 +6,10 @@ import type { SurvivorState, Vec3, WorldState } from '@/simulation/types'
 import { clampVital } from './Vitals'
 
 export const EAT_SECONDS = 2.2
+export const MEAL_HUNGER = 40
+export const MEAL_THIRST = 8
+export const WATER_THIRST = 42
+export const RAW_HUNGER = 16
 
 export function insideBase(position: Vec3): boolean {
   return (
@@ -29,11 +33,25 @@ export function foodAvailable(world: WorldState): boolean {
   return countItem(stock, 'meal') > 0 || countItem(stock, 'raw_meat') > 0 || countItem(stock, 'raw_fish') > 0 || countItem(stock, 'berry') > 0
 }
 
+export function waterAvailable(world: WorldState): boolean {
+  const warehouse = findContainer(world, 'warehouse')
+  if (!warehouse) return false
+  return countItem(inventoryOf(world.inventories, warehouse.inventoryId), 'water') > 0
+}
+
+export function hungerThreshold(world: WorldState): number {
+  return world.time.phase === 'dawn' || world.time.phase === 'day' ? 62 : 84
+}
+
+export function thirstThreshold(world: WorldState): number {
+  return world.time.phase === 'dawn' || world.time.phase === 'day' ? 58 : 80
+}
+
 export function shouldEat(world: WorldState, survivor: SurvivorState): boolean {
-  if (survivor.downed || !foodAvailable(world)) return false
-  const hungry = world.time.phase === 'dawn' || world.time.phase === 'day' ? 62 : 84
-  const thirsty = world.time.phase === 'dawn' || world.time.phase === 'day' ? 58 : 80
-  return survivor.hunger < hungry || survivor.thirst < thirsty
+  if (survivor.downed) return false
+  if (survivor.hunger < hungerThreshold(world) && foodAvailable(world)) return true
+  if (survivor.thirst < thirstThreshold(world) && (waterAvailable(world) || foodAvailable(world))) return true
+  return false
 }
 
 export function stepLiving(world: WorldState): void {
@@ -48,13 +66,13 @@ export function eatOne(world: WorldState, survivor: SurvivorState): boolean {
   if (!warehouse) return false
   const stock = inventoryOf(world.inventories, warehouse.inventoryId)
   if (removeItem(stock, 'meal', 1)) {
-    survivor.hunger = clampVital(survivor.hunger + 38)
-    survivor.thirst = clampVital(survivor.thirst + 16)
+    survivor.hunger = clampVital(survivor.hunger + MEAL_HUNGER)
+    survivor.thirst = clampVital(survivor.thirst + MEAL_THIRST)
     survivor.morale = Math.min(100, survivor.morale + 4)
     return true
   }
   if (removeItem(stock, 'raw_meat', 1) || removeItem(stock, 'raw_fish', 1)) {
-    survivor.hunger = clampVital(survivor.hunger + 16)
+    survivor.hunger = clampVital(survivor.hunger + RAW_HUNGER)
     survivor.thirst = clampVital(survivor.thirst + 6)
     return true
   }
@@ -66,6 +84,16 @@ export function eatOne(world: WorldState, survivor: SurvivorState): boolean {
   return false
 }
 
+export function drinkOne(world: WorldState, survivor: SurvivorState): boolean {
+  if (survivor.downed) return false
+  const warehouse = findContainer(world, 'warehouse')
+  if (!warehouse) return false
+  const stock = inventoryOf(world.inventories, warehouse.inventoryId)
+  if (!removeItem(stock, 'water', 1)) return false
+  survivor.thirst = clampVital(survivor.thirst + WATER_THIRST)
+  return true
+}
+
 export function eatAtBase(world: WorldState): number {
   const spot = diningSpot(world)
   let fed = 0
@@ -73,7 +101,9 @@ export function eatAtBase(world: WorldState): number {
     if (survivor.downed || !insideBase(survivor.position)) continue
     if (survivor.hunger >= 84 && survivor.thirst >= 80) continue
     if (Math.hypot(survivor.position.x - spot.x, survivor.position.z - spot.z) > 3) continue
-    if (eatOne(world, survivor)) fed += 1
+    const ate = survivor.hunger < 84 ? eatOne(world, survivor) : false
+    const drank = survivor.thirst < 80 ? drinkOne(world, survivor) : false
+    if (ate || drank) fed += 1
   }
   return fed
 }

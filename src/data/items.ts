@@ -11,6 +11,7 @@ export const ITEM_LABELS: Record<string, string> = {
   raw_fish: '生鱼',
   berry: '果子',
   meal: '熟食',
+  water: '水',
   jacket: '外套',
   work_cap: '工帽',
   boots: '靴子',
@@ -34,6 +35,7 @@ export const WORK_XP: Record<string, number> = {
   gather: 3,
   scavenge: 3,
   cook: 5,
+  repair: 4,
 }
 
 export function itemLabel(id: string): string {

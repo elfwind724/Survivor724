@@ -319,7 +319,7 @@ function repairDamagedWall(world: WorldState, survivor: SurvivorState, dt: numbe
 
 function damagedWall(world: WorldState): StructureState | undefined {
   return world.structures
-    .filter((structure) => structure.kind === 'wall' && structure.stage === 'complete' && structure.hp < structure.maxHp)
+    .filter((structure) => (structure.kind === 'wall' || structure.kind === 'gate') && structure.stage === 'complete' && structure.hp < structure.maxHp)
     .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
 }
 

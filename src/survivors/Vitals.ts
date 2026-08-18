@@ -20,8 +20,8 @@ export function stepVitals(world: WorldState, dt: number): void {
   for (const survivor of world.survivors) {
     const working = !resting && WORKING.has(survivor.workerState)
     const drain = skillHungerMult(survivor)
-    const hungerRate = (resting ? -0.04 : working ? 0.02 : 0.008) * (resting ? 1 : drain)
-    const thirstRate = (resting ? -0.08 : working ? 0.03 : 0.012) * (resting ? 1 : drain)
+    const hungerRate = (resting ? 0.012 : working ? 0.075 : 0.028) * drain
+    const thirstRate = (resting ? 0.018 : working ? 0.095 : 0.038) * drain
     survivor.hunger = clampVital(survivor.hunger - hungerRate * dt)
     survivor.thirst = clampVital(survivor.thirst - thirstRate * dt)
     if (survivor.hunger <= 0.5 || survivor.thirst <= 0.5) {

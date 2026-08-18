@@ -13,6 +13,7 @@ export const JOB_DEFINITIONS: readonly JobDefinition[] = [
   { id: 'haul', category: 'base', requiredTools: [], outputItemId: '' },
   { id: 'build', category: 'base', requiredTools: ['hammer'], outputItemId: '' },
   { id: 'demolish', category: 'base', requiredTools: ['hammer'], outputItemId: '' },
+  { id: 'repair', category: 'base', requiredTools: ['hammer'], outputItemId: '' },
   { id: 'cook', category: 'base', requiredTools: [], outputItemId: 'meal' },
 ]
 

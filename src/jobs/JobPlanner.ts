@@ -1,4 +1,5 @@
-import { findStructure, materialsMet } from '@/base/construction'
+import { findStructure, materialsMet, needsRepair } from '@/base/construction'
+import { countItem } from '@/inventory/Inventory'
 import { isHero } from '@/controls/PlayerControl'
 import { findSurvivor } from '@/simulation/EntityRegistry'
 import type { JobRecord, WorldState } from '@/simulation/types'
@@ -7,6 +8,7 @@ import { assignJob, createJob } from './JobBoard'
 export function planJobs(world: WorldState): void {
   planConstructionJobs(world)
   planKitchenJobs(world)
+  planRepairJobs(world)
   dropStaleConstructionJobs(world)
 
   for (const job of world.jobs) {
@@ -41,6 +43,15 @@ export function planJobs(world: WorldState): void {
       )
       if (wreck) {
         assignJob(world, wreck.id, survivor.id)
+        continue
+      }
+    }
+    if (survivor.dayAssignment === 'build' || survivor.dayAssignment === 'repair') {
+      const patch = world.jobs.find(
+        (entry) => entry.definitionId === 'repair' && (entry.assigneeId === null || entry.assigneeId === survivor.id) && jobIsActive(world, entry),
+      )
+      if (patch) {
+        assignJob(world, patch.id, survivor.id)
         continue
       }
     }
@@ -124,8 +135,23 @@ function cookHasWork(world: WorldState): boolean {
   })
 }
 
+function planRepairJobs(world: WorldState): void {
+  const wood = world.inventories['inv-warehouse']
+  const canPatch = !!wood && countItem(wood, 'wood') > 0
+  const damaged = canPatch
+    ? world.structures.filter((structure) => needsRepair(structure))
+    : []
+  const keep = new Set(damaged.map((entry) => entry.id))
+  world.jobs = world.jobs.filter((job) => job.definitionId !== 'repair' || keep.has(job.targetId))
+  for (const structure of damaged) ensureJob(world, 'repair', structure.id)
+}
+
 function jobIsActive(world: WorldState, job: JobRecord): boolean {
   if (job.definitionId === 'cook') return cookHasWork(world)
+  if (job.definitionId === 'repair') {
+    const structure = findStructure(world, job.targetId)
+    return !!structure && needsRepair(structure)
+  }
   if (job.definitionId === 'demolish') {
     const wreck = findStructure(world, job.targetId)
     return !!wreck && wreck.stage === 'demolishing'
@@ -143,7 +169,7 @@ function hasActiveJob(world: WorldState, jobId: string | null, survivorId: strin
   return !!job && job.assigneeId === survivorId && jobIsActive(world, job)
 }
 
-function ensureJob(world: WorldState, definitionId: 'haul' | 'build' | 'demolish', targetId: string): void {
+function ensureJob(world: WorldState, definitionId: 'haul' | 'build' | 'demolish' | 'repair', targetId: string): void {
   const existing = world.jobs.find((job) => job.definitionId === definitionId && job.targetId === targetId)
   if (existing) return
   world.jobs.push(createJob({
@@ -154,6 +180,6 @@ function ensureJob(world: WorldState, definitionId: 'haul' | 'build' | 'demolish
   }))
 }
 
-function removeJobs(world: WorldState, definitionId: 'haul' | 'build' | 'demolish', targetId: string): void {
+function removeJobs(world: WorldState, definitionId: 'haul' | 'build' | 'demolish' | 'repair', targetId: string): void {
   world.jobs = world.jobs.filter((job) => !(job.definitionId === definitionId && job.targetId === targetId))
 }

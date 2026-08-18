@@ -598,8 +598,14 @@ export function structureHp(kind: StructureState['kind']): number {
   return 90
 }
 
+export const REPAIR_HP = 30
+
+export function needsRepair(structure: StructureState): boolean {
+  return structure.stage === 'complete' && structure.hp < structure.maxHp
+}
+
 export function repairStructure(world: WorldState, structure: StructureState, amount: number): boolean {
-  if (structure.stage !== 'complete' || structure.hp >= structure.maxHp) return false
+  if (!needsRepair(structure)) return false
   structure.hp = Math.min(structure.maxHp, structure.hp + amount)
   return true
 }

@@ -106,7 +106,8 @@ describe('simulation layer', () => {
 
     expect(sawFullBag).toBe(true)
     expect(sawReturn).toBe(true)
-    expect(countItem(world.inventories['inv-warehouse'] ?? { id: '', capacity: 0, items: [] }, 'raw_fish')).toBeGreaterThanOrEqual(2)
+    const stock = world.inventories['inv-warehouse'] ?? { id: '', capacity: 0, items: [] }
+    expect(countItem(stock, 'raw_fish') + countItem(stock, 'water')).toBeGreaterThanOrEqual(2)
   })
 
   it('runs hunter, fisher, and scavenger for three days without losing jobs, teleporting, or stalling', () => {
