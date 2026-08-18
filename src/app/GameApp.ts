@@ -5,6 +5,7 @@ import { buildProgress, durabilityPercent, facilityPreviewHeight, structureLabel
 import { rebuildNightPosts } from '@/combat/Night'
 import { cellCenter } from '@/navigation/NavGrid'
 import { reloadWeapon, tryShoot } from '@/combat/Combat'
+import { depositIfNearWarehouse } from '@/inventory/Cargo'
 import { equippedWeapon, fireProfile } from '@/data/weapons'
 import { setWorkZone } from '@/base/workZones'
 import { cameraRelativeWish } from '@/controls/CameraWish'
@@ -271,6 +272,13 @@ export class GameApp {
       }
       possessSurvivor(this.world, this.world.player.heroId)
       this.notice = '继续操控冯老师'
+    }
+    if (event.code === 'KeyG') {
+      const self = this.world.survivors.find((entry) => entry.id === this.world.player.heroId)
+      if (!self) return
+      const moved = depositIfNearWarehouse(this.world, self)
+      this.notice = moved > 0 ? `已卸货 ${moved} 件进仓库` : '走近仓库门口再按 G 卸货'
+      return
     }
     if (event.code === 'KeyC') {
       const id = this.world.player.selectedId ?? this.world.player.heroId

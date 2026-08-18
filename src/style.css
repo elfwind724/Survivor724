@@ -55,6 +55,7 @@ body,
 
 .hud-clock,
 .hud-stocks,
+.hud-bag,
 .hud-card,
 .hud-toast {
   background: var(--hud-panel);
@@ -62,13 +63,34 @@ body,
 }
 
 .hud-clock,
-.hud-stocks {
+.hud-stocks,
+.hud-bag {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 12px;
   min-height: 44px;
   padding: 8px 12px;
+}
+
+.hud-stocks strong,
+.hud-bag strong {
+  color: var(--hud-brass);
+  font-size: 13px;
+}
+
+.hud-bag em {
+  color: var(--hud-muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.hud-bag.is-full {
+  border-color: #8a5a2a;
+}
+
+.hud-bag.is-full em {
+  color: #f0c27a;
 }
 
 .hud-clock strong {
@@ -167,9 +189,17 @@ body,
   background: var(--hud-brass);
 }
 
+.hud-stock.is-empty {
+  color: var(--hud-muted);
+}
+
 .hud-stock[data-stock="wood"] i { background: #8b6a3c; }
 .hud-stock[data-stock="scrap"] i { background: #8a8f96; }
 .hud-stock[data-stock="ammo"] i { background: #b9a15a; }
+.hud-stock[data-stock="raw_meat"] i { background: #a45a42; }
+.hud-stock[data-stock="raw_fish"] i { background: #4a7a8a; }
+.hud-stock[data-stock="berry"] i { background: #8a4a6a; }
+.hud-stock[data-stock="meal"] i { background: #c47a3a; }
 .hud-stock[data-stock="food"] i { background: #a45a42; }
 
 .hud-weapon {

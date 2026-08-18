@@ -1,4 +1,5 @@
 import { autoCombat, harvestWildlife, stepEnemies, stepProjectiles, stepRevive, tickCooldowns } from '@/combat/Combat'
+import { depositIfNearWarehouse } from '@/inventory/Cargo'
 import { stepWildlife } from '@/world/Wildlife'
 import { stepNightCycle, stepNightDefender } from '@/combat/Night'
 import { type ControlIntent, stepPlayerControl } from '@/controls/PlayerControl'
@@ -22,6 +23,7 @@ export function stepWorld(world: WorldState, dt: number, intent: ControlIntent |
     if (intent) stepPlayerControl(world, dt, intent)
     if (self) {
       harvestWildlife(world, self)
+      depositIfNearWarehouse(world, self)
       autoCombat(world, self)
     }
   }

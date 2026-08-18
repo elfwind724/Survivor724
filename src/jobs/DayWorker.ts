@@ -12,6 +12,7 @@ import { recordWorkYield } from '@/survivors/Progress'
 import { nearestLivingWildlife } from '@/world/Wildlife'
 import { nodeAllowedForSurvivor } from '@/base/workZones'
 import { WORK_SECONDS, jobDefinition } from '@/data/jobs'
+import { depositBag } from '@/inventory/Cargo'
 import { addItem, canAdd, countItem, inventoryOf, removeItem, usedSlots } from '@/inventory/Inventory'
 import { beginTravel, followTravel } from '@/navigation/Travel'
 import { findContainer, findJob, findNode } from '@/simulation/EntityRegistry'
@@ -473,23 +474,8 @@ function beginReturn(world: WorldState, survivor: SurvivorState): void {
 }
 
 function stepDeposit(world: WorldState, survivor: SurvivorState): void {
-  const bag = inventoryOf(world.inventories, survivor.inventoryId)
-  const warehouse = findContainer(world, 'warehouse')
-  if (!warehouse) {
-    survivor.blockedReason = 'warehouse_full'
-    return
-  }
-
-  const stock = inventoryOf(world.inventories, warehouse.inventoryId)
-  const remaining: typeof bag.items = []
-  for (const item of bag.items) {
-    if (addItem(stock, item.itemId, item.count)) continue
-    remaining.push({ ...item })
-  }
-  bag.items = remaining
-
-  if (remaining.length > 0) {
-    survivor.blockedReason = 'warehouse_full'
+  const result = depositBag(world, survivor)
+  if (result.remaining > 0) {
     survivor.destination = null
     return
   }

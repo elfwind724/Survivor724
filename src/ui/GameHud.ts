@@ -1,5 +1,7 @@
 import { activityCaption } from '@/survivors/Activity'
-import { countItem } from '@/inventory/Inventory'
+import { bagFill, HUD_STOCK_IDS } from '@/inventory/Cargo'
+import { countItem, usedSlots } from '@/inventory/Inventory'
+import { itemLabel } from '@/data/items'
 import { assignmentLabel, postLabel } from '@/jobs/Roster'
 import { equippedWeapon, INFINITE_AMMO, magazineSize, readMag } from '@/data/weapons'
 import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
@@ -39,6 +41,8 @@ export interface HudCard {
   cooldown: number
   portrait: string
   bars: HudBar[]
+  bagUsed: number
+  bagCap: number
 }
 
 export interface HudModel {
@@ -51,6 +55,16 @@ export interface HudModel {
   sites: number
   interiors: boolean
   stocks: HudStock[]
+  extras: HudStock[]
+  warehouseUsed: number
+  warehouseCap: number
+  bag: {
+    name: string
+    used: number
+    capacity: number
+    full: boolean
+    items: HudStock[]
+  }
   cards: HudCard[]
   weapon: {
     name: string
@@ -77,6 +91,10 @@ const PROFESSION_LABEL: Record<string, string> = {
 
 export function buildHudModel(world: WorldState, notice = ''): HudModel {
   const warehouse = world.inventories['inv-warehouse']
+  const hero = world.survivors.find((entry) => entry.id === world.player.heroId) ?? world.survivors[0]
+  const bagInv = hero ? world.inventories[hero.inventoryId] : undefined
+  const fill = bagInv ? bagFill(bagInv) : { used: 0, capacity: 0, full: false }
+  const tracked = new Set<string>(HUD_STOCK_IDS)
   return {
     day: world.time.dayIndex,
     phase: phaseLabel(world.time.phase),
@@ -86,12 +104,27 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
     warning: duskWarningText(duskWarningLevel(world)),
     sites: world.structures.filter((structure) => structure.stage !== 'complete').length,
     interiors: world.showInteriors,
-    stocks: [
-      { id: 'wood', label: '木', count: warehouse ? countItem(warehouse, 'wood') : 0 },
-      { id: 'scrap', label: '铁', count: warehouse ? countItem(warehouse, 'scrap') : 0 },
-      { id: 'ammo', label: '弹', count: warehouse ? countItem(warehouse, 'ammo') : 0 },
-      { id: 'food', label: '食', count: warehouse ? countItem(warehouse, 'raw_meat') + countItem(warehouse, 'raw_fish') + countItem(warehouse, 'berry') + countItem(warehouse, 'meal') : 0 },
-    ],
+    stocks: HUD_STOCK_IDS.map((id) => ({
+      id,
+      label: itemLabel(id),
+      count: warehouse ? countItem(warehouse, id) : 0,
+    })),
+    extras: warehouse
+      ? warehouse.items
+        .filter((item) => !tracked.has(item.itemId) && item.count > 0)
+        .map((item) => ({ id: item.itemId, label: itemLabel(item.itemId), count: item.count }))
+      : [],
+    warehouseUsed: warehouse ? usedSlots(warehouse) : 0,
+    warehouseCap: warehouse?.capacity ?? 0,
+    bag: {
+      name: hero?.name ?? '背包',
+      used: fill.used,
+      capacity: fill.capacity,
+      full: fill.full,
+      items: (bagInv?.items ?? [])
+        .filter((item) => item.count > 0)
+        .map((item) => ({ id: item.itemId, label: itemLabel(item.itemId), count: item.count })),
+    },
     cards: world.survivors.map((survivor) => cardModel(world, survivor)),
     weapon: focusWeapon(world),
     report: reportModel(world),
@@ -100,20 +133,28 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
 
 export function hudModelKey(model: HudModel): string {
   const stocks = model.stocks.map((item) => `${item.id}:${item.count}`).join(',')
+  const extras = model.extras.map((item) => `${item.id}:${item.count}`).join(',')
+  const bag = `${model.bag.used}/${model.bag.capacity}:${model.bag.items.map((item) => `${item.id}:${item.count}`).join(',')}`
   const cards = model.cards
-    .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.job}:${card.status}:${card.ammo ?? '-'}:${card.cooldown.toFixed(2)}`)
+    .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.job}:${card.status}:${card.ammo ?? '-'}:${card.cooldown.toFixed(2)}:${card.bagUsed}/${card.bagCap}`)
     .join('|')
   const weapon = model.weapon ? `${model.weapon.name}:${model.weapon.ammo}/${model.weapon.ammoMax}:${model.weapon.cooldown.toFixed(2)}` : '-'
   const report = model.report ? `${model.report.lost ? 'L' : 'W'}:${model.report.stats}:${model.report.loot}` : '-'
-  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${stocks}:${cards}:${weapon}:${report}`
+  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${report}`
 }
 
 export function renderHudHtml(model: HudModel): string {
   const scale = model.timeScale !== 1 ? `<span class="hud-chip">${model.timeScale}×</span>` : ''
   const sites = model.sites > 0 ? `<span class="hud-chip hud-chip-work">施工 ${model.sites}</span>` : ''
   const stocks = model.stocks
-    .map((item) => `<span class="hud-stock" data-stock="${item.id}"><i></i>${item.label} ${item.count}</span>`)
+    .map((item) => `<span class="hud-stock${item.count <= 0 ? ' is-empty' : ''}" data-stock="${item.id}"><i></i>${escapeHtml(item.label)} ${item.count}</span>`)
     .join('')
+  const extras = model.extras
+    .map((item) => `<span class="hud-stock" data-stock="${item.id}"><i></i>${escapeHtml(item.label)} ${item.count}</span>`)
+    .join('')
+  const bagItems = model.bag.items.length > 0
+    ? model.bag.items.map((item) => `<span class="hud-stock" data-stock="${item.id}"><i></i>${escapeHtml(item.label)} ${item.count}</span>`).join('')
+    : '<span class="hud-stock is-empty">空</span>'
   const cards = model.cards.map(renderCard).join('')
   const toast = model.notice ? `<p class="hud-toast">${escapeHtml(model.notice)}</p>` : ''
   return `
@@ -127,7 +168,16 @@ export function renderHudHtml(model: HudModel): string {
         <button type="button" class="hud-reset" data-action="toggle-interiors">${model.interiors ? '显示整栋' : '显示内部'}</button>
         <button type="button" class="hud-reset" data-action="open-sheet">C 技能</button>
       </div>
-      <div class="hud-stocks">${stocks}</div>
+      <div class="hud-stocks">
+        <strong>仓库 ${model.warehouseUsed}/${model.warehouseCap}</strong>
+        ${stocks}
+        ${extras}
+      </div>
+      <div class="hud-bag${model.bag.full ? ' is-full' : ''}">
+        <strong>背包 ${model.bag.used}/${model.bag.capacity}</strong>
+        ${bagItems}
+        ${model.bag.full ? '<em>满了，回仓库卸货</em>' : model.bag.used > 0 ? '<em>走近仓库自动入库 · G 卸货</em>' : ''}
+      </div>
       ${renderWeaponHud(model.weapon)}
     </div>
     <div class="hud-roster">${cards}</div>
@@ -182,6 +232,8 @@ export class GameHud {
 
 function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
   const gun = equippedWeapon(survivor)
+  const bag = world.inventories[survivor.inventoryId]
+  const fill = bag ? bagFill(bag) : { used: 0, capacity: 0, full: false }
   return {
     id: survivor.id,
     name: survivor.name,
@@ -197,6 +249,8 @@ function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
     weapon: gun?.label ?? null,
     cooldown: cooldownRatio(survivor),
     portrait: survivorPortrait(survivor),
+    bagUsed: fill.used,
+    bagCap: fill.capacity,
     bars: [
       { key: 'hp', label: '血', value: clampVital(survivor.health) },
       { key: 'hunger', label: '饥', value: clampVital(survivor.hunger) },
@@ -227,7 +281,7 @@ function renderCard(card: HudCard): string {
     <span class="hud-face" aria-hidden="true">${card.portrait}</span>
     <span class="hud-meta">
       <strong>${escapeHtml(card.name)}${ammo}</strong>
-      <small>${escapeHtml(card.job)} · ${escapeHtml(card.status)}</small>
+      <small>${escapeHtml(card.job)} · ${escapeHtml(card.status)} · 袋${card.bagUsed}/${card.bagCap}</small>
       ${bars}
     </span>
   </button>`

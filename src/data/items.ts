@@ -11,6 +11,21 @@ export const ITEM_LABELS: Record<string, string> = {
   raw_fish: '生鱼',
   berry: '果子',
   meal: '熟食',
+  jacket: '外套',
+  work_cap: '工帽',
+  boots: '靴子',
+  pistol: '手枪',
+  cloth_hat: '布帽',
+  hood: '兜帽',
+  raincoat: '雨衣',
+  work_clothes: '工装',
+  hauler_vest: '搬运背心',
+  work_gloves: '手套',
+  rifle: '步枪',
+  hunting_knife: '猎刀',
+  rod: '鱼竿',
+  crowbar: '撬棍',
+  hammer: '锤子',
 }
 
 export const WORK_XP: Record<string, number> = {
