@@ -1,4 +1,5 @@
 import { autoCombat, butcherWildlife, stepAilments, stepEnemies, stepProjectiles, stepRevive, tickCooldowns } from '@/combat/Combat'
+import { ejectWarehouseGear, pickupGroundLoot } from '@/data/loot'
 import { depositIfNearWarehouse } from '@/inventory/Cargo'
 import { stepWildlife } from '@/world/Wildlife'
 import { stepNightCycle, stepNightDefender } from '@/combat/Night'
@@ -13,6 +14,7 @@ import type { WorldState } from './types'
 
 export function stepWorld(world: WorldState, dt: number, intent: ControlIntent | null = null): void {
   advanceTime(world, dt)
+  ejectWarehouseGear(world)
   if (world.navDirty) rebuildNav(world)
   stepLiving(world)
   stepNightCycle(world)
@@ -23,10 +25,13 @@ export function stepWorld(world: WorldState, dt: number, intent: ControlIntent |
     if (intent) stepPlayerControl(world, dt, intent)
     if (self) {
       butcherWildlife(world, self, dt)
+      pickupGroundLoot(world, self)
       depositIfNearWarehouse(world, self)
       autoCombat(world, self)
     }
   }
+  const hero = world.survivors.find((entry) => entry.id === world.player.heroId)
+  if (hero && hero.id !== world.player.controlledId) pickupGroundLoot(world, hero)
   const nightWatch = world.time.phase === 'night'
   for (const survivor of world.survivors) {
     if (survivor.id === world.player.controlledId) continue

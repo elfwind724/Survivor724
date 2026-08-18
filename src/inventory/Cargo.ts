@@ -1,3 +1,4 @@
+import { isGearId } from '@/data/loot'
 import { addItem, inventoryOf, usedSlots } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { distanceXZ, type InventoryState, type ItemStack, type SurvivorState, type WorldState } from '@/simulation/types'
@@ -12,15 +13,20 @@ export function depositBag(world: WorldState, survivor: SurvivorState): { moved:
   if (!warehouse) return { moved: 0, remaining: usedSlots(bag) }
   const stock = inventoryOf(world.inventories, warehouse.inventoryId)
   const leftover: ItemStack[] = []
+  const keptGear: ItemStack[] = []
   let moved = 0
   for (const item of bag.items) {
+    if (isGearId(item.itemId)) {
+      keptGear.push({ ...item })
+      continue
+    }
     if (addItem(stock, item.itemId, item.count)) {
       moved += item.count
       continue
     }
     leftover.push({ ...item })
   }
-  bag.items = leftover
+  bag.items = [...keptGear, ...leftover]
   if (leftover.length > 0) survivor.blockedReason = 'warehouse_full'
   else if (survivor.blockedReason === 'warehouse_full') survivor.blockedReason = null
   return { moved, remaining: usedSlots(bag) }

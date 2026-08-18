@@ -64,4 +64,37 @@ describe('backpack and warehouse', () => {
     expect(countItem(bag, 'raw_fish')).toBe(2)
     expect(hunter.blockedReason).toBe('warehouse_full')
   })
+
+  it('keeps unique guns in the bag and off the warehouse hud', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    const warehouse = world.inventories['inv-warehouse']
+    const bag = hunter ? world.inventories[hunter.inventoryId] : undefined
+    if (!hunter || !warehouse || !bag) throw new Error('missing hunter')
+    const gunId = 'g-rifle-99'
+    world.gear[gunId] = {
+      id: gunId,
+      baseId: 'rifle',
+      slot: 'weapon',
+      rarity: 'legendary',
+      plus: 0,
+      affixes: [{ id: 'max_dmg', label: '最大攻击', value: 8 }],
+      procs: ['explode'],
+      name: '裂地步枪之怒（爆炸）',
+    }
+    addItem(bag, gunId, 1)
+    addItem(bag, 'raw_meat', 2)
+    warehouse.items.push({ itemId: gunId, count: 1 })
+    const meat = countItem(warehouse, 'raw_meat')
+    const result = depositBag(world, hunter)
+    expect(result.moved).toBe(2)
+    expect(countItem(bag, gunId)).toBe(1)
+    expect(countItem(warehouse, gunId)).toBe(1)
+    expect(countItem(warehouse, 'raw_meat')).toBe(meat + 2)
+    const model = buildHudModel(world)
+    expect(model.extras.some((item) => item.id === gunId)).toBe(false)
+    expect(model.bag.items.some((item) => item.id === gunId && item.label.includes('裂地步枪之怒'))).toBe(true)
+    const html = renderHudHtml(model)
+    expect(html).toContain('裂地步枪之怒')
+  })
 })

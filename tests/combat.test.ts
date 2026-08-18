@@ -212,6 +212,12 @@ describe('combat and night', () => {
     expect(world.nightReport?.kills).toBe(12)
     expect(countItem(warehouse, 'wood')).toBe(wood + nightLootFor(12)[0]!.count)
     expect(world.nightReport?.loot.some((item) => item.itemId === 'meal' && item.count > 0)).toBe(true)
+    const nightGun = world.nightReport?.loot.find((item) => item.itemId.startsWith('g-'))
+    expect(nightGun).toBeTruthy()
+    if (nightGun) {
+      expect(countItem(warehouse, nightGun.itemId)).toBe(0)
+      expect(world.groundLoot.some((drop) => drop.gearId === nightGun.itemId)).toBe(true)
+    }
   })
 
   it('ends the game when the whole roster is down', () => {

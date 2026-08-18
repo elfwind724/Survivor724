@@ -11,6 +11,7 @@ import { followCameraOffset } from '@/controls/CameraWish'
 import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, SurvivorState, WildlifeState, WorldState } from '@/simulation/types'
 import { wildlifeAsset, wildlifeHeight } from '@/world/Wildlife'
+import { RARITY_COLOR } from '@/data/loot'
 import { AssetLibrary } from './AssetLibrary'
 import { pickArmedPose, pickCharacterClip, type CharacterPose } from './CharacterClips'
 import { barrelTipWorld, findHoldBone, prepareHeldGun, snapHeldGun } from './HeldWeapon'
@@ -45,6 +46,7 @@ export class DebugRenderer {
   private readonly extras: THREE.Object3D[] = []
   private readonly enemies = new Map<string, Marker>()
   private readonly wildlife = new Map<string, Marker>()
+  private readonly lootDrops = new Map<string, Marker>()
   private readonly projectiles = new Map<string, Marker>()
   private viewGun: THREE.Object3D | null = null
   private zones: THREE.Object3D[] = []
@@ -301,6 +303,7 @@ export class DebugRenderer {
     this.syncStructures(world)
     this.syncEnemies(world, dt)
     this.syncWildlife(world, dt)
+    this.syncGroundLoot(world)
     for (const survivor of world.survivors) {
       let marker = this.survivors.get(survivor.id)
       if (!marker) {
@@ -1141,6 +1144,41 @@ export class DebugRenderer {
     gun.rotation.set(0.08, Math.PI, 0)
     this.camera.add(gun)
     this.viewGun = gun
+  }
+
+  private syncGroundLoot(world: WorldState): void {
+    const seen = new Set<string>()
+    const pulse = performance.now() / 1000
+    for (const drop of world.groundLoot) {
+      seen.add(drop.id)
+      let marker = this.lootDrops.get(drop.id)
+      if (!marker) {
+        const piece = world.gear[drop.gearId]
+        const color = new THREE.Color(RARITY_COLOR[piece?.rarity ?? 'common'])
+        const group = new THREE.Group()
+        const box = new THREE.Mesh(
+          new THREE.BoxGeometry(0.42, 0.28, 0.42),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 }),
+        )
+        box.position.y = 0.2
+        const glow = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.58, 0.58, 0.05, 12),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.32 }),
+        )
+        glow.position.y = 0.03
+        group.add(glow, box)
+        this.scene.add(group)
+        marker = { id: drop.id, mesh: group }
+        this.lootDrops.set(drop.id, marker)
+      }
+      marker.mesh.position.set(drop.x, 0.12 + Math.sin(pulse * 3 + drop.x) * 0.08, drop.z)
+      marker.mesh.rotation.y = pulse * 1.5
+    }
+    for (const [id, marker] of this.lootDrops) {
+      if (seen.has(id)) continue
+      this.disposeObject(marker.mesh)
+      this.lootDrops.delete(id)
+    }
   }
 
   private syncProjectiles(world: WorldState): void {

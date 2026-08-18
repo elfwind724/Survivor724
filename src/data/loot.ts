@@ -1,9 +1,10 @@
 import { EQUIPMENT } from '@/data/equipment'
-import { itemBase } from '@/data/items'
+import { itemBase, itemLabel } from '@/data/items'
 import { WEAPONS } from '@/data/weapons'
+import { fireProfile } from '@/data/weapons'
 import { addItem, inventoryOf } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
-import type { AffixRoll, EquipSlot, GearPiece, ItemRarity, SurvivorState, WeaponProc, WorldState } from '@/simulation/types'
+import { distanceXZ, type AffixRoll, type EquipSlot, type GearPiece, type GroundLoot, type ItemRarity, type SurvivorState, type WeaponProc, type WorldState } from '@/simulation/types'
 
 export const RARITY_LABEL: Record<ItemRarity, string> = {
   common: '普通',
@@ -116,16 +117,117 @@ export function dropChanceFor(kind: 'wanderer' | 'runner' | 'wildlife', luck = 0
   return 0.06 + luck
 }
 
-export function maybeDropGear(world: WorldState, survivor: SurvivorState | undefined, seed: string, kind: 'wanderer' | 'runner' | 'wildlife'): GearPiece | null {
+export function gearLabel(world: WorldState, id: string): string {
+  const piece = world.gear[id]
+  if (!piece) return itemLabel(id)
+  return `${RARITY_LABEL[piece.rarity]} ${piece.name}`
+}
+
+export function spawnGroundLoot(world: WorldState, piece: GearPiece, x: number, z: number): void {
+  world.gear[piece.id] = piece
+  if (world.groundLoot.some((drop) => drop.gearId === piece.id)) return
+  world.groundLoot.push({
+    id: `loot-${piece.id}`,
+    gearId: piece.id,
+    x,
+    z,
+  })
+}
+
+export function ejectWarehouseGear(world: WorldState): number {
+  const warehouse = findContainer(world, 'warehouse')
+  if (!warehouse) return 0
+  const stock = inventoryOf(world.inventories, warehouse.inventoryId)
+  if (!stock.items.some((item) => isGearId(item.itemId))) return 0
+  const keep: typeof stock.items = []
+  let moved = 0
+  for (const item of stock.items) {
+    if (!isGearId(item.itemId)) {
+      keep.push(item)
+      continue
+    }
+    const piece = world.gear[item.itemId]
+    if (piece) spawnGroundLoot(world, piece, warehouse.position.x, warehouse.position.z)
+    moved += 1
+  }
+  stock.items = keep
+  return moved
+}
+
+export function nearestGroundLoot(world: WorldState, x: number, z: number, maxDist = 8): GroundLoot | undefined {
+  let best: GroundLoot | undefined
+  let bestDist = maxDist
+  for (const drop of world.groundLoot) {
+    const dist = distanceXZ({ x, y: 0, z }, { x: drop.x, y: 0, z: drop.z })
+    if (dist > bestDist) continue
+    best = drop
+    bestDist = dist
+  }
+  return best
+}
+
+export function maybeDropGear(
+  world: WorldState,
+  survivor: SurvivorState | undefined,
+  seed: string,
+  kind: 'wanderer' | 'runner' | 'wildlife',
+  at?: { x: number; z: number },
+): GearPiece | null {
   if (hash01(seed) > dropChanceFor(kind)) return null
   const piece = rollGear(world, seed, kind === 'runner' ? 0.08 : 0, 'weapon')
+  const dropAt = at ?? survivor?.position ?? { x: 0, z: 0 }
   if (survivor) {
     const bag = inventoryOf(world.inventories, survivor.inventoryId)
     if (addItem(bag, piece.id, 1)) return piece
   }
-  const warehouse = findContainer(world, 'warehouse')
-  if (warehouse) addItem(inventoryOf(world.inventories, warehouse.inventoryId), piece.id, 1)
+  spawnGroundLoot(world, piece, dropAt.x, dropAt.z)
   return piece
+}
+
+export function pickupGroundLoot(world: WorldState, survivor: SurvivorState): GearPiece[] {
+  const bag = inventoryOf(world.inventories, survivor.inventoryId)
+  const kept: GroundLoot[] = []
+  const picked: GearPiece[] = []
+  for (const drop of world.groundLoot) {
+    if (distanceXZ(survivor.position, { x: drop.x, y: 0, z: drop.z }) > 1.7) {
+      kept.push(drop)
+      continue
+    }
+    if (!addItem(bag, drop.gearId, 1)) {
+      kept.push(drop)
+      continue
+    }
+    const piece = world.gear[drop.gearId]
+    if (piece) picked.push(piece)
+  }
+  world.groundLoot = kept
+  return picked
+}
+
+export function previewFire(world: WorldState, survivor: SurvivorState, weaponId: string) {
+  const ghost: SurvivorState = {
+    ...survivor,
+    equipment: { ...survivor.equipment, weapon: weaponId },
+  }
+  return fireProfile(ghost, 0, world)
+}
+
+export function weaponScore(profile: { minDamage: number; maxDamage: number; cooldown: number; pellets: number; critChance: number; critDamage: number }): number {
+  const avg = (profile.minDamage + profile.maxDamage) / 2
+  const crit = 1 + profile.critChance * (profile.critDamage - 1)
+  return (avg * Math.max(1, profile.pellets) * crit) / Math.max(0.08, profile.cooldown)
+}
+
+export function compareFire(
+  current: { minDamage: number; maxDamage: number; cooldown: number; pellets: number; critChance: number; critDamage: number },
+  next: { minDamage: number; maxDamage: number; cooldown: number; pellets: number; critChance: number; critDamage: number },
+): { currentScore: number; nextScore: number; deltaPct: number } {
+  const currentScore = weaponScore(current)
+  const nextScore = weaponScore(next)
+  const deltaPct = currentScore <= 0.01
+    ? (nextScore > 0 ? 100 : 0)
+    : Math.round(((nextScore - currentScore) / currentScore) * 100)
+  return { currentScore, nextScore, deltaPct }
 }
 
 function rollRarity(seed: string, luck: number): ItemRarity {

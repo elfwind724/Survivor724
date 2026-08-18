@@ -7,6 +7,7 @@ import {
   type EquipItemDef,
 } from '@/data/equipment'
 import { itemBase, itemPlus, withPlus } from '@/data/items'
+import { isGearId, spawnGroundLoot } from '@/data/loot'
 import { switchMags } from '@/data/weapons'
 import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
@@ -62,7 +63,7 @@ export function availableForSlot(world: WorldState, survivor: SurvivorState, slo
     items.push(item)
   }
   const worn = survivor.equipment[slot]
-  if (worn) add(withPlus(worn, survivor.enhance?.[slot] ?? 0))
+  if (worn) add(isGearId(worn) ? worn : withPlus(worn, survivor.enhance?.[slot] ?? 0))
   const bag = inventoryOf(world.inventories, survivor.inventoryId)
   for (const stack of bag.items) add(stack.itemId)
   const warehouse = findContainer(world, 'warehouse')
@@ -79,24 +80,24 @@ export function availableForSlot(world: WorldState, survivor: SurvivorState, slo
 }
 
 export function equipItem(world: WorldState, survivor: SurvivorState, itemId: string): boolean {
-  const item = equipmentById(itemId)
+  const item = equipmentById(itemId, world)
   if (!item) return false
   if (!survivor.enhance) survivor.enhance = emptyEnhance()
-  const base = itemBase(itemId)
-  const plus = itemPlus(itemId)
+  const stored = isGearId(itemId) ? itemId : itemBase(itemId)
+  const plus = isGearId(itemId) ? (world.gear[itemId]?.plus ?? 0) : itemPlus(itemId)
   const current = survivor.equipment[item.slot]
   const currentPlus = survivor.enhance[item.slot] ?? 0
-  if (current === base && currentPlus === plus) return true
+  if (current === stored && currentPlus === plus) return true
   if (!takeOwnedItem(world, survivor, itemId)) return false
-  if (current) stowItem(world, survivor, withPlus(current, currentPlus))
+  if (current) stowItem(world, survivor, isGearId(current) ? current : withPlus(current, currentPlus))
   if (current && (current === survivor.equipment.weapon || current === survivor.equipment.tool)) {
     survivor.carriedTools = survivor.carriedTools.filter((tool) => tool !== current)
   }
   const previousWeapon = survivor.equipment.weapon
-  survivor.equipment[item.slot] = base
+  survivor.equipment[item.slot] = stored
   survivor.enhance[item.slot] = plus
   applyEquipmentStats(survivor)
-  if (item.slot === 'weapon') switchMags(survivor, previousWeapon, base)
+  if (item.slot === 'weapon') switchMags(survivor, previousWeapon, stored)
   return true
 }
 
@@ -104,7 +105,7 @@ export function unequipSlot(world: WorldState, survivor: SurvivorState, slot: Eq
   const current = survivor.equipment[slot]
   if (!current) return false
   if (!survivor.enhance) survivor.enhance = emptyEnhance()
-  stowItem(world, survivor, withPlus(current, survivor.enhance[slot] ?? 0))
+  stowItem(world, survivor, isGearId(current) ? current : withPlus(current, survivor.enhance[slot] ?? 0))
   survivor.equipment[slot] = null
   survivor.enhance[slot] = 0
   survivor.carriedTools = survivor.carriedTools.filter((tool) => tool !== current)
@@ -133,6 +134,11 @@ function takeOwnedItem(world: WorldState, survivor: SurvivorState, itemId: strin
 function stowItem(world: WorldState, survivor: SurvivorState, itemId: string): void {
   const bag = inventoryOf(world.inventories, survivor.inventoryId)
   if (addItem(bag, itemId, 1)) return
+  if (isGearId(itemId)) {
+    const piece = world.gear[itemId]
+    if (piece) spawnGroundLoot(world, piece, survivor.position.x, survivor.position.z)
+    return
+  }
   const warehouse = findContainer(world, 'warehouse')
   if (warehouse) addItem(inventoryOf(world.inventories, warehouse.inventoryId), itemId, 1)
 }

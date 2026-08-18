@@ -346,6 +346,13 @@ export interface DecorationState {
   scale: number
 }
 
+export interface GroundLoot {
+  id: string
+  gearId: string
+  x: number
+  z: number
+}
+
 export interface WorldState {
   time: TimeState
   survivors: SurvivorState[]
@@ -361,6 +368,7 @@ export interface WorldState {
   enemies: EnemyState[]
   wildlife: WildlifeState[]
   gear: Record<string, GearPiece>
+  groundLoot: GroundLoot[]
   nightPosts: NightPost[]
   lastPhase: DayPhase
   nightSpawnedDay: number

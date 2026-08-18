@@ -341,7 +341,7 @@ function impactTarget(world: WorldState, shot: ProjectileState, from: Vec3): boo
         grantXp(owner, KILL_XP[hit.enemy.kind])
         grantSkillXp(owner, 'marksmanship', 6)
         grantSkillXp(owner, 'combat', 5)
-        maybeDropGear(world, owner, `${hit.enemy.id}:${owner.id}`, hit.enemy.kind)
+        maybeDropGear(world, owner, `${hit.enemy.id}:${owner.id}`, hit.enemy.kind, point)
       }
       world.nightKills += 1
       world.enemies = world.enemies.filter((entry) => entry.id !== hit.enemy.id)
@@ -355,7 +355,7 @@ function impactTarget(world: WorldState, shot: ProjectileState, from: Vec3): boo
         grantXp(owner, wildlifeKillXp(hit.wildlife.kind))
         grantSkillXp(owner, 'marksmanship', 5)
         grantSkillXp(owner, 'hunt', 4)
-        maybeDropGear(world, owner, `${hit.wildlife.id}:${owner.id}`, 'wildlife')
+        maybeDropGear(world, owner, `${hit.wildlife.id}:${owner.id}`, 'wildlife', point)
       }
     }
   }

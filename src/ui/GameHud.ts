@@ -2,7 +2,7 @@ import { activityCaption } from '@/survivors/Activity'
 import { bagFill, HUD_STOCK_IDS } from '@/inventory/Cargo'
 import { countItem, usedSlots } from '@/inventory/Inventory'
 import { itemLabel } from '@/data/items'
-import { RARITY_COLOR, RARITY_LABEL } from '@/data/loot'
+import { gearLabel, isGearId, nearestGroundLoot } from '@/data/loot'
 import { assignmentLabel, postLabel } from '@/jobs/Roster'
 import { equippedWeapon, INFINITE_AMMO, magazineSize, readMag } from '@/data/weapons'
 import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
@@ -57,6 +57,7 @@ export interface HudModel {
   interiors: boolean
   stocks: HudStock[]
   extras: HudStock[]
+  lootHint: string
   warehouseUsed: number
   warehouseCap: number
   bag: {
@@ -112,16 +113,14 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
     })),
     extras: warehouse
       ? warehouse.items
-        .filter((item) => !tracked.has(item.itemId) && item.count > 0)
-        .map((item) => {
-          const piece = world.gear[item.itemId]
-          return {
-            id: item.itemId,
-            label: piece ? `${RARITY_LABEL[piece.rarity]} ${piece.name}` : itemLabel(item.itemId),
-            count: item.count,
-          }
-        })
+        .filter((item) => !tracked.has(item.itemId) && !isGearId(item.itemId) && item.count > 0)
+        .map((item) => ({
+          id: item.itemId,
+          label: itemLabel(item.itemId),
+          count: item.count,
+        }))
       : [],
+    lootHint: lootHintFor(world, hero),
     warehouseUsed: warehouse ? usedSlots(warehouse) : 0,
     warehouseCap: warehouse?.capacity ?? 0,
     bag: {
@@ -131,7 +130,7 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
       full: fill.full,
       items: (bagInv?.items ?? [])
         .filter((item) => item.count > 0)
-        .map((item) => ({ id: item.itemId, label: itemLabel(item.itemId), count: item.count })),
+        .map((item) => ({ id: item.itemId, label: gearLabel(world, item.itemId), count: item.count })),
     },
     cards: world.survivors.map((survivor) => cardModel(world, survivor)),
     weapon: focusWeapon(world),
@@ -148,7 +147,7 @@ export function hudModelKey(model: HudModel): string {
     .join('|')
   const weapon = model.weapon ? `${model.weapon.name}:${model.weapon.ammo}/${model.weapon.ammoMax}:${model.weapon.cooldown.toFixed(2)}` : '-'
   const report = model.report ? `${model.report.lost ? 'L' : 'W'}:${model.report.stats}:${model.report.loot}` : '-'
-  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${report}`
+  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.lootHint}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${report}`
 }
 
 export function renderHudHtml(model: HudModel): string {
@@ -168,6 +167,7 @@ export function renderHudHtml(model: HudModel): string {
     : '<span class="hud-stock is-empty">空</span>'
   const cards = model.cards.map(renderCard).join('')
   const toast = model.notice ? `<p class="hud-toast">${escapeHtml(model.notice)}</p>` : ''
+  const loot = model.lootHint ? `<p class="hud-toast hud-loot">${escapeHtml(model.lootHint)}</p>` : ''
   return `
     <div class="hud-top">
       <div class="hud-clock">
@@ -193,6 +193,7 @@ export function renderHudHtml(model: HudModel): string {
     </div>
     <div class="hud-roster">${cards}</div>
     ${toast}
+    ${loot}
     ${renderReport(model)}
   `
 }
@@ -359,6 +360,18 @@ function renderWeaponHud(weapon: HudModel['weapon']): string {
       <em>${INFINITE_AMMO ? '∞' : `${weapon.ammo}/${weapon.ammoMax}`}</em>
     </div>
   </div>`
+}
+
+function lootHintFor(world: WorldState, hero: SurvivorState | undefined): string {
+  if (world.groundLoot.length <= 0) return ''
+  if (!hero) return `地上有 ${world.groundLoot.length} 件装备，走近发光盒捡起`
+  const near = nearestGroundLoot(world, hero.position.x, hero.position.z, 10)
+  if (!near) return `地上还有 ${world.groundLoot.length} 件装备，去发光盒旁捡`
+  const name = gearLabel(world, near.gearId)
+  const bag = world.inventories[hero.inventoryId]
+  const full = bag ? usedSlots(bag) >= bag.capacity : false
+  if (full) return `地上 ${name} · 背包满了，先按 G 卸资源再捡`
+  return `地上 ${name}，走近发光盒捡起`
 }
 
 function statusLabel(world: WorldState, survivor: SurvivorState): string {

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { createEnemy, tryShoot, stepProjectiles } from '@/combat/Combat'
-import { affixText, procLabel, rollGear, RARITY_COLOR, RARITY_LABEL } from '@/data/loot'
+import { affixText, maybeDropGear, pickupGroundLoot, previewFire, procLabel, rollGear, spawnGroundLoot, weaponScore, RARITY_COLOR, RARITY_LABEL } from '@/data/loot'
 import { fireProfile } from '@/data/weapons'
-import { countItem } from '@/inventory/Inventory'
+import { addItem, countItem, usedSlots } from '@/inventory/Inventory'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { possessSurvivor } from '@/controls/PlayerControl'
+import { inspectSheetHtml } from '@/ui/CharacterSheet'
+import { stepWorld } from '@/simulation/SimStep'
 
 describe('diablo-style loot', () => {
   it('rolls colored rarities, affixes, and legendary procs', () => {
@@ -60,5 +62,81 @@ describe('diablo-style loot', () => {
     bag.items.push({ itemId: piece.id, count: 1 })
     expect(countItem(bag, piece.id)).toBe(1)
     expect(piece.name.length).toBeGreaterThan(1)
+  })
+
+  it('leaves overflow guns on the ground instead of the warehouse', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    const bag = hunter ? world.inventories[hunter.inventoryId] : undefined
+    const warehouse = world.inventories['inv-warehouse']
+    if (!hunter || !bag || !warehouse) throw new Error('missing hunter')
+    bag.items = []
+    bag.capacity = 1
+    addItem(bag, 'raw_meat', 1)
+    const before = usedSlots(warehouse)
+    let piece = maybeDropGear(world, hunter, 'force-drop-runner', 'runner', hunter.position)
+    for (let i = 0; i < 40 && !piece; i += 1) {
+      piece = maybeDropGear(world, hunter, `force-drop-runner-${i}`, 'runner', hunter.position)
+    }
+    expect(piece).toBeTruthy()
+    if (!piece) throw new Error('no drop')
+    expect(countItem(warehouse, piece.id)).toBe(0)
+    expect(usedSlots(warehouse)).toBe(before)
+    expect(world.groundLoot.some((drop) => drop.gearId === piece.id)).toBe(true)
+  })
+
+  it('picks ground loot into the bag when the survivor walks over it', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    const bag = hunter ? world.inventories[hunter.inventoryId] : undefined
+    if (!hunter || !bag) throw new Error('missing hunter')
+    const piece = rollGear(world, 'ground-pick-seed', 0.2, 'weapon')
+    spawnGroundLoot(world, piece, hunter.position.x, hunter.position.z)
+    const picked = pickupGroundLoot(world, hunter)
+    expect(picked.map((entry) => entry.id)).toContain(piece.id)
+    expect(countItem(bag, piece.id)).toBe(1)
+    expect(world.groundLoot).toHaveLength(0)
+  })
+
+  it('scores a stronger gun higher so the sheet can compare output', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    const bag = hunter ? world.inventories[hunter.inventoryId] : undefined
+    if (!hunter || !bag) throw new Error('missing hunter')
+    const weak = rollGear(world, 'score-weak-seed', 0, 'weapon')
+    weak.rarity = 'common'
+    weak.affixes = []
+    weak.procs = []
+    const strong = rollGear(world, 'score-strong-seed', 0.95, 'weapon')
+    strong.rarity = 'legendary'
+    strong.affixes = [
+      { id: 'min_dmg', label: '最小攻击', value: 12 },
+      { id: 'max_dmg', label: '最大攻击', value: 24 },
+      { id: 'aspd', label: '攻速', value: 20 },
+      { id: 'crit', label: '暴击几率', value: 30 },
+    ]
+    strong.procs = ['triple']
+    bag.items.push({ itemId: weak.id, count: 1 }, { itemId: strong.id, count: 1 })
+    const weakScore = weaponScore(previewFire(world, hunter, weak.id))
+    const strongScore = weaponScore(previewFire(world, hunter, strong.id))
+    expect(strongScore).toBeGreaterThan(weakScore)
+    const html = inspectSheetHtml(world, 'hunter', 'gear', 'weapon')
+    expect(html).toContain('攻击')
+    expect(html).toContain('输出')
+    expect(html).toContain('攻速')
+    expect(html).toContain('暴击')
+    expect(html).toContain(strong.name)
+  })
+
+  it('kicks warehouse guns back onto the ground on the next sim step', () => {
+    const world = createInitialWorld()
+    const warehouse = world.inventories['inv-warehouse']
+    const door = world.containers.find((entry) => entry.kind === 'warehouse')
+    if (!warehouse || !door) throw new Error('missing warehouse')
+    const piece = rollGear(world, 'warehouse-eject-seed', 0.3, 'weapon')
+    warehouse.items.push({ itemId: piece.id, count: 1 })
+    stepWorld(world, 1 / 30)
+    expect(countItem(warehouse, piece.id)).toBe(0)
+    expect(world.groundLoot.some((drop) => drop.gearId === piece.id)).toBe(true)
   })
 })

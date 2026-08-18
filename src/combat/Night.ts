@@ -2,7 +2,7 @@ import { repairStructure } from '@/base/construction'
 import { hordeCounts } from '@/data/enemies'
 import { equippedWeapon, magazineSize, writeMag } from '@/data/weapons'
 import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
-import { RARITY_LABEL, rollGear } from '@/data/loot'
+import { isGearId, RARITY_LABEL, rollGear, spawnGroundLoot } from '@/data/loot'
 import { cellCenter } from '@/navigation/NavGrid'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { BASE } from '@/simulation/baseLayout'
@@ -128,13 +128,20 @@ export function settleNight(world: WorldState): NightReport {
   const warehouse = findContainer(world, 'warehouse')
   if (warehouse) {
     const stock = inventoryOf(world.inventories, warehouse.inventoryId)
-    for (const item of loot) addItem(stock, item.itemId, item.count)
+    for (const item of loot) {
+      if (isGearId(item.itemId)) {
+        const piece = world.gear[item.itemId]
+        if (piece) spawnGroundLoot(world, piece, warehouse.position.x, warehouse.position.z)
+        continue
+      }
+      addItem(stock, item.itemId, item.count)
+    }
   }
   for (const survivor of world.survivors) {
     if (survivor.downed) continue
     survivor.morale = Math.min(100, survivor.morale + 6)
   }
-  const report = makeReport(world, 'won', '守住了这一夜，搜到的残骸进了仓库')
+  const report = makeReport(world, 'won', '守住了这一夜，木铁弹食进仓库，枪掉在仓库门口')
   report.loot = loot
   world.nightReport = report
   return report
