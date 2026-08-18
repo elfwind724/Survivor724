@@ -530,6 +530,125 @@ body,
   color: #e3b3a3;
 }
 
+#sandbox-panel,
+.sandbox-root {
+  position: absolute;
+  left: calc(var(--hud-safe) + 288px);
+  bottom: 88px;
+  z-index: 34;
+  pointer-events: none;
+}
+
+.sandbox-toggle {
+  min-width: 88px;
+  height: 48px;
+  border: 1px solid #6a5a3e;
+  background: #2a241b;
+  color: var(--hud-ink);
+  font-size: 16px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.sandbox-toggle.is-open {
+  border-color: var(--hud-brass);
+  background: #3d3424;
+}
+
+.sandbox-panel {
+  position: absolute;
+  left: 0;
+  bottom: 56px;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  width: min(420px, 74vw);
+  max-height: min(68vh, 560px);
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel);
+  color: var(--hud-ink);
+  pointer-events: auto;
+}
+
+.sandbox-panel.is-open {
+  display: flex;
+}
+
+.sandbox-panel p,
+.sandbox-live {
+  margin: 0;
+  color: var(--hud-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.sandbox-live {
+  color: var(--hud-brass);
+}
+
+.sandbox-row,
+.sandbox-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sandbox-row label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.sandbox-row input {
+  width: 52px;
+  height: 28px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel-2);
+  color: var(--hud-ink);
+}
+
+.sandbox-row button,
+.sandbox-chip,
+.sandbox-preset {
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel-2);
+  color: var(--hud-ink);
+  cursor: pointer;
+}
+
+.sandbox-row button,
+.sandbox-chip {
+  height: 30px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.sandbox-preset {
+  flex: 1 1 46%;
+  padding: 8px;
+  text-align: left;
+}
+
+.sandbox-preset strong,
+.sandbox-preset span {
+  display: block;
+}
+
+.sandbox-preset span {
+  color: var(--hud-muted);
+  font-size: 12px;
+}
+
+.sandbox-chip.is-on,
+.sandbox-row button:hover,
+.sandbox-preset:hover,
+.sandbox-toggle:hover {
+  border-color: var(--hud-brass);
+}
+
 #defense-bar {
   position: absolute;
   right: var(--hud-safe);

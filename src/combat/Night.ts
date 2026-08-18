@@ -67,9 +67,7 @@ export function stepNightCycle(world: WorldState): void {
   const phase = world.time.phase
   if (phase === 'night' && world.nightSpawnedDay !== world.time.dayIndex) {
     spawnHorde(world)
-    assignNightPosts(world)
-    issueNightAmmo(world)
-    issueNightGuns(world)
+    prepareNightDefense(world)
     world.nightSpawnedDay = world.time.dayIndex
   }
   if (phase === 'night') checkNightDefeat(world)
@@ -180,30 +178,53 @@ export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt
   survivor.facingYaw = post.facingYaw
 }
 
-function spawnHorde(world: WorldState): void {
-  const counts = hordeCounts(world.time.dayIndex)
-  world.nightKills = 0
-  world.nightSpawned = counts.wanderers + counts.runners
-  world.nightWalls = world.structures.filter((structure) => structure.kind === 'wall' && structure.stage === 'complete').length
-  world.nightReport = null
-  let serial = 0
-  for (let i = 0; i < counts.wanderers; i += 1) {
-    world.enemies.push(createEnemy('wanderer', edgePoint(i), `wanderer-${world.time.dayIndex}-${serial}`))
+export type HordeApproach = 'all' | 'north' | 'east' | 'south' | 'west'
+
+export function spawnHordeWave(
+  world: WorldState,
+  counts: { wanderers: number; runners: number },
+  approach: HordeApproach = 'all',
+  replace = true,
+): void {
+  if (replace) {
+    world.enemies = []
+    world.nightKills = 0
+    world.nightSpawned = 0
+    world.nightWalls = world.structures.filter((structure) => structure.kind === 'wall' && structure.stage === 'complete').length
+    world.nightReport = null
+    world.gameOver = false
+  }
+  const wanderers = Math.max(0, Math.floor(counts.wanderers))
+  const runners = Math.max(0, Math.floor(counts.runners))
+  let serial = world.enemies.length
+  for (let i = 0; i < wanderers; i += 1) {
+    world.enemies.push(createEnemy('wanderer', edgePoint(i, approach), `wanderer-${world.time.dayIndex}-${serial}`))
     serial += 1
   }
-  for (let i = 0; i < counts.runners; i += 1) {
-    world.enemies.push(createEnemy('runner', edgePoint(i + counts.wanderers), `runner-${world.time.dayIndex}-${serial}`))
+  for (let i = 0; i < runners; i += 1) {
+    world.enemies.push(createEnemy('runner', edgePoint(i + wanderers, approach), `runner-${world.time.dayIndex}-${serial}`))
     serial += 1
   }
+  world.nightSpawned += wanderers + runners
 }
 
-function edgePoint(seed: number) {
-  const lane = seed % 4
-  const slot = Math.floor(seed / 4)
+function spawnHorde(world: WorldState): void {
+  spawnHordeWave(world, hordeCounts(world.time.dayIndex), 'all', true)
+}
+
+export function edgePoint(seed: number, approach: HordeApproach = 'all') {
+  const lane = approach === 'all' ? seed % 4 : approach === 'north' ? 0 : approach === 'east' ? 1 : approach === 'west' ? 2 : 3
+  const slot = Math.floor(seed / (approach === 'all' ? 4 : 1))
   if (lane === 0) return { x: -28 + (slot % 8) * 8, y: 0, z: 64 + (slot % 3) * 4 }
   if (lane === 1) return { x: 64 + (slot % 3) * 4, y: 0, z: -28 + (slot % 8) * 8 }
   if (lane === 2) return { x: -64 - (slot % 3) * 4, y: 0, z: -28 + (slot % 8) * 8 }
   return { x: -28 + (slot % 8) * 8, y: 0, z: -64 - (slot % 3) * 4 }
+}
+
+export function prepareNightDefense(world: WorldState): void {
+  assignNightPosts(world)
+  issueNightAmmo(world)
+  issueNightGuns(world)
 }
 
 function assignNightPosts(world: WorldState): void {

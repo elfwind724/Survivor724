@@ -281,6 +281,7 @@ export interface WorldState {
   nightWalls: number
   nightReport: NightReport | null
   gameOver: boolean
+  paused: boolean
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

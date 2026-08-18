@@ -1,9 +1,9 @@
 import type { DayPhase, TimeState, WorldState } from './types'
 
-const DAWN_END = 60
-const DAY_END = 60 + 11 * 60
-const DUSK_END = DAY_END + 90
-const NIGHT_END = DUSK_END + 6 * 60
+export const DAWN_END = 60
+export const DAY_END = 60 + 11 * 60
+export const DUSK_END = DAY_END + 90
+export const NIGHT_END = DUSK_END + 6 * 60
 
 export function createTimeState(dayLengthSeconds = 20 * 60): TimeState {
   return {
@@ -66,6 +66,7 @@ export function hudTimeCaption(world: WorldState): string {
   }
   if (world.time.phase === 'dusk') return '日落回营'
   if (world.gameOver) return '基地沦陷'
+  if (world.paused) return '沙盘暂停'
   if (world.time.phase === 'night') {
     return world.enemies.length > 0 ? `尸潮 ${world.enemies.length}` : '夜间值守'
   }

@@ -26,6 +26,7 @@ import { CreativeEditor } from '@/ui/CreativeEditor'
 import { GameHud } from '@/ui/GameHud'
 import { RosterPanel } from '@/ui/RosterPanel'
 import { DefenseBar } from '@/ui/DefenseBar'
+import { SandboxPanel } from '@/ui/SandboxPanel'
 import { Minimap } from '@/ui/Minimap'
 import { GameLoop } from './GameLoop'
 
@@ -39,6 +40,7 @@ export class GameApp {
   private readonly roster: RosterPanel
   private readonly editor: CreativeEditor
   private readonly defenseBar: DefenseBar
+  private readonly sandbox: SandboxPanel
   private readonly input = new Input()
   private readonly loop: GameLoop
   private readonly tip: HTMLDivElement
@@ -69,6 +71,7 @@ export class GameApp {
     rosterRoot: HTMLElement,
     editorRoot: HTMLElement,
     defenseRoot: HTMLElement,
+    sandboxRoot: HTMLElement,
   ) {
     this.world = createInitialWorld()
     this.renderer = new DebugRenderer(canvas)
@@ -119,6 +122,9 @@ export class GameApp {
     this.defenseBar = new DefenseBar(defenseRoot, (sector) => {
       this.notice = `增援${sector}，守夜的人会往那边靠` 
     })
+    this.sandbox = new SandboxPanel(sandboxRoot, (notice) => {
+      this.notice = notice
+    })
     this.tip = document.createElement('div')
     this.tip.className = 'world-tip'
     this.labels = document.createElement('div')
@@ -155,7 +161,7 @@ export class GameApp {
   }
 
   private readonly step = (dt: number): void => {
-    if (this.world.gameOver) return
+    if (this.world.gameOver || this.world.paused) return
     if (this.world.player.view === 'topdown') {
       if (this.world.player.controlledId) {
         if (this.input.isDown('KeyQ')) this.renderer.rotateBy(-dt * 1.6)
@@ -177,6 +183,7 @@ export class GameApp {
     this.minimap.render(this.world)
     this.defenseBar.render(this.world)
     this.roster.render(this.world)
+    this.sandbox.render(this.world)
     this.editor.tickThumbs()
     this.updateWorldChrome()
   }
@@ -228,6 +235,11 @@ export class GameApp {
         this.notice = '已关闭人物面板'
         return
       }
+      if (this.sandbox.isOpen()) {
+        this.sandbox.close()
+        this.notice = '已关闭沙盘'
+        return
+      }
       if (this.roster.isOpen()) {
         this.roster.close()
         this.notice = '已关闭岗位面板'
@@ -270,6 +282,10 @@ export class GameApp {
     if (event.code === 'KeyJ') {
       this.roster.toggle()
       this.notice = this.roster.isOpen() ? '安排白天岗位，或按策略一键上岗' : '已关闭岗位面板'
+    }
+    if (event.code === 'KeyY') {
+      this.sandbox.toggle()
+      this.notice = this.sandbox.isOpen() ? '沙盘：改尸潮和防线，立刻开打' : '已关闭沙盘'
     }
     if (event.code === 'KeyI') this.editor.toggle()
     if (event.code === 'KeyR' && this.editor.getBrush()) {

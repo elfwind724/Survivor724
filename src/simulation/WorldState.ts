@@ -193,6 +193,7 @@ export function createInitialWorld(): WorldState {
     nightWalls: 0,
     nightReport: null,
     gameOver: false,
+    paused: false,
   }
 
   seedBaseWalls(world)
