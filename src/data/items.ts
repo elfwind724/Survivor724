@@ -11,6 +11,7 @@ export const ITEM_LABELS: Record<string, string> = {
   raw_fish: '生鱼',
   berry: '果子',
   meal: '熟食',
+  bandage: '绷带',
   water: '开水',
   raw_water: '生水',
   jacket: '外套',

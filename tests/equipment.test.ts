@@ -30,30 +30,26 @@ describe('survivor equipment and attributes', () => {
   it('equips a warehouse pistol onto the weapon slot and can take it off', () => {
     const world = createInitialWorld()
     const hunter = world.survivors.find((entry) => entry.id === 'hunter')
-    const warehouse = world.inventories['inv-warehouse']
-    if (!hunter || !warehouse) throw new Error('missing hunter')
-    const beforeAgi = derivedStats(hunter.attributes, hunter.equipment).total.agility
-    const pistols = countItem(warehouse, 'pistol')
-    expect(equipItem(world, hunter, 'pistol')).toBe(true)
-    expect(hunter.equipment.weapon).toBe('pistol')
-    expect(derivedStats(hunter.attributes, hunter.equipment).total.agility).toBe(beforeAgi + 2)
-    expect(countItem(warehouse, 'pistol')).toBe(pistols - 1)
+    const locker = world.inventories['inv-locker']
+    if (!hunter || !locker) throw new Error('missing hunter')
+    const revolvers = countItem(locker, 'revolver')
+    expect(equipItem(world, hunter, 'revolver')).toBe(true)
+    expect(hunter.equipment.weapon).toBe('revolver')
+    expect(derivedStats(hunter.attributes, hunter.equipment).total.strength).toBeGreaterThanOrEqual(14)
+    expect(countItem(locker, 'revolver')).toBe(revolvers - 1)
     expect(unequipSlot(world, hunter, 'weapon')).toBe(true)
     expect(hunter.equipment.weapon).toBeNull()
   })
 
-  it('puts owned guns on a numbered hotbar and swaps with one key', () => {
+  it('uses assigned hotbar slots instead of dumping locker guns', () => {
     const world = createInitialWorld()
     const hunter = world.survivors.find((entry) => entry.id === 'hunter')
     if (!hunter) throw new Error('missing hunter')
     const slots = hotbarOf(world, hunter)
-    const rifle = slots.findIndex((slot) => slot?.itemId === 'rifle')
     const pistol = slots.findIndex((slot) => slot?.itemId === 'pistol')
-    expect(rifle).toBeGreaterThanOrEqual(0)
-    expect(pistol).toBeGreaterThanOrEqual(0)
-    expect(slots[rifle]?.line).toMatch(/\d+-\d+/)
-    expect(equipHotbar(world, hunter, rifle)?.itemId).toBe('rifle')
-    expect(hunter.equipment.weapon).toBe('rifle')
+    expect(pistol).toBe(0)
+    expect(slots.some((slot) => slot?.itemId === 'rifle')).toBe(false)
+    expect(slots[pistol]?.line).toMatch(/\d+-\d+/)
     expect(equipHotbar(world, hunter, pistol)?.itemId).toBe('pistol')
     expect(hunter.equipment.weapon).toBe('pistol')
   })

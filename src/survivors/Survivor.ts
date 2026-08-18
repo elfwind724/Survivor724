@@ -1,6 +1,7 @@
 import { defaultAttributes, emptyEnhance, emptyLoadout } from '@/data/equipment'
+import { emptyHotbar } from '@/inventory/Pack'
 import { seedSkills } from '@/data/skills'
-import { cloneVec3, type EnhanceLoadout, type EquipmentLoadout, type SkillId, type SkillState, type SurvivorAttributes, type SurvivorState, type Vec3 } from '@/simulation/types'
+import { cloneVec3, type EnhanceLoadout, type EquipmentLoadout, type ItemStack, type SkillId, type SkillState, type SurvivorAttributes, type SurvivorState, type Vec3 } from '@/simulation/types'
 
 type SurvivorDraft = Omit<
   SurvivorState,
@@ -31,6 +32,7 @@ type SurvivorDraft = Omit<
   | 'attributes'
   | 'equipment'
   | 'enhance'
+  | 'hotbar'
   | 'lastYieldItem'
   | 'lastYieldCount'
   | 'lastYieldXp'
@@ -64,6 +66,7 @@ type SurvivorDraft = Omit<
   attributes?: SurvivorAttributes
   equipment?: EquipmentLoadout
   enhance?: EnhanceLoadout
+  hotbar?: Array<ItemStack | null>
   lastYieldItem?: string | null
   lastYieldCount?: number
   lastYieldXp?: number
@@ -102,6 +105,7 @@ export function createSurvivor(input: SurvivorDraft): SurvivorState {
     attributes: input.attributes ?? defaultAttributes(input.professionId),
     equipment: input.equipment ?? emptyLoadout(),
     enhance: input.enhance ?? emptyEnhance(),
+    hotbar: input.hotbar ?? emptyHotbar(),
     lastYieldItem: input.lastYieldItem ?? null,
     lastYieldCount: input.lastYieldCount ?? 0,
     lastYieldXp: input.lastYieldXp ?? 0,

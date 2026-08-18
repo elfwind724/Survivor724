@@ -3,6 +3,7 @@ import { itemBase, itemLabel } from '@/data/items'
 import { WEAPONS } from '@/data/weapons'
 import { fireProfile } from '@/data/weapons'
 import { addItem, inventoryOf } from '@/inventory/Inventory'
+import { addToHotbar } from '@/inventory/Pack'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { distanceXZ, type AffixRoll, type EquipSlot, type GearPiece, type GroundLoot, type ItemRarity, type SurvivorState, type WeaponProc, type WorldState } from '@/simulation/types'
 
@@ -193,7 +194,7 @@ export function pickupGroundLoot(world: WorldState, survivor: SurvivorState): Ge
       kept.push(drop)
       continue
     }
-    if (!addItem(bag, drop.gearId, 1)) {
+    if (!addItem(bag, drop.gearId, 1) && !addToHotbar(survivor, drop.gearId, 1)) {
       kept.push(drop)
       continue
     }

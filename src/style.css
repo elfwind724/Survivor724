@@ -202,6 +202,7 @@ body,
 .hud-stock[data-stock="raw_fish"] i { background: #4a7a8a; }
 .hud-stock[data-stock="berry"] i { background: #8a4a6a; }
 .hud-stock[data-stock="meal"] i { background: #c47a3a; }
+.hud-stock[data-stock="bandage"] i { background: #c46a7a; }
 .hud-stock[data-stock="food"] i { background: #a45a42; }
 
 .hud-weapon {
@@ -961,12 +962,83 @@ body,
 }
 
 .hud-hot.is-empty {
-  cursor: default;
   opacity: 0.45;
 }
 
 .hud-hot.is-on,
-.hud-hot:hover:not(.is-empty) {
+.hud-hot.is-pick,
+.hud-hot:hover {
+  border-color: var(--hud-brass);
+}
+
+.pack {
+  position: absolute;
+  left: 50%;
+  bottom: 92px;
+  z-index: 26;
+  width: min(520px, calc(100vw - 40px));
+  padding: 10px 12px 12px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel);
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.pack header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pack header span {
+  flex: 1;
+  color: var(--hud-muted);
+  font-size: 12px;
+}
+
+.pack header button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel-2);
+  color: var(--hud-ink);
+  cursor: pointer;
+}
+
+.pack-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.pack-slot {
+  min-height: 56px;
+  padding: 4px;
+  border: 1px solid var(--hud-line);
+  background: #14110d;
+  color: var(--hud-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pack-slot strong,
+.pack-slot small {
+  display: block;
+}
+
+.pack-slot small {
+  color: var(--hud-muted);
+  font-size: 11px;
+}
+
+.pack-slot.is-empty {
+  color: var(--hud-muted);
+  opacity: 0.45;
+}
+
+.pack-slot.is-pick,
+.pack-slot:hover {
   border-color: var(--hud-brass);
 }
 

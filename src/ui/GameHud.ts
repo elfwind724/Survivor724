@@ -9,13 +9,14 @@ import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@
 import type { ItemRarity, SurvivorState, WorldState } from '@/simulation/types'
 import { clampVital } from '@/survivors/Vitals'
 import { HOTBAR_SIZE, hotbarOf, type HotbarEntry } from '@/survivors/Equipment'
+import type { PackClick, PackCursor } from '@/inventory/Pack'
 
 export interface HudPick {
   id: string
   kind: 'select' | 'possess'
 }
 
-export type HudCommand = 'reset-view' | 'toggle-interiors' | 'restart' | 'ack-night' | 'open-sheet'
+export type HudCommand = 'reset-view' | 'toggle-interiors' | 'restart' | 'ack-night' | 'open-sheet' | 'open-bag' | 'close-bag'
 
 interface HudStock {
   id: string
@@ -82,7 +83,17 @@ export interface HudModel {
     line: string
     equipped: boolean
     rarity: ItemRarity | null
+    count: number
+    picked: boolean
   } | null>
+  pack: {
+    open: boolean
+    owner: string
+    used: number
+    capacity: number
+    pick: string
+    slots: Array<{ itemId: string; label: string; count: number; picked: boolean } | null>
+  }
   report: {
     title: string
     reason: string
@@ -100,7 +111,7 @@ const PROFESSION_LABEL: Record<string, string> = {
   builder: '工匠',
 }
 
-export function buildHudModel(world: WorldState, notice = ''): HudModel {
+export function buildHudModel(world: WorldState, notice = '', pack?: { open: boolean; cursor: PackCursor | null }): HudModel {
   const warehouse = world.inventories['inv-warehouse']
   const hero = world.survivors.find((entry) => entry.id === world.player.heroId) ?? world.survivors[0]
   const bagInv = hero ? world.inventories[hero.inventoryId] : undefined
@@ -143,7 +154,8 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
     },
     cards: world.survivors.map((survivor) => cardModel(world, survivor)),
     weapon: focusWeapon(world),
-    hotbar: hotbarModel(world),
+    hotbar: hotbarModel(world, pack?.cursor ?? null),
+    pack: packModel(world, pack?.open === true, pack?.cursor ?? null),
     report: reportModel(world),
   }
 }
@@ -156,9 +168,10 @@ export function hudModelKey(model: HudModel): string {
     .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.job}:${card.status}:${card.ammo ?? '-'}:${card.cooldown.toFixed(2)}:${card.bagUsed}/${card.bagCap}`)
     .join('|')
   const weapon = model.weapon ? `${model.weapon.name}:${model.weapon.ammo}/${model.weapon.ammoMax}:${model.weapon.cooldown.toFixed(2)}` : '-'
-  const hotbar = model.hotbar.map((slot) => slot ? `${slot.itemId}:${slot.equipped ? 1 : 0}` : '-').join(',')
+  const hotbar = model.hotbar.map((slot) => slot ? `${slot.itemId}:${slot.count}:${slot.equipped ? 1 : 0}:${slot.picked ? 1 : 0}` : '-').join(',')
+  const pack = `${model.pack.open ? 1 : 0}:${model.pack.pick}:${model.pack.slots.map((slot) => slot ? `${slot.itemId}:${slot.count}` : '-').join(',')}`
   const report = model.report ? `${model.report.lost ? 'L' : 'W'}:${model.report.stats}:${model.report.loot}` : '-'
-  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.lootHint}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${hotbar}:${report}`
+  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.lootHint}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${hotbar}:${pack}:${report}`
 }
 
 export function renderHudHtml(model: HudModel): string {
@@ -189,6 +202,7 @@ export function renderHudHtml(model: HudModel): string {
         <button type="button" class="hud-reset" data-action="reset-view">复位镜头</button>
         <button type="button" class="hud-reset" data-action="toggle-interiors">${model.interiors ? '显示整栋' : '显示内部'}</button>
         <button type="button" class="hud-reset" data-action="open-sheet">C 技能</button>
+        <button type="button" class="hud-reset" data-action="open-bag">N 背包</button>
       </div>
       <div class="hud-stocks">
         <strong>仓库 ${model.warehouseUsed}/${model.warehouseCap}</strong>
@@ -203,6 +217,7 @@ export function renderHudHtml(model: HudModel): string {
       ${renderWeaponHud(model.weapon)}
     </div>
     <div class="hud-roster">${cards}</div>
+    ${renderPack(model)}
     ${renderHotbar(model.hotbar)}
     ${toast}
     ${loot}
@@ -214,19 +229,42 @@ export class GameHud {
   private lastKey = ''
   private lastClickAt = 0
   private lastClickId: string | null = null
+  private bagOpen = false
+  private cursor: PackCursor | null = null
 
   constructor(
     private readonly root: HTMLElement,
     private readonly onPick: (pick: HudPick) => void,
     private readonly onCommand: (command: HudCommand) => void,
-    private readonly onHotbar: (itemId: string) => void = () => undefined,
+    private readonly onPack: (click: PackClick) => void = () => undefined,
   ) {
     this.root.classList.add('game-hud')
     this.root.addEventListener('pointerdown', this.onPointerDown)
   }
 
+  isBagOpen(): boolean {
+    return this.bagOpen
+  }
+
+  toggleBag(): void {
+    this.bagOpen = !this.bagOpen
+    if (!this.bagOpen) this.cursor = null
+    this.lastKey = ''
+  }
+
+  closeBag(): void {
+    this.bagOpen = false
+    this.cursor = null
+    this.lastKey = ''
+  }
+
+  setCursor(cursor: PackCursor | null): void {
+    this.cursor = cursor
+    this.lastKey = ''
+  }
+
   render(world: WorldState, notice = ''): void {
-    const model = buildHudModel(world, notice)
+    const model = buildHudModel(world, notice, { open: this.bagOpen, cursor: this.cursor })
     const key = hudModelKey(model)
     if (key === this.lastKey) return
     this.lastKey = key
@@ -238,15 +276,27 @@ export class GameHud {
     if (!(target instanceof Element)) return
     const command = target.closest<HTMLButtonElement>('[data-action]')
     const action = command?.dataset.action
-    if (action === 'reset-view' || action === 'toggle-interiors' || action === 'restart' || action === 'ack-night' || action === 'open-sheet') {
+    if (action === 'reset-view' || action === 'toggle-interiors' || action === 'restart' || action === 'ack-night' || action === 'open-sheet' || action === 'open-bag' || action === 'close-bag') {
       event.stopPropagation()
       this.onCommand(action)
       return
     }
-    const hot = target.closest<HTMLButtonElement>('[data-hotbar]')
-    if (hot?.dataset.hotbar) {
+    const hot = target.closest<HTMLButtonElement>('[data-hot-index]')
+    if (hot?.dataset.hotIndex !== undefined) {
       event.stopPropagation()
-      this.onHotbar(hot.dataset.hotbar)
+      this.onPack({ place: 'hot', index: Number(hot.dataset.hotIndex) })
+      return
+    }
+    const empty = target.closest<HTMLButtonElement>('[data-bag-empty]')
+    if (empty) {
+      event.stopPropagation()
+      this.onPack({ place: 'bag-empty' })
+      return
+    }
+    const bag = target.closest<HTMLButtonElement>('[data-bag-item]')
+    if (bag?.dataset.bagItem) {
+      event.stopPropagation()
+      this.onPack({ place: 'bag', itemId: bag.dataset.bagItem })
       return
     }
     const button = target.closest<HTMLButtonElement>('[data-survivor]')
@@ -318,14 +368,17 @@ function renderCard(card: HudCard): string {
   </button>`
 }
 
-function hotbarModel(world: WorldState): HudModel['hotbar'] {
+function hotbarModel(world: WorldState, cursor: PackCursor | null): HudModel['hotbar'] {
   const focus = focusSurvivor(world)
   if (!focus) return Array.from({ length: HOTBAR_SIZE }, () => null)
-  return hotbarOf(world, focus).map((entry, index) => entryToHud(entry, index))
+  return hotbarOf(world, focus).map((entry, index) => entryToHud(entry, index, cursor))
 }
 
-function entryToHud(entry: HotbarEntry | null, index: number): HudModel['hotbar'][number] {
-  if (!entry) return null
+function entryToHud(entry: HotbarEntry | null, index: number, cursor: PackCursor | null): HudModel['hotbar'][number] {
+  const picked = cursor?.place === 'hot' && cursor.index === index
+  if (!entry) {
+    return { index, itemId: '', label: '', line: '', equipped: false, rarity: null, count: 0, picked }
+  }
   return {
     index,
     itemId: entry.itemId,
@@ -333,18 +386,66 @@ function entryToHud(entry: HotbarEntry | null, index: number): HudModel['hotbar'
     line: entry.line,
     equipped: entry.equipped,
     rarity: entry.rarity,
+    count: entry.count,
+    picked,
   }
+}
+
+function packModel(world: WorldState, open: boolean, cursor: PackCursor | null): HudModel['pack'] {
+  const focus = focusSurvivor(world)
+  const bag = focus ? world.inventories[focus.inventoryId] : undefined
+  const fill = bag ? bagFill(bag) : { used: 0, capacity: 0, full: false }
+  const stacks = (bag?.items ?? []).filter((item) => item.count > 0)
+  const slots: HudModel['pack']['slots'] = stacks.map((item) => ({
+    itemId: item.itemId,
+    label: gearLabel(world, item.itemId),
+    count: item.count,
+    picked: cursor?.place === 'bag' && cursor.itemId === item.itemId,
+  }))
+  const empties = Math.max(0, (bag?.capacity ?? 8) - stacks.length)
+  for (let i = 0; i < empties; i += 1) slots.push(null)
+  return {
+    open,
+    owner: focus?.name ?? '背包',
+    used: fill.used,
+    capacity: fill.capacity,
+    pick: cursor ? `${cursor.place}:${cursor.place === 'bag' ? cursor.itemId : cursor.index}` : '',
+    slots,
+  }
+}
+
+function renderPack(model: HudModel): string {
+  if (!model.pack.open) return ''
+  const cells = model.pack.slots
+    .map((slot) => {
+      if (!slot) return '<button type="button" class="pack-slot is-empty" data-bag-empty>空</button>'
+      const on = slot.picked ? ' is-pick' : ''
+      return `<button type="button" class="pack-slot${on}" data-bag-item="${escapeHtml(slot.itemId)}">
+        <strong>${escapeHtml(shortHotName(slot.label))}</strong>
+        <small>×${slot.count}</small>
+      </button>`
+    })
+    .join('')
+  return `<div class="pack">
+    <header>
+      <strong>${escapeHtml(model.pack.owner)}的背包 ${model.pack.used}/${model.pack.capacity}</strong>
+      <span>点背包再点快捷栏互换 · 关上背包后 1-9 直接用</span>
+      <button type="button" data-action="close-bag">关闭</button>
+    </header>
+    <div class="pack-grid">${cells}</div>
+  </div>`
 }
 
 function renderHotbar(slots: HudModel['hotbar']): string {
   const cells = slots
     .map((slot, index) => {
-      if (!slot) {
-        return `<span class="hud-hot is-empty"><em>${index + 1}</em></span>`
+      const picked = slot?.picked ? ' is-pick' : ''
+      if (!slot || !slot.itemId) {
+        return `<button type="button" class="hud-hot is-empty${picked}" data-hot-index="${index}"><em>${index + 1}</em></button>`
       }
       const rare = slot.rarity ? ` rarity-${slot.rarity}` : ''
       const on = slot.equipped ? ' is-on' : ''
-      return `<button type="button" class="hud-hot${on}${rare}" data-hotbar="${escapeHtml(slot.itemId)}">
+      return `<button type="button" class="hud-hot${on}${picked}${rare}" data-hot-index="${index}">
         <em>${index + 1}</em>
         <strong>${escapeHtml(shortHotName(slot.label))}</strong>
         <small>${escapeHtml(slot.line)}</small>

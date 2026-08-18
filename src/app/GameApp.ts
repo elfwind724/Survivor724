@@ -4,7 +4,6 @@ import { decorationNear, removeDecoration, snapDecor } from '@/base/decorations'
 import { buildProgress, durabilityPercent, facilityPreviewHeight, structureLabel } from '@/data/facilities'
 import { canUpgrade, facilityCap, hallLevel, markUpgrade, structureLevel, upgradeCost, upgradeProgress } from '@/base/upgrade'
 import { itemLabel } from '@/data/items'
-import { gearLabel } from '@/data/loot'
 import { rebuildNightPosts } from '@/combat/Night'
 import { cellCenter } from '@/navigation/NavGrid'
 import { reloadWeapon, tryShoot } from '@/combat/Combat'
@@ -29,7 +28,7 @@ import { assignWatch } from '@/jobs/Roster'
 import { activityLines } from '@/survivors/Activity'
 import { BuildMenu } from '@/ui/BuildMenu'
 import { CharacterSheet } from '@/ui/CharacterSheet'
-import { equipHotbar, equipItem } from '@/survivors/Equipment'
+import { handlePackClick, type PackCursor } from '@/inventory/Pack'
 import { CreativeEditor } from '@/ui/CreativeEditor'
 import { GameHud } from '@/ui/GameHud'
 import { RosterPanel } from '@/ui/RosterPanel'
@@ -68,7 +67,8 @@ export class GameApp {
     lastY: number
     dragging: boolean
   } | null = null
-  private notice = '冯老师是主角。点队员选中，双击让他们跟随 · Q/E 转镜头'
+  private notice = '冯老师是主角。点队员选中，双击让他们跟随 · N 打开背包 · Q/E 转镜头'
+  private packCursor: PackCursor | null = null
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -104,13 +104,19 @@ export class GameApp {
         this.sheet.open(id)
         this.notice = '技能面板：点头顶卡片或按 C 可换人看'
       }
-    }, (itemId) => {
-      const actor = this.focusActor()
-      if (!actor) {
-        this.notice = '先选中或接管一个人再换枪'
-        return
+      if (command === 'open-bag') {
+        this.hud.toggleBag()
+        this.packCursor = null
+        this.hud.setCursor(null)
+        this.notice = this.hud.isBagOpen() ? '背包：点物品再点快捷栏互换，关上后 1-9 直接用' : '已关闭背包'
       }
-      if (equipItem(this.world, actor, itemId)) this.notice = `已换上 ${gearLabel(this.world, itemId)}`
+      if (command === 'close-bag') {
+        this.hud.closeBag()
+        this.packCursor = null
+        this.notice = '已关闭背包'
+      }
+    }, (click) => {
+      this.applyPackClick(click)
     })
     this.sheet = new CharacterSheet(sheetRoot)
     this.minimap = new Minimap(minimapCanvas)
@@ -243,6 +249,12 @@ export class GameApp {
       if (id) this.handleDirect(id)
     }
     if (event.code === 'Escape') {
+      if (this.hud.isBagOpen()) {
+        this.hud.closeBag()
+        this.packCursor = null
+        this.notice = '已关闭背包'
+        return
+      }
       if (this.sheet.isOpen()) {
         this.sheet.close()
         this.notice = '已关闭人物面板'
@@ -289,6 +301,13 @@ export class GameApp {
       if (!self) return
       const moved = depositIfNearWarehouse(this.world, self)
       this.notice = moved > 0 ? `已卸货 ${moved} 件进仓库` : '走近仓库门口再按 G 卸货'
+      return
+    }
+    if (event.code === 'KeyN') {
+      this.hud.toggleBag()
+      this.packCursor = null
+      this.hud.setCursor(null)
+      this.notice = this.hud.isBagOpen() ? '背包：点物品再点快捷栏互换，关上后 1-9 直接用' : '已关闭背包'
       return
     }
     if (event.code === 'KeyC') {
@@ -378,13 +397,7 @@ export class GameApp {
         return
       }
       if (index >= 0 && index <= 8) {
-        const actor = this.focusActor()
-        if (!actor) {
-          this.notice = '先选中或接管一个人再换枪'
-          return
-        }
-        const equipped = equipHotbar(this.world, actor, index)
-        this.notice = equipped ? `已换上 ${equipped.label}` : '这一格是空的'
+        this.applyPackClick({ place: 'hot', index })
         return
       }
     }
@@ -794,6 +807,18 @@ export class GameApp {
       this.towerPostId = null
       this.towerPanel.innerHTML = ''
     })
+  }
+
+  private applyPackClick(click: { place: 'hot'; index: number } | { place: 'bag'; itemId: string } | { place: 'bag-empty' }): void {
+    const actor = this.focusActor()
+    if (!actor) {
+      this.notice = '先选中或接管一个人'
+      return
+    }
+    const result = handlePackClick(this.world, actor, this.packCursor, click, this.hud.isBagOpen())
+    this.packCursor = result.cursor
+    this.hud.setCursor(result.cursor)
+    this.notice = result.notice
   }
 
   private focusActor() {

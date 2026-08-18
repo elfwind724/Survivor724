@@ -199,6 +199,7 @@ export interface SurvivorState {
   attributes: SurvivorAttributes
   equipment: EquipmentLoadout
   enhance: EnhanceLoadout
+  hotbar: Array<ItemStack | null>
   lastYieldItem: string | null
   lastYieldCount: number
   lastYieldXp: number

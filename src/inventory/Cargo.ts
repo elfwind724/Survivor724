@@ -3,7 +3,7 @@ import { addItem, inventoryOf, usedSlots } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { distanceXZ, type InventoryState, type ItemStack, type SurvivorState, type WorldState } from '@/simulation/types'
 
-export const HUD_STOCK_IDS = ['wood', 'scrap', 'ammo', 'raw_water', 'water', 'raw_meat', 'raw_fish', 'berry', 'meal'] as const
+export const HUD_STOCK_IDS = ['wood', 'scrap', 'ammo', 'raw_water', 'water', 'raw_meat', 'raw_fish', 'berry', 'meal', 'bandage'] as const
 
 export const WAREHOUSE_REACH = 2.4
 

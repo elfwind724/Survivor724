@@ -6,16 +6,15 @@ import {
   statsOf,
   type EquipItemDef,
 } from '@/data/equipment'
-import { itemBase, itemPlus, withPlus } from '@/data/items'
+import { itemBase, itemLabel, itemPlus, withPlus } from '@/data/items'
 import { isGearId, previewFire, spawnGroundLoot } from '@/data/loot'
 import { switchMags, weaponById } from '@/data/weapons'
 import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
+import { ensureHotbar, HOTBAR_SIZE } from '@/inventory/Pack'
 import { findContainer } from '@/simulation/EntityRegistry'
 import type { EquipSlot, ItemRarity, SurvivorState, WorldState } from '@/simulation/types'
 
-export const HOTBAR_SIZE = 9
-
-const WEAPON_ORDER = ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'sniper']
+export { HOTBAR_SIZE }
 
 export interface HotbarEntry {
   itemId: string
@@ -24,6 +23,7 @@ export interface HotbarEntry {
   equipped: boolean
   rarity: ItemRarity | null
   line: string
+  count: number
 }
 
 export function applyEquipmentStats(survivor: SurvivorState): void {
@@ -93,29 +93,31 @@ export function availableForSlot(world: WorldState, survivor: SurvivorState, slo
 }
 
 export function hotbarOf(world: WorldState, survivor: SurvivorState): Array<HotbarEntry | null> {
-  const weapons = availableForSlot(world, survivor, 'weapon').slice().sort(compareHotbar)
-  const tools = availableForSlot(world, survivor, 'tool').slice().sort(compareHotbar)
-  const picked = [...weapons, ...tools].slice(0, HOTBAR_SIZE)
-  const slots: Array<HotbarEntry | null> = []
-  for (let i = 0; i < HOTBAR_SIZE; i += 1) {
-    const item = picked[i]
-    if (!item) {
-      slots.push(null)
-      continue
-    }
-    const piece = world.gear[item.id]
-    const gun = weaponById(item.id)
-    const fire = gun ? previewFire(world, survivor, item.id) : null
-    slots.push({
-      itemId: item.id,
-      label: item.label,
-      slot: item.slot,
-      equipped: survivor.equipment[item.slot] === item.id || survivor.equipment[item.slot] === itemBase(item.id),
+  return ensureHotbar(survivor).map((stack) => {
+    if (!stack) return null
+    const item = equipmentById(stack.itemId, world)
+    const piece = world.gear[stack.itemId]
+    const gun = weaponById(stack.itemId)
+    const fire = gun ? previewFire(world, survivor, stack.itemId) : null
+    const slot = item?.slot ?? 'tool'
+    return {
+      itemId: stack.itemId,
+      label: piece ? piece.name : item?.label ?? itemLabel(stack.itemId),
+      slot,
+      equipped: survivor.equipment[slot] === stack.itemId || survivor.equipment[slot] === itemBase(stack.itemId),
       rarity: piece?.rarity ?? null,
-      line: fire ? `${Math.round(fire.minDamage)}-${Math.round(fire.maxDamage)}` : item.slot === 'tool' ? '工具' : '',
-    })
-  }
-  return slots
+      count: stack.count,
+      line: fire
+        ? `${Math.round(fire.minDamage)}-${Math.round(fire.maxDamage)}`
+        : stack.count > 1
+          ? `×${stack.count}`
+          : stack.itemId === 'bandage'
+            ? '包扎'
+            : item?.slot === 'tool'
+              ? '工具'
+              : '',
+    }
+  })
 }
 
 export function equipHotbar(world: WorldState, survivor: SurvivorState, index: number): HotbarEntry | null {
@@ -123,16 +125,6 @@ export function equipHotbar(world: WorldState, survivor: SurvivorState, index: n
   if (!entry) return null
   if (!equipItem(world, survivor, entry.itemId)) return null
   return entry
-}
-
-function compareHotbar(a: EquipItemDef, b: EquipItemDef): number {
-  if (a.slot !== b.slot) return a.slot === 'weapon' ? -1 : 1
-  const unique = Number(isGearId(b.id)) - Number(isGearId(a.id))
-  if (unique !== 0) return unique
-  const ai = WEAPON_ORDER.indexOf(itemBase(a.id))
-  const bi = WEAPON_ORDER.indexOf(itemBase(b.id))
-  if (ai !== bi) return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi)
-  return a.id.localeCompare(b.id)
 }
 
 export function equipItem(world: WorldState, survivor: SurvivorState, itemId: string): boolean {
@@ -172,6 +164,7 @@ export function unequipSlot(world: WorldState, survivor: SurvivorState, slot: Eq
 
 function takeOwnedItem(world: WorldState, survivor: SurvivorState, itemId: string): boolean {
   if (Object.values(survivor.equipment).includes(itemId)) return true
+  if (ensureHotbar(survivor).some((slot) => slot?.itemId === itemId)) return true
   const bag = inventoryOf(world.inventories, survivor.inventoryId)
   if (countItem(bag, itemId) > 0) return removeItem(bag, itemId, 1)
   const warehouse = findContainer(world, 'warehouse')

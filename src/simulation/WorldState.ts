@@ -9,7 +9,7 @@ import { rebuildNightPosts } from '@/combat/Night'
 import { createInventory } from '@/inventory/Inventory'
 import { createJob } from '@/jobs/JobBoard'
 import { cellCenter, createNavGrid, rebuildNav, worldToCell } from '@/navigation/NavGrid'
-import { dressProfession } from '@/survivors/Equipment'
+import { applyEquipmentStats, dressProfession } from '@/survivors/Equipment'
 import { createSurvivor } from '@/survivors/Survivor'
 import { createTimeState } from './TimeSystem'
 import { BASE } from './baseLayout'
@@ -32,6 +32,7 @@ export function createInitialWorld(): WorldState {
     { itemId: 'boots', count: 2 },
     { itemId: 'pistol', count: 1 },
     { itemId: 'meal', count: 6 },
+    { itemId: 'bandage', count: 10 },
     { itemId: 'water', count: 16 },
   ])
   const lockerInv = createInventory('inv-locker', 28, [
@@ -208,6 +209,7 @@ export function createInitialWorld(): WorldState {
   bindContainersToBuildings(world)
   assignStarterHomes(world)
   for (const survivor of world.survivors) dressProfession(survivor)
+  seedHeroKit(world)
   const blueprintCell = worldToCell(world.nav, vec3(0, 0, BASE.south - 4))
   placeBlueprint(world, 'wall', blueprintCell.x, blueprintCell.z)
   loadCreativeStructures(world)
@@ -215,6 +217,24 @@ export function createInitialWorld(): WorldState {
   rebuildNightPosts(world)
   rebuildNav(world)
   return world
+}
+
+function seedHeroKit(world: WorldState): void {
+  const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+  if (!hunter) return
+  hunter.hotbar = [
+    { itemId: 'pistol', count: 1 },
+    { itemId: 'meal', count: 2 },
+    { itemId: 'bandage', count: 3 },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+  ]
+  hunter.equipment.weapon = 'pistol'
+  applyEquipmentStats(hunter)
 }
 
 function seedAt(world: WorldState, definitionId: string, x: number, z: number, open = true): void {
