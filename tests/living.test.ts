@@ -4,6 +4,9 @@ import { countItem } from '@/inventory/Inventory'
 import { worldToCell } from '@/navigation/NavGrid'
 import { stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
+import { assignPost } from '@/jobs/Roster'
+import { boilWater } from '@/jobs/DayWorker'
+import { addItem } from '@/inventory/Inventory'
 import { diningSpot, drinkOne, eatAtBase, eatOne } from '@/survivors/Living'
 import { stepVitals } from '@/survivors/Vitals'
 
@@ -91,6 +94,33 @@ describe('living loop', () => {
     fisher.workerState = 'Rest'
     for (let i = 0; i < 30 * 30; i += 1) stepVitals(world, 1 / 30)
     expect(fisher.hunger).toBeLessThan(afterDayHunger)
+  })
+
+  it('sends a drawer for raw water and a cook to boil it', () => {
+    const world = createInitialWorld()
+    const warehouse = world.inventories['inv-warehouse']
+    if (!warehouse) throw new Error('missing warehouse')
+    expect(assignPost(world, 'scavenger', 'draw')).toBe(true)
+    simulate(world, 40)
+    const scav = world.survivors.find((entry) => entry.id === 'scavenger')
+    const bag = scav ? world.inventories[scav.inventoryId] : undefined
+    expect((bag ? countItem(bag, 'raw_water') : 0) + countItem(warehouse, 'raw_water')).toBeGreaterThan(0)
+    const pot = { id: 'pot', capacity: 4, items: [{ itemId: 'raw_water', count: 1 }] }
+    expect(boilWater(pot)).toBe(true)
+    expect(countItem(pot, 'water')).toBe(1)
+    expect(countItem(pot, 'raw_water')).toBe(0)
+  })
+
+  it('cannot drink raw river water until it is boiled', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    const warehouse = world.inventories['inv-warehouse']
+    if (!hunter || !warehouse) throw new Error('missing hunter')
+    warehouse.items = warehouse.items.filter((item) => item.itemId !== 'water')
+    warehouse.items.push({ itemId: 'raw_water', count: 2 })
+    hunter.thirst = 20
+    expect(drinkOne(world, hunter)).toBe(false)
+    expect(hunter.thirst).toBe(20)
   })
 
   it('drinks warehouse water to recover thirst', () => {

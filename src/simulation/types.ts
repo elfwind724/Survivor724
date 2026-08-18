@@ -52,6 +52,11 @@ export interface StructureState {
   open: boolean
   hp: number
   maxHp: number
+  level: number
+  upgrading: boolean
+  upgradeRequired: ItemStack[]
+  upgradeElapsed: number
+  upgradeDuration: number
   visualAssetId?: string
   yaw?: number
   placedBy?: 'creative'
@@ -229,6 +234,7 @@ export interface WildlifeState {
   fleeTimer: number
   harvested: boolean
   respawnIn: number
+  butcherElapsed: number
 }
 
 export interface ProjectileState {
@@ -260,7 +266,7 @@ export interface DefenseSector {
 
 export interface ResourceNodeState {
   id: string
-  kind: 'hunt' | 'fish' | 'scavenge' | 'wood' | 'berry'
+  kind: 'hunt' | 'fish' | 'scavenge' | 'wood' | 'berry' | 'water'
   position: Vec3
   reserve: number
   requiredToolId: string | null

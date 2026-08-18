@@ -1,6 +1,6 @@
 import { FACILITY_DEFINITIONS } from '@/data/facilities'
 
-export type BuildSelection = string | 'demolish' | null
+export type BuildSelection = string | 'demolish' | 'upgrade' | null
 
 export class BuildMenu {
   private open = false
@@ -63,6 +63,11 @@ export class BuildMenu {
       <button type="button" class="build-toggle${this.open ? ' is-open' : ''}" data-action="toggle">建造</button>
       <div class="build-panel${this.open ? ' is-open' : ''}">
         ${items}
+        <button type="button" class="build-card${this.selected === 'upgrade' ? ' is-active' : ''}" data-id="upgrade">
+          <strong>升级</strong>
+          <span>先升大厅</span>
+          <span>大厅等级=设施上限</span>
+        </button>
         <button type="button" class="build-card build-card-danger${this.selected === 'demolish' ? ' is-active' : ''}" data-id="demolish">
           <strong>拆除</strong>
           <span>点选建筑</span>
@@ -76,6 +81,7 @@ export class BuildMenu {
       button.addEventListener('click', () => {
         const id = button.dataset.id
         if (id === 'demolish') this.select('demolish')
+        else if (id === 'upgrade') this.select('upgrade')
         else if (id) this.select(id)
       })
     })

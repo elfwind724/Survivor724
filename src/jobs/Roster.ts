@@ -6,11 +6,13 @@ import type { SurvivorState, WorldState } from '@/simulation/types'
 export const ROSTER_POSTS = [
   { id: 'hunt', label: '打猎' },
   { id: 'fish', label: '钓鱼' },
+  { id: 'draw', label: '打水' },
   { id: 'gather', label: '采集' },
   { id: 'scavenge', label: '搜刮' },
   { id: 'haul', label: '搬运' },
   { id: 'build', label: '建造' },
   { id: 'repair', label: '修理' },
+  { id: 'upgrade', label: '升级' },
   { id: 'cook', label: '做饭' },
   { id: 'watch', label: '站岗' },
   { id: 'follow', label: '跟随' },
@@ -29,7 +31,7 @@ export const WATCH_CORNERS = [
 export const ROSTER_STRATEGIES = [
   { id: 'watch', label: '四角站岗', hint: '四名队员一键上四座瞭望塔', posts: ['watch', 'watch', 'watch', 'watch'] },
   { id: 'balanced', label: '均衡上岗', hint: '按职业回各自岗位', posts: ['hunt', 'fish', 'scavenge', 'haul', 'build'] },
-  { id: 'food', label: '优先食物', hint: '打猎钓鱼采集做饭', posts: ['hunt', 'fish', 'cook', 'gather', 'haul'] },
+  { id: 'food', label: '优先食物', hint: '打猎钓鱼打水做饭', posts: ['hunt', 'fish', 'cook', 'draw', 'haul'] },
   { id: 'build', label: '优先建设', hint: '搬运、施工和修墙', posts: ['haul', 'build', 'repair', 'scavenge', 'hunt'] },
   { id: 'scavenge', label: '优先搜刮', hint: '多派人外出搜刮', posts: ['scavenge', 'scavenge', 'haul', 'hunt', 'cook'] },
   { id: 'rest', label: '全体待命', hint: '收回营地休息', posts: ['idle', 'idle', 'idle', 'idle', 'idle'] },

@@ -8,12 +8,14 @@ export interface JobDefinition {
 export const JOB_DEFINITIONS: readonly JobDefinition[] = [
   { id: 'hunt', category: 'field', requiredTools: ['rifle', 'hunting_knife'], outputItemId: 'raw_meat' },
   { id: 'fish', category: 'field', requiredTools: ['rod'], outputItemId: 'raw_fish' },
+  { id: 'draw', category: 'field', requiredTools: [], outputItemId: 'raw_water' },
   { id: 'gather', category: 'field', requiredTools: [], outputItemId: 'berry' },
   { id: 'scavenge', category: 'field', requiredTools: ['crowbar'], outputItemId: 'scrap' },
   { id: 'haul', category: 'base', requiredTools: [], outputItemId: '' },
   { id: 'build', category: 'base', requiredTools: ['hammer'], outputItemId: '' },
   { id: 'demolish', category: 'base', requiredTools: ['hammer'], outputItemId: '' },
   { id: 'repair', category: 'base', requiredTools: ['hammer'], outputItemId: '' },
+  { id: 'upgrade', category: 'base', requiredTools: ['hammer'], outputItemId: '' },
   { id: 'cook', category: 'base', requiredTools: [], outputItemId: 'meal' },
 ]
 

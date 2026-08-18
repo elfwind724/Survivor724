@@ -292,6 +292,11 @@ function extractWallCell(world: WorldState, structure: StructureState, cell: Gri
     open: false,
     hp: structure.hp,
     maxHp: structure.maxHp,
+    level: structure.level || 1,
+    upgrading: false,
+    upgradeRequired: [],
+    upgradeElapsed: 0,
+    upgradeDuration: 0,
   }
   world.structures.push(extracted)
   markNavDirty(world)
@@ -394,6 +399,11 @@ function commitBlueprint(
     open: definition.kind === 'gate',
     hp: structureHp(definition.kind),
     maxHp: structureHp(definition.kind),
+    level: 1,
+    upgrading: false,
+    upgradeRequired: [],
+    upgradeElapsed: 0,
+    upgradeDuration: 0,
   }
   world.structures.push(structure)
   return { ok: true, reason: null, structure }
@@ -452,6 +462,11 @@ export function createCompleteStructure(
     open,
     hp: structureHp(definition.kind),
     maxHp: structureHp(definition.kind),
+    level: 1,
+    upgrading: false,
+    upgradeRequired: [],
+    upgradeElapsed: 0,
+    upgradeDuration: 0,
   }
   if (extras?.visualAssetId) structure.visualAssetId = extras.visualAssetId
   if (extras?.yaw !== undefined) structure.yaw = extras.yaw

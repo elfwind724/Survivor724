@@ -149,6 +149,7 @@ export function createInitialWorld(): WorldState {
     nodes: [
       { id: 'node-forest', kind: 'hunt', position: forest, reserve: 80, requiredToolId: 'rifle' },
       { id: 'node-river', kind: 'fish', position: river, reserve: 80, requiredToolId: 'rod' },
+      { id: 'node-water', kind: 'water', position: vec3(-52, 0, 30), reserve: 120, requiredToolId: null },
       { id: 'node-berry', kind: 'berry', position: vec3(38, 0, -16), reserve: 70, requiredToolId: null },
       { id: 'node-ruin', kind: 'scavenge', position: ruin, reserve: 80, requiredToolId: 'crowbar' },
     ],
@@ -161,6 +162,7 @@ export function createInitialWorld(): WorldState {
       createJob({ id: 'job-scavenge', definitionId: 'scavenge', targetId: 'node-ruin', assigneeId: 'scavenger' }),
       createJob({ id: 'job-hunt', definitionId: 'hunt', targetId: 'node-forest', assigneeId: null }),
       createJob({ id: 'job-gather', definitionId: 'gather', targetId: 'node-berry', assigneeId: null }),
+      createJob({ id: 'job-draw', definitionId: 'draw', targetId: 'node-water', assigneeId: null }),
     ],
     nav: createNavGrid(),
     navDirty: true,
@@ -174,6 +176,7 @@ export function createInitialWorld(): WorldState {
     workZones: [
       createWorkZone('zone-hunt', 'hunt', 40, -40, 70, 0),
       createWorkZone('zone-fish', 'fish', -70, 15, -40, 50),
+      createWorkZone('zone-draw', 'draw', -70, 15, -40, 50),
       createWorkZone('zone-gather', 'gather', 28, -30, 50, -4),
       createWorkZone('zone-scavenge', 'scavenge', 25, 40, 55, 70),
     ],

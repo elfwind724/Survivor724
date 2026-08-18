@@ -1,4 +1,5 @@
 import { isCooking, isSleeping } from '@/base/FacilityLife'
+import { nearestCarcass } from '@/combat/Combat'
 import { WORK_SECONDS } from '@/data/jobs'
 import { itemLabel } from '@/data/items'
 import { EAT_SECONDS } from '@/survivors/Living'
@@ -22,7 +23,12 @@ export function activityCaption(world: WorldState, survivor: SurvivorState): str
     if (world.time.phase === 'night') return '守夜中'
     if (survivor.workerState !== 'TravelToTarget') return '站岗中'
   }
-  if (isCooking(world, survivor) || jobId(world, survivor) === 'cook' && survivor.workerState === 'Work') return '做饭中'
+  if (isCooking(world, survivor) || (jobId(world, survivor) === 'cook' && survivor.workerState === 'Work')) {
+    return survivor.workerState === 'Work' && cookingWater(world, survivor) ? '烧水中' : '做饭中'
+  }
+  if (jobId(world, survivor) === 'hunt' && survivor.workerState === 'Work' && nearestCarcass(world, survivor.position, 1.8)) {
+    return '剥皮取肉中'
+  }
   if (world.time.phase === 'night' || world.time.phase === 'aftermath') return '守夜中'
   const job = jobId(world, survivor)
   switch (survivor.workerState) {
@@ -90,6 +96,8 @@ function workCaption(job: string): string {
   if (job === 'hunt') return '打猎中'
   if (job === 'fish') return '钓鱼中'
   if (job === 'gather') return '采集中'
+  if (job === 'draw') return '打水中'
+  if (job === 'upgrade') return '升级中'
   if (job === 'scavenge') return '搜刮中'
   if (job === 'cook') return '做饭中'
   if (job === 'build') return '建造中'
@@ -103,9 +111,16 @@ function travelCaption(job: string): string {
   if (job === 'hunt') return '去打猎'
   if (job === 'fish') return '去钓鱼'
   if (job === 'gather') return '去采果'
+  if (job === 'draw') return '去打水'
   if (job === 'cook') return '去厨房'
   if (job === 'repair') return '去修缮'
+  if (job === 'upgrade') return '去升级'
   return '赶路中'
+}
+
+function cookingWater(world: WorldState, survivor: SurvivorState): boolean {
+  const bag = world.inventories[survivor.inventoryId]
+  return !!bag && bag.items.some((item) => item.itemId === 'raw_water' && item.count > 0)
 }
 
 export function clockSeconds(world: WorldState): number {

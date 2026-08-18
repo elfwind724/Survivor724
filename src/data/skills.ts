@@ -53,11 +53,13 @@ const JOB_SKILL: Record<string, SkillId> = {
   hunt: 'hunt',
   fish: 'fish',
   gather: 'gather',
+  draw: 'gather',
   cook: 'cook',
   scavenge: 'scavenge',
   build: 'build',
   demolish: 'build',
   repair: 'build',
+  upgrade: 'build',
   haul: 'haul',
 }
 

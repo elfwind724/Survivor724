@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { harvestWildlife, tryShoot, stepProjectiles } from '@/combat/Combat'
+import { butcherWildlife, harvestWildlife, tryShoot, stepProjectiles } from '@/combat/Combat'
 import { countItem } from '@/inventory/Inventory'
 import { assignPost } from '@/jobs/Roster'
 import { stepWorld } from '@/simulation/SimStep'
@@ -38,6 +38,7 @@ describe('wildlife and field food', () => {
     if (!hunter || !deer) throw new Error('missing hunt')
     deer.alive = false
     deer.health = 0
+    deer.butcherElapsed = 4
     hunter.position = { ...deer.position }
     const bag = world.inventories[hunter.inventoryId]
     if (!bag) throw new Error('missing bag')
@@ -47,6 +48,20 @@ describe('wildlife and field food', () => {
     expect(deer.harvested).toBe(true)
     expect(hunter.xp).toBeGreaterThan(xp)
     expect(hunter.lastYieldItem).toBe('raw_meat')
+  })
+
+  it('needs a butcher action before meat can be taken', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    const deer = world.wildlife.find((entry) => entry.kind === 'deer')
+    if (!hunter || !deer) throw new Error('missing hunt')
+    deer.alive = false
+    deer.health = 0
+    hunter.position = { ...deer.position }
+    expect(harvestWildlife(world, hunter)).toBe(false)
+    expect(butcherWildlife(world, hunter, 1)).toBe('working')
+    expect(butcherWildlife(world, hunter, 3)).toBe('done')
+    expect(deer.harvested).toBe(true)
   })
 
   it('lets a cook turn berries into meals', () => {

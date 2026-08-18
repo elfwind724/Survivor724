@@ -197,6 +197,7 @@ body,
 .hud-stock[data-stock="scrap"] i { background: #8a8f96; }
 .hud-stock[data-stock="ammo"] i { background: #b9a15a; }
 .hud-stock[data-stock="water"] i { background: #4a7ea8; }
+.hud-stock[data-stock="raw_water"] i { background: #3a5a6a; }
 .hud-stock[data-stock="raw_meat"] i { background: #a45a42; }
 .hud-stock[data-stock="raw_fish"] i { background: #4a7a8a; }
 .hud-stock[data-stock="berry"] i { background: #8a4a6a; }

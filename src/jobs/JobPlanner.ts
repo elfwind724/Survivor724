@@ -9,6 +9,7 @@ export function planJobs(world: WorldState): void {
   planConstructionJobs(world)
   planKitchenJobs(world)
   planRepairJobs(world)
+  planUpgradeJobs(world)
   dropStaleConstructionJobs(world)
 
   for (const job of world.jobs) {
@@ -43,6 +44,15 @@ export function planJobs(world: WorldState): void {
       )
       if (wreck) {
         assignJob(world, wreck.id, survivor.id)
+        continue
+      }
+    }
+    if (survivor.dayAssignment === 'build' || survivor.dayAssignment === 'upgrade') {
+      const lift = world.jobs.find(
+        (entry) => entry.definitionId === 'upgrade' && (entry.assigneeId === null || entry.assigneeId === survivor.id) && jobIsActive(world, entry),
+      )
+      if (lift) {
+        assignJob(world, lift.id, survivor.id)
         continue
       }
     }
@@ -126,13 +136,21 @@ function planKitchenJobs(world: WorldState): void {
 
 function cookHasWork(world: WorldState): boolean {
   const warehouse = world.inventories['inv-warehouse']
-  if (warehouse && warehouse.items.some((item) => (item.itemId === 'raw_meat' || item.itemId === 'raw_fish' || item.itemId === 'berry') && item.count > 0)) {
+  if (warehouse && warehouse.items.some((item) => (item.itemId === 'raw_meat' || item.itemId === 'raw_fish' || item.itemId === 'berry' || item.itemId === 'raw_water') && item.count > 0)) {
     return true
   }
   return world.survivors.some((survivor) => {
     const bag = world.inventories[survivor.inventoryId]
-    return !!bag && bag.items.some((item) => (item.itemId === 'raw_meat' || item.itemId === 'raw_fish' || item.itemId === 'berry' || item.itemId === 'meal') && item.count > 0)
+    return !!bag && bag.items.some((item) => (item.itemId === 'raw_meat' || item.itemId === 'raw_fish' || item.itemId === 'berry' || item.itemId === 'raw_water' || item.itemId === 'meal') && item.count > 0)
   })
+}
+
+function planUpgradeJobs(world: WorldState): void {
+  const keep = new Set(
+    world.structures.filter((structure) => structure.upgrading && structure.stage === 'complete').map((entry) => entry.id),
+  )
+  world.jobs = world.jobs.filter((job) => job.definitionId !== 'upgrade' || keep.has(job.targetId))
+  for (const id of keep) ensureJob(world, 'upgrade', id)
 }
 
 function planRepairJobs(world: WorldState): void {
@@ -148,6 +166,10 @@ function planRepairJobs(world: WorldState): void {
 
 function jobIsActive(world: WorldState, job: JobRecord): boolean {
   if (job.definitionId === 'cook') return cookHasWork(world)
+  if (job.definitionId === 'upgrade') {
+    const structure = findStructure(world, job.targetId)
+    return !!structure && structure.upgrading && structure.stage === 'complete'
+  }
   if (job.definitionId === 'repair') {
     const structure = findStructure(world, job.targetId)
     return !!structure && needsRepair(structure)
@@ -169,7 +191,7 @@ function hasActiveJob(world: WorldState, jobId: string | null, survivorId: strin
   return !!job && job.assigneeId === survivorId && jobIsActive(world, job)
 }
 
-function ensureJob(world: WorldState, definitionId: 'haul' | 'build' | 'demolish' | 'repair', targetId: string): void {
+function ensureJob(world: WorldState, definitionId: 'haul' | 'build' | 'demolish' | 'repair' | 'upgrade', targetId: string): void {
   const existing = world.jobs.find((job) => job.definitionId === definitionId && job.targetId === targetId)
   if (existing) return
   world.jobs.push(createJob({

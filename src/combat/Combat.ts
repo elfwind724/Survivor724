@@ -147,11 +147,43 @@ export function reloadWeapon(world: WorldState, survivor: SurvivorState): 'ok' |
   return 'ok'
 }
 
+export const BUTCHER_SECONDS = 3.2
+
+export function nearestCarcass(
+  world: WorldState,
+  from: { x: number; z: number },
+  range: number,
+): WildlifeState | undefined {
+  let best: WildlifeState | undefined
+  let bestDist = range
+  for (const animal of world.wildlife) {
+    if (animal.alive || animal.harvested) continue
+    const distance = Math.hypot(animal.position.x - from.x, animal.position.z - from.z)
+    if (distance < bestDist) {
+      best = animal
+      bestDist = distance
+    }
+  }
+  return best
+}
+
+export function butcherWildlife(world: WorldState, survivor: SurvivorState, dt: number): 'none' | 'working' | 'done' {
+  if (survivor.downed) return 'none'
+  const carcass = nearestCarcass(world, survivor.position, 1.8)
+  if (!carcass) return 'none'
+  const dx = carcass.position.x - survivor.position.x
+  const dz = carcass.position.z - survivor.position.z
+  if (Math.hypot(dx, dz) > 0.001) survivor.facingYaw = Math.atan2(dx, dz)
+  carcass.butcherElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate
+  if (carcass.butcherElapsed < BUTCHER_SECONDS) return 'working'
+  return harvestWildlife(world, survivor) ? 'done' : 'working'
+}
+
 export function harvestWildlife(world: WorldState, survivor: SurvivorState): boolean {
   if (survivor.downed) return false
   const bag = inventoryOf(world.inventories, survivor.inventoryId)
-  const carcass = world.wildlife.find((entry) => !entry.alive && !entry.harvested && distanceXZ(entry.position, survivor.position) < 2.2)
-  if (!carcass) return false
+  const carcass = nearestCarcass(world, survivor.position, 2.2)
+  if (!carcass || carcass.butcherElapsed < BUTCHER_SECONDS) return false
   const meat = wildlifeMeat(carcass.kind) + extraYieldCount(survivor, 'hunt', carcass.id)
   if (!addItem(bag, 'raw_meat', meat)) return false
   markHarvested(carcass)

@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { demolishTarget, findStructure, interactGate, markDemolishAt, persistCreativeStructures, placeBlueprint, placeCreativeAsset, placeWallLine, previewCreativePlacement, previewPlacement, previewWallLine } from '@/base/construction'
 import { decorationNear, removeDecoration, snapDecor } from '@/base/decorations'
 import { buildProgress, durabilityPercent, facilityPreviewHeight, structureLabel } from '@/data/facilities'
+import { canUpgrade, facilityCap, hallLevel, markUpgrade, structureLevel, upgradeCost, upgradeProgress } from '@/base/upgrade'
+import { itemLabel } from '@/data/items'
 import { rebuildNightPosts } from '@/combat/Night'
 import { cellCenter } from '@/navigation/NavGrid'
 import { reloadWeapon, tryShoot } from '@/combat/Combat'
@@ -470,6 +472,34 @@ export class GameApp {
     }
 
     const buildMode = this.buildMenu.getSelected()
+    if (button === 0 && buildMode === 'upgrade') {
+      const id = this.renderer.pickStructure(this.world, event.clientX, event.clientY)
+      const structure = id ? this.world.structures.find((entry) => entry.id === id) : undefined
+      if (!structure) {
+        this.notice = '点要升级的建筑。先把市政大厅升上去，才能抬其他设施上限'
+        return
+      }
+      if (structure.upgrading) {
+        this.notice = `${structureLabel(structure)} 正在升级 ${upgradeProgress(structure)}%`
+        return
+      }
+      if (structure.definitionId !== 'hall' && structureLevel(structure) >= facilityCap(this.world)) {
+        this.notice = `大厅还是 ${hallLevel(this.world)} 级，先升级市政大厅`
+        return
+      }
+      if (!canUpgrade(this.world, structure)) {
+        this.notice = `${structureLabel(structure)} 已到等级上限`
+        return
+      }
+      if (!markUpgrade(this.world, structure)) {
+        this.notice = '现在不能升级这座'
+        return
+      }
+      const cost = upgradeCost(structure).map((item) => `${item.count}${itemLabel(item.itemId)}`).join(' ')
+      this.notice = `已标记升级 ${structureLabel(structure)} 到 ${structure.level + 1} 级，需 ${cost}，工匠会来施工`
+      return
+    }
+
     if (button === 0 && buildMode === 'demolish') {
       const hit = this.renderer.pickGround(event.clientX, event.clientY)
       if (!hit) return
@@ -667,9 +697,11 @@ export class GameApp {
     if (structure) {
       const name = structureLabel(structure)
       const demolishMode = this.buildMenu.getSelected() === 'demolish'
+      const upgradeMode = this.buildMenu.getSelected() === 'upgrade'
       const hp = structure.kind === 'wall' || structure.kind === 'gate' ? ` · 耐久 ${durabilityPercent(structure)}%` : ''
+      const level = structure.stage === 'complete' ? ` · ${structureLevel(structure)}级` : ''
       const progress = structure.stage === 'complete'
-        ? `${hp}${demolishMode ? ' · 点击标记拆除' : ''}`
+        ? `${level}${hp}${structure.upgrading ? ` · 升级 ${upgradeProgress(structure)}%` : ''}${upgradeMode ? ' · 点击升级' : ''}${demolishMode ? ' · 点击标记拆除' : ''}`
         : structure.stage === 'demolishing'
           ? ` · 拆除 ${buildProgress(structure)}%`
           : ` · ${structure.stage === 'blueprint' || structure.stage === 'hauling' ? '蓝图' : '建造中'} ${buildProgress(structure)}%`
@@ -686,7 +718,8 @@ export class GameApp {
       if (!entry.cells[0]) continue
       const showBuild = entry.stage !== 'complete'
       const showHp = entry.stage === 'complete' && (entry.kind === 'wall' || entry.kind === 'gate') && entry.hp < entry.maxHp
-      if (!showBuild && !showHp) continue
+      const showUp = entry.stage === 'complete' && (entry.upgrading || entry.level > 1 || entry.definitionId === 'hall')
+      if (!showBuild && !showHp && !showUp) continue
       const mid = cellCenter(this.world.nav, {
         x: entry.cells.reduce((sum, cell) => sum + cell.x, 0) / entry.cells.length,
         z: entry.cells.reduce((sum, cell) => sum + cell.z, 0) / entry.cells.length,
@@ -697,8 +730,12 @@ export class GameApp {
         ? `拆除 ${structureLabel(entry)} ${buildProgress(entry)}%`
         : showBuild
           ? `${structureLabel(entry)} ${buildProgress(entry)}%`
-          : `耐久 ${durabilityPercent(entry)}%`
-      const klass = entry.stage === 'demolishing' ? 'build-tag is-wreck' : showHp ? 'build-tag is-hp' : 'build-tag'
+          : entry.upgrading
+            ? `${structureLabel(entry)} 升级 ${upgradeProgress(entry)}%`
+            : showHp
+              ? `耐久 ${durabilityPercent(entry)}%`
+              : `${structureLabel(entry)} ${structureLevel(entry)}级`
+      const klass = entry.stage === 'demolishing' ? 'build-tag is-wreck' : entry.upgrading ? 'build-tag' : showHp ? 'build-tag is-hp' : 'build-tag'
       bits.push(`<span class="${klass}" style="left:${screen.x}px;top:${screen.y}px">${text}</span>`)
     }
     for (const survivor of this.world.survivors) {

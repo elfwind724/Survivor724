@@ -74,6 +74,7 @@ export function createAnimal(input: {
     fleeTimer: 0,
     harvested: false,
     respawnIn: 0,
+    butcherElapsed: 0,
   }
 }
 
@@ -189,6 +190,7 @@ function reviveAnimal(animal: WildlifeState): void {
   animal.mood = 'graze'
   animal.fleeTimer = 0
   animal.destination = null
+  animal.butcherElapsed = 0
   animal.position = cloneVec3(animal.home)
 }
 
