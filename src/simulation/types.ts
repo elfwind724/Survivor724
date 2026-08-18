@@ -125,6 +125,8 @@ export interface EquipmentLoadout {
   tool: string | null
 }
 
+export type EnhanceLoadout = Record<EquipSlot, number>
+
 export interface SurvivorState {
   id: string
   name: string
@@ -160,8 +162,11 @@ export interface SurvivorState {
   downed: boolean
   level: number
   xp: number
+  attrPoints: number
+  spendOwnPoints: boolean
   attributes: SurvivorAttributes
   equipment: EquipmentLoadout
+  enhance: EnhanceLoadout
   lastYieldItem: string | null
   lastYieldCount: number
   lastYieldXp: number

@@ -1,6 +1,6 @@
 import { damageStructure } from '@/base/construction'
 import { ENEMY_DEFINITIONS } from '@/data/enemies'
-import { derivedStats } from '@/data/equipment'
+import { statsOf } from '@/data/equipment'
 import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { equippedWeapon, fireProfile, INFINITE_AMMO, magazineSize, muzzleOrigin, readMag, writeMag } from '@/data/weapons'
 import { cellCenter, isBlocked, worldToCell } from '@/navigation/NavGrid'
@@ -174,7 +174,7 @@ export function butcherWildlife(world: WorldState, survivor: SurvivorState, dt: 
   const dx = carcass.position.x - survivor.position.x
   const dz = carcass.position.z - survivor.position.z
   if (Math.hypot(dx, dz) > 0.001) survivor.facingYaw = Math.atan2(dx, dz)
-  carcass.butcherElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate
+  carcass.butcherElapsed += dt * statsOf(survivor).workRate
   if (carcass.butcherElapsed < BUTCHER_SECONDS) return 'working'
   return harvestWildlife(world, survivor) ? 'done' : 'working'
 }
@@ -204,7 +204,7 @@ export function stepEnemies(world: WorldState, dt: number): void {
     const definition = ENEMY_DEFINITIONS[enemy.kind]
     if (prey && distance <= definition.attackRange) {
       if (enemy.attackCooldown <= 0 && !prey.downed) {
-        const defense = derivedStats(prey.attributes, prey.equipment).defense
+        const defense = statsOf(prey).defense
         prey.health -= Math.max(1, definition.damage - defense - skillDefenseBonus(prey))
         enemy.attackCooldown = definition.attackCooldown
         if (prey.health <= 0) {

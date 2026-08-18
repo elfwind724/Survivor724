@@ -1,6 +1,6 @@
-import { defaultAttributes, emptyLoadout } from '@/data/equipment'
+import { defaultAttributes, emptyEnhance, emptyLoadout } from '@/data/equipment'
 import { seedSkills } from '@/data/skills'
-import { cloneVec3, type EquipmentLoadout, type SkillId, type SkillState, type SurvivorAttributes, type SurvivorState, type Vec3 } from '@/simulation/types'
+import { cloneVec3, type EnhanceLoadout, type EquipmentLoadout, type SkillId, type SkillState, type SurvivorAttributes, type SurvivorState, type Vec3 } from '@/simulation/types'
 
 type SurvivorDraft = Omit<
   SurvivorState,
@@ -24,10 +24,13 @@ type SurvivorDraft = Omit<
   | 'downed'
   | 'level'
   | 'xp'
+  | 'attrPoints'
+  | 'spendOwnPoints'
   | 'hunger'
   | 'thirst'
   | 'attributes'
   | 'equipment'
+  | 'enhance'
   | 'lastYieldItem'
   | 'lastYieldCount'
   | 'lastYieldXp'
@@ -54,10 +57,13 @@ type SurvivorDraft = Omit<
   downed?: boolean
   level?: number
   xp?: number
+  attrPoints?: number
+  spendOwnPoints?: boolean
   hunger?: number
   thirst?: number
   attributes?: SurvivorAttributes
   equipment?: EquipmentLoadout
+  enhance?: EnhanceLoadout
   lastYieldItem?: string | null
   lastYieldCount?: number
   lastYieldXp?: number
@@ -89,10 +95,13 @@ export function createSurvivor(input: SurvivorDraft): SurvivorState {
     downed: input.downed ?? false,
     level: input.level ?? 1,
     xp: input.xp ?? 0,
+    attrPoints: input.attrPoints ?? 0,
+    spendOwnPoints: input.spendOwnPoints ?? false,
     hunger: input.hunger ?? 80,
     thirst: input.thirst ?? 80,
     attributes: input.attributes ?? defaultAttributes(input.professionId),
     equipment: input.equipment ?? emptyLoadout(),
+    enhance: input.enhance ?? emptyEnhance(),
     lastYieldItem: input.lastYieldItem ?? null,
     lastYieldCount: input.lastYieldCount ?? 0,
     lastYieldXp: input.lastYieldXp ?? 0,

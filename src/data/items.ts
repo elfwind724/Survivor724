@@ -41,8 +41,26 @@ export const WORK_XP: Record<string, number> = {
   upgrade: 6,
 }
 
+const PLUS_MARK = /^(.*)\+(\d+)$/
+
+export function itemBase(id: string): string {
+  return id.match(PLUS_MARK)?.[1] ?? id
+}
+
+export function itemPlus(id: string): number {
+  const match = id.match(PLUS_MARK)
+  return match ? Number(match[2]) : 0
+}
+
+export function withPlus(id: string, plus: number): string {
+  const base = itemBase(id)
+  return plus > 0 ? `${base}+${plus}` : base
+}
+
 export function itemLabel(id: string): string {
-  return ITEM_LABELS[id] ?? id
+  const plus = itemPlus(id)
+  const name = ITEM_LABELS[itemBase(id)] ?? itemBase(id)
+  return plus > 0 ? `${name} +${plus}` : name
 }
 
 export function isRawFood(id: string): id is RawFoodId {

@@ -1,4 +1,5 @@
-import { derivedStats, EQUIP_SLOTS, equipmentById } from '@/data/equipment'
+import { EQUIP_SLOTS, equipmentById, statsOf } from '@/data/equipment'
+import { enhanceChance, enhanceCost, ENHANCE_MAX, combatRating, spendAttr, tryEnhance, wornPlus } from '@/survivors/Enhance'
 import {
   ensureSkills,
   professionSkills,
@@ -108,11 +109,31 @@ export class CharacterSheet {
       this.lastKey = ''
       this.render(world)
     })
+    this.root.querySelectorAll<HTMLButtonElement>('[data-stat]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const key = button.dataset.stat
+        if (key === 'strength' || key === 'agility' || key === 'constitution' || key === 'intelligence') {
+          spendAttr(survivor, key)
+        }
+        this.lastKey = ''
+        this.render(world)
+      })
+    })
+    this.root.querySelectorAll<HTMLButtonElement>('[data-enhance]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const slot = button.dataset.enhance as EquipSlot
+        const result = tryEnhance(world, survivor, slot)
+        this.lastKey = ''
+        this.render(world)
+        const notice = button.parentElement?.querySelector('[data-enhance-note]')
+        if (notice) notice.textContent = enhanceNote(result)
+      })
+    })
   }
 }
 
 function sheetKey(world: WorldState, survivor: SurvivorState, pick: EquipSlot | null, tab: SheetTab): string {
-  const stats = derivedStats(survivor.attributes, survivor.equipment)
+  const stats = statsOf(survivor)
   const fire = fireProfile(survivor)
   const skills = ensureSkills(survivor)
   return [
@@ -122,6 +143,8 @@ function sheetKey(world: WorldState, survivor: SurvivorState, pick: EquipSlot | 
     survivor.health,
     survivor.level,
     survivor.xp,
+    survivor.attrPoints,
+    Object.values(survivor.enhance ?? {}).join(','),
     survivor.ammo,
     survivor.lastYieldItem ?? '',
     survivor.lastYieldCount,
@@ -164,7 +187,7 @@ function renderSheet(world: WorldState, survivor: SurvivorState, pick: EquipSlot
       </header>
       <div class="sheet-tabs">${tabs}</div>
       <div class="sheet-level">
-        <div><strong>人物 ${survivor.level} 级</strong><small>${Math.floor(survivor.xp)}/${next} 职业经验</small></div>
+        <div><strong>人物 ${survivor.level} 级</strong><small>${Math.floor(survivor.xp)}/${next} 经验 · 战力 ${combatRating(survivor)}</small></div>
         <i><b style="width:${Math.max(4, Math.min(100, (survivor.xp / next) * 100))}%"></b></i>
       </div>
       ${body}
@@ -206,37 +229,47 @@ function renderSkillCard(survivor: SurvivorState, id: SkillId, skill: { level: n
 }
 
 function renderStatsTab(survivor: SurvivorState): string {
-  const stats = derivedStats(survivor.attributes, survivor.equipment)
+  const stats = statsOf(survivor)
   const fire = fireProfile(survivor)
+  const plus = wornPlus(survivor, 'weapon')
   const attrs = (
     [
-      ['力量', stats.total.strength, survivor.attributes.strength, fire.weapon ? `枪伤 ${fire.damage}` : `徒手 ${stats.attackPower}`],
-      ['敏捷', stats.total.agility, survivor.attributes.agility, `射速 ${fire.weapon ? fire.cooldown.toFixed(2) : stats.attackCooldown.toFixed(2)}秒 · 移速 ${stats.moveSpeed.toFixed(1)}`],
-      ['体质', stats.total.constitution, survivor.attributes.constitution, `生命 ${Math.ceil(survivor.health)}/${stats.maxHealth} · 防御 ${stats.defense + (skillLevel(survivor, 'combat') - 1)}`],
-      ['智力', stats.total.intelligence, survivor.attributes.intelligence, `设施 ${stats.workRate.toFixed(2)}倍`],
+      ['strength', '力量', stats.total.strength, survivor.attributes.strength, fire.weapon ? `枪伤 ${fire.damage}` : `徒手 ${stats.attackPower}`],
+      ['agility', '敏捷', stats.total.agility, survivor.attributes.agility, `射速 ${fire.weapon ? fire.cooldown.toFixed(2) : stats.attackCooldown.toFixed(2)}秒 · 移速 ${stats.moveSpeed.toFixed(1)}`],
+      ['constitution', '体质', stats.total.constitution, survivor.attributes.constitution, `生命 ${Math.ceil(survivor.health)}/${stats.maxHealth} · 防御 ${stats.defense + (skillLevel(survivor, 'combat') - 1)}`],
+      ['intelligence', '智力', stats.total.intelligence, survivor.attributes.intelligence, `设施 ${stats.workRate.toFixed(2)}倍`],
     ] as const
   )
-    .map(([label, total, base, detail]) => {
+    .map(([key, label, total, base, detail]) => {
       const bonus = total - base
       const width = Math.max(6, Math.min(100, total * 5))
+      const spend = survivor.attrPoints > 0
+        ? `<button type="button" class="sheet-plus" data-stat="${key}">+</button>`
+        : ''
       return `<div class="sheet-stat">
-        <div><strong>${label} ${total}</strong><small>${bonus >= 0 ? `+${bonus}` : bonus} 基础${base}</small></div>
+        <div><strong>${label} ${total}</strong><small>${bonus >= 0 ? `+${bonus}` : bonus} 基础${base}</small>${spend}</div>
         <i><b style="width:${width}%"></b></i>
         <span>${detail}</span>
       </div>`
     })
     .join('')
-  return `<div class="sheet-stats-page">${attrs}${renderFireCard(fire, survivor.ammo)}</div>`
+  return `<div class="sheet-stats-page">
+    <p class="sheet-role">战力 ${combatRating(survivor)} · 可分配属性点 ${survivor.attrPoints}${survivor.spendOwnPoints ? ' · 自己点' : ' · 按职业自动加'}</p>
+    ${attrs}
+    ${renderFireCard(fire, survivor.ammo, plus)}
+  </div>`
 }
 
 function renderGearTab(world: WorldState, survivor: SurvivorState, pick: EquipSlot | null): string {
   const slots = EQUIP_SLOTS.map((slot) => {
     const worn = survivor.equipment[slot.id]
+    const plus = wornPlus(survivor, slot.id)
     const item = worn ? equipmentById(worn) : undefined
     const on = pick === slot.id ? ' is-on' : ''
+    const name = item ? (plus > 0 ? `${item.label.replace(/ \+\d+$/, '')} +${plus}` : item.label) : '空'
     return `<button type="button" class="sheet-slot sheet-slot-${slot.id}${on}" data-slot="${slot.id}">
       <em>${slot.label}</em>
-      <span>${item ? item.label : '空'}</span>
+      <span class="${plus >= 7 ? 'is-plus-high' : plus > 0 ? 'is-plus' : ''}">${name}</span>
     </button>`
   }).join('')
   let picker = ''
@@ -269,18 +302,48 @@ function renderGearTab(world: WorldState, survivor: SurvivorState, pick: EquipSl
       <div class="sheet-avatar">${survivorPortrait(survivor)}</div>
     </div>
     <div class="sheet-stats">
-      <p class="sheet-role">点左右格子换装。枪和工具会改属性与开火数据。</p>
+      <p class="sheet-role">点格子换装。强化吃仓库废铁，+6 起有失败率，失败不掉级。</p>
+      ${renderEnhance(world, survivor)}
       ${picker}
     </div>
   </div>`
 }
 
-function renderFireCard(fire: ReturnType<typeof fireProfile>, ammo: number): string {
+function renderEnhance(world: WorldState, survivor: SurvivorState): string {
+  const warehouse = world.inventories['inv-warehouse']
+  const scrap = warehouse ? warehouse.items.find((item) => item.itemId === 'scrap')?.count ?? 0 : 0
+  return EQUIP_SLOTS.map((slot) => {
+    const worn = survivor.equipment[slot.id]
+    if (!worn) return ''
+    const plus = wornPlus(survivor, slot.id)
+    const item = equipmentById(worn)
+    const cost = enhanceCost(plus)
+    const chance = Math.round(enhanceChance(plus) * 100)
+    const maxed = plus >= ENHANCE_MAX
+    return `<div class="sheet-enhance">
+      <strong>${item?.label ?? slot.label} <em>+${plus}</em></strong>
+      <span>${maxed ? '已满 +10' : `下一级 废铁${cost} · 成功率 ${chance}% · 库里 ${scrap}`}</span>
+      ${maxed ? '' : `<button type="button" data-enhance="${slot.id}">强化 +${plus + 1}</button>`}
+      <small data-enhance-note></small>
+    </div>`
+  }).join('')
+}
+
+function enhanceNote(result: ReturnType<typeof tryEnhance>): string {
+  if (result === 'ok') return '强化成功'
+  if (result === 'fail') return '强化失败，装备没掉级'
+  if (result === 'max') return '已经 +10'
+  if (result === 'no_scrap') return '仓库废铁不够'
+  return '这一格是空的'
+}
+
+function renderFireCard(fire: ReturnType<typeof fireProfile>, ammo: number, plus = 0): string {
   if (!fire.weapon) {
     return `<div class="sheet-fire"><strong>未装备枪械</strong><span>去武器栏或工具柜换枪</span></div>`
   }
+  const name = plus > 0 ? `${fire.weapon.label} +${plus}` : fire.weapon.label
   return `<div class="sheet-fire">
-    <strong>${fire.weapon.label}</strong>
+    <strong>${name}</strong>
     <span>弹药 ${INFINITE_AMMO ? '无限' : `${ammo}/${magazineSize(fire.weapon.id)}`} · ${fire.pellets > 1 ? `${fire.pellets}弹丸` : '单发'}</span>
     <ul>
       <li>伤害 ${fire.damage}</li>

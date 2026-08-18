@@ -80,6 +80,7 @@ export function createInitialWorld(): WorldState {
         dayAssignment: null,
         currentJobId: null,
         workerState: 'Idle',
+        spendOwnPoints: true,
       }),
       createSurvivor({
         id: 'fisher',

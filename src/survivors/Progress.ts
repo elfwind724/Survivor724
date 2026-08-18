@@ -1,4 +1,5 @@
 import { ensureSkills, skillXpToNext } from '@/data/skills'
+import { allocateProfession } from './Enhance'
 import { applyEquipmentStats } from './Equipment'
 import type { SkillId, SurvivorState, WorldState } from '@/simulation/types'
 
@@ -50,10 +51,7 @@ export function grantSkillXp(survivor: SurvivorState, id: SkillId, amount: numbe
 }
 
 export function applyLevelBonus(survivor: SurvivorState): void {
-  const level = survivor.level
-  if (level % 2 === 0) survivor.attributes.strength += 1
-  if (level % 2 === 1) survivor.attributes.agility += 1
-  if (level % 3 === 0) survivor.attributes.constitution += 1
-  if (level % 4 === 0) survivor.attributes.intelligence += 1
+  survivor.attrPoints += 2
   survivor.health = Math.min(140, survivor.health + 8)
+  if (!survivor.spendOwnPoints) allocateProfession(survivor)
 }

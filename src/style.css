@@ -1201,6 +1201,62 @@ body,
   flex-direction: column;
 }
 
+.sheet-stat div {
+  align-items: center;
+}
+
+.sheet-plus {
+  width: 24px;
+  height: 24px;
+  margin-left: 6px;
+  border: 1px solid var(--hud-brass);
+  background: #2a2214;
+  color: var(--hud-brass);
+  cursor: pointer;
+}
+
+.sheet-enhance {
+  margin-bottom: 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--hud-line);
+  background: #1a1612;
+}
+
+.sheet-enhance strong {
+  display: block;
+  font-size: 14px;
+}
+
+.sheet-enhance em {
+  color: #e0b44a;
+  font-style: normal;
+}
+
+.sheet-enhance span,
+.sheet-enhance small {
+  display: block;
+  color: var(--hud-muted);
+  font-size: 12px;
+}
+
+.sheet-enhance button {
+  margin-top: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--hud-brass);
+  background: #2a2214;
+  color: var(--hud-ink);
+  cursor: pointer;
+}
+
+.sheet-slot .is-plus {
+  color: #e0b44a;
+}
+
+.sheet-slot .is-plus-high {
+  color: #ff9a3c;
+}
+
 .sheet-head {
   display: flex;
   align-items: center;

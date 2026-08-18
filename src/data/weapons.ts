@@ -1,5 +1,6 @@
+import { itemBase, itemPlus } from '@/data/items'
 import type { SurvivorState } from '@/simulation/types'
-import { derivedStats } from './equipment'
+import { statsOf } from './equipment'
 import { skillDamageMult, skillRangeMult, skillSpreadMult } from './skills'
 
 export type WeaponClass = 'pistol' | 'revolver' | 'smg' | 'rifle' | 'shotgun' | 'sniper'
@@ -29,7 +30,7 @@ export const WEAPONS: readonly WeaponDefinition[] = [
 ]
 
 export function weaponById(id: string): WeaponDefinition | undefined {
-  return WEAPONS.find((entry) => entry.id === id)
+  return WEAPONS.find((entry) => entry.id === itemBase(id))
 }
 
 export function equippedWeapon(survivor: SurvivorState): WeaponDefinition | undefined {
@@ -44,8 +45,9 @@ export function equippedWeapon(survivor: SurvivorState): WeaponDefinition | unde
 
 export function fireProfile(survivor: SurvivorState, extraRange = 0) {
   const weapon = equippedWeapon(survivor)
-  const stats = derivedStats(survivor.attributes, survivor.equipment)
+  const stats = statsOf(survivor)
   const level = Math.max(1, survivor.level)
+  const plus = Math.max(survivor.enhance?.weapon ?? 0, itemPlus(survivor.equipment.weapon ?? ''))
   if (!weapon) {
     return {
       weapon: null,
@@ -60,9 +62,10 @@ export function fireProfile(survivor: SurvivorState, extraRange = 0) {
     }
   }
   const levelBonus = (level - 1) * 0.07
-  const damage = Math.round(weapon.damage * (1 + levelBonus + stats.total.strength * 0.035) * skillDamageMult(survivor))
+  const plusBonus = plus * 0.08
+  const damage = Math.round(weapon.damage * (1 + levelBonus + plusBonus + stats.total.strength * 0.035) * skillDamageMult(survivor))
   const cooldown = Math.max(0.08, weapon.cooldown / (1 + stats.total.agility * 0.018 + (level - 1) * 0.025))
-  const range = weapon.range * (1 + (level - 1) * 0.035) * skillRangeMult(survivor) + extraRange
+  const range = weapon.range * (1 + (level - 1) * 0.035 + plus * 0.02) * skillRangeMult(survivor) + extraRange
   const speed = weapon.speed * (1 + (level - 1) * 0.02)
   const spread = Math.max(0.004, weapon.spread * (1 - Math.min(0.55, stats.total.agility * 0.012 + (level - 1) * 0.03)) * skillSpreadMult(survivor))
   return { weapon, damage, cooldown, range, speed, spread, pellets: weapon.pellets, ammoCost: weapon.ammoCost, muzzle: weapon.muzzle }
@@ -101,17 +104,18 @@ export const WEAPON_SWAP_COOLDOWN = 0.4
 export const INFINITE_AMMO = true
 
 export function magazineSize(weaponId: string): number {
-  if (weaponId === 'pistol') return 12
-  if (weaponId === 'revolver') return 6
-  if (weaponId === 'smg') return 30
-  if (weaponId === 'rifle') return 24
-  if (weaponId === 'shotgun') return 8
-  if (weaponId === 'sniper') return 5
+  const id = itemBase(weaponId)
+  if (id === 'pistol') return 12
+  if (id === 'revolver') return 6
+  if (id === 'smg') return 30
+  if (id === 'rifle') return 24
+  if (id === 'shotgun') return 8
+  if (id === 'sniper') return 5
   return 12
 }
 
 export function readMag(survivor: SurvivorState, weaponId: string): number {
-  const stored = survivor.weaponAmmo[weaponId]
+  const stored = survivor.weaponAmmo[itemBase(weaponId)]
   if (stored !== undefined) return stored
   if (equippedWeapon(survivor)?.id === weaponId) return survivor.ammo
   return magazineSize(weaponId)
@@ -119,21 +123,24 @@ export function readMag(survivor: SurvivorState, weaponId: string): number {
 
 export function writeMag(survivor: SurvivorState, weaponId: string, count: number): void {
   const next = Math.max(0, count)
-  survivor.weaponAmmo[weaponId] = next
-  if (equippedWeapon(survivor)?.id === weaponId) survivor.ammo = next
+  const key = itemBase(weaponId)
+  survivor.weaponAmmo[key] = next
+  if (equippedWeapon(survivor)?.id === key) survivor.ammo = next
 }
 
 export function switchMags(survivor: SurvivorState, fromId: string | null, toId: string | null): void {
-  if (fromId && weaponById(fromId)) writeMag(survivor, fromId, survivor.ammo)
-  if (!toId || !weaponById(toId)) {
+  const from = fromId ? itemBase(fromId) : null
+  const to = toId ? itemBase(toId) : null
+  if (from && weaponById(from)) writeMag(survivor, from, survivor.ammo)
+  if (!to || !weaponById(to)) {
     survivor.ammo = 0
     return
   }
-  if (survivor.weaponAmmo[toId] === undefined) {
-    const seed = fromId === null && survivor.ammo > 0 ? survivor.ammo : magazineSize(toId)
-    survivor.weaponAmmo[toId] = Math.min(magazineSize(toId), seed)
+  if (survivor.weaponAmmo[to] === undefined) {
+    const seed = from === null && survivor.ammo > 0 ? survivor.ammo : magazineSize(to)
+    survivor.weaponAmmo[to] = Math.min(magazineSize(to), seed)
   }
-  survivor.ammo = survivor.weaponAmmo[toId] ?? magazineSize(toId)
+  survivor.ammo = survivor.weaponAmmo[to] ?? magazineSize(to)
   if (fromId && fromId !== toId) {
     survivor.fireCooldown = WEAPON_SWAP_COOLDOWN
     survivor.fireCooldownMax = WEAPON_SWAP_COOLDOWN

@@ -293,8 +293,9 @@ function focusWeapon(world: WorldState): HudModel['weapon'] {
   if (!survivor) return null
   const gun = equippedWeapon(survivor)
   if (!gun) return null
+  const plus = survivor.enhance?.weapon ?? 0
   return {
-    name: gun.label,
+    name: plus > 0 ? `${gun.label} +${plus}` : gun.label,
     ammo: readMag(survivor, gun.id),
     ammoMax: magazineSize(gun.id),
     cooldown: cooldownRatio(survivor),

@@ -3,7 +3,7 @@ import { finishUpgrade } from '@/base/upgrade'
 import { isHero } from '@/controls/PlayerControl'
 import { stepFollowHero } from '@/jobs/Follow'
 import { bedSpot, cookSpot, eatSpot, enterFacility, tryEnterAfterArrival } from '@/base/FacilityLife'
-import { derivedStats } from '@/data/equipment'
+import { statsOf } from '@/data/equipment'
 import { extraYieldCount, skillForJob, skillWorkMult } from '@/data/skills'
 import { weaponById } from '@/data/weapons'
 import { clearJobTools, syncToolsToEquipment } from '@/survivors/Equipment'
@@ -328,7 +328,7 @@ function stepWork(world: WorldState, survivor: SurvivorState, dt: number): void 
     }
   }
   const jobId = job ? jobDefinition(job.definitionId)?.id ?? '' : ''
-  survivor.workElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate * skillWorkMult(survivor, jobId)
+  survivor.workElapsed += dt * statsOf(survivor).workRate * skillWorkMult(survivor, jobId)
   if (survivor.workElapsed >= WORK_SECONDS) {
     survivor.workElapsed = 0
     survivor.workerState = 'CollectOutput'
@@ -511,7 +511,7 @@ function stepUpgrade(world: WorldState, survivor: SurvivorState, dt: number): vo
     goHome(world, survivor)
     return
   }
-  structure.upgradeElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate * skillWorkMult(survivor, 'upgrade')
+  structure.upgradeElapsed += dt * statsOf(survivor).workRate * skillWorkMult(survivor, 'upgrade')
   if (structure.upgradeElapsed < structure.upgradeDuration) return
   for (const item of structure.upgradeRequired) {
     if (!removeItem(stock, item.itemId, item.count)) {
@@ -556,7 +556,7 @@ function stepRepair(world: WorldState, survivor: SurvivorState, dt: number): voi
     if (beginTravel(world, survivor, warehousePosition(world, survivor))) survivor.workerState = 'TravelToTarget'
     return
   }
-  survivor.workElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate * skillWorkMult(survivor, 'repair')
+  survivor.workElapsed += dt * statsOf(survivor).workRate * skillWorkMult(survivor, 'repair')
   if (survivor.workElapsed < WORK_SECONDS) return
   survivor.workElapsed = 0
   if (!removeItem(bag, 'wood', 1)) {
@@ -581,7 +581,7 @@ function stepDemolish(world: WorldState, survivor: SurvivorState, dt: number): v
     goHome(world, survivor)
     return
   }
-  structure.buildElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate * skillWorkMult(survivor, 'demolish')
+  structure.buildElapsed += dt * statsOf(survivor).workRate * skillWorkMult(survivor, 'demolish')
   if (structure.buildElapsed >= structure.buildDuration) {
     finishDemolish(world, structure)
     goHome(world, survivor)
@@ -597,7 +597,7 @@ function stepBuild(world: WorldState, survivor: SurvivorState, dt: number): void
   }
 
   structure.stage = 'building'
-  structure.buildElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate * skillWorkMult(survivor, 'build')
+  structure.buildElapsed += dt * statsOf(survivor).workRate * skillWorkMult(survivor, 'build')
   if (structure.buildElapsed >= structure.buildDuration) {
     completeStructure(world, structure)
     goHome(world, survivor)

@@ -1,4 +1,5 @@
-import type { EquipSlot, EquipmentLoadout, SurvivorAttributes } from '@/simulation/types'
+import { itemBase, itemPlus } from '@/data/items'
+import type { EnhanceLoadout, EquipSlot, EquipmentLoadout, SurvivorAttributes } from '@/simulation/types'
 
 export interface EquipItemDef {
   id: string
@@ -58,19 +59,50 @@ export function emptyLoadout(): EquipmentLoadout {
   return { hat: null, clothes: null, gloves: null, shoes: null, weapon: null, tool: null }
 }
 
+export function emptyEnhance(): EnhanceLoadout {
+  return { hat: 0, clothes: 0, gloves: 0, shoes: 0, weapon: 0, tool: 0 }
+}
+
 export function equipmentById(id: string): EquipItemDef | undefined {
-  return EQUIPMENT.find((entry) => entry.id === id)
+  const base = itemBase(id)
+  const plus = itemPlus(id)
+  const def = EQUIPMENT.find((entry) => entry.id === base)
+  if (!def) return undefined
+  return {
+    id,
+    label: plus > 0 ? `${def.label} +${plus}` : def.label,
+    slot: def.slot,
+    bonuses: scaleBonuses(def.bonuses, plus),
+  }
+}
+
+export function scaleBonuses(bonuses: Partial<SurvivorAttributes>, plus: number): Partial<SurvivorAttributes> {
+  if (plus <= 0) return { ...bonuses }
+  const bump = Math.ceil(plus / 2)
+  const next: Partial<SurvivorAttributes> = {}
+  if (bonuses.strength) next.strength = bonuses.strength + bump
+  else if (plus >= 2) next.strength = Math.floor(plus / 2)
+  if (bonuses.agility) next.agility = bonuses.agility + bump
+  if (bonuses.constitution) next.constitution = bonuses.constitution + bump
+  if (bonuses.intelligence) next.intelligence = bonuses.intelligence + bump
+  return next
 }
 
 export function defaultAttributes(professionId: string): SurvivorAttributes {
   return { ...(PROFESSION_STATS[professionId] ?? { strength: 10, agility: 10, constitution: 10, intelligence: 10 }) }
 }
 
-export function totalAttributes(base: SurvivorAttributes, loadout: EquipmentLoadout): SurvivorAttributes {
+export function totalAttributes(
+  base: SurvivorAttributes,
+  loadout: EquipmentLoadout,
+  enhance: EnhanceLoadout = emptyEnhance(),
+): SurvivorAttributes {
   const total = { ...base }
-  for (const id of Object.values(loadout)) {
+  for (const slot of EQUIP_SLOTS) {
+    const id = loadout[slot.id]
     if (!id) continue
-    const item = equipmentById(id)
+    const plus = Math.max(enhance[slot.id] ?? 0, itemPlus(id))
+    const item = equipmentById(withDisplayId(id, plus))
     if (!item) continue
     total.strength += item.bonuses.strength ?? 0
     total.agility += item.bonuses.agility ?? 0
@@ -80,8 +112,25 @@ export function totalAttributes(base: SurvivorAttributes, loadout: EquipmentLoad
   return total
 }
 
-export function derivedStats(base: SurvivorAttributes, loadout: EquipmentLoadout) {
-  const total = totalAttributes(base, loadout)
+function withDisplayId(id: string, plus: number): string {
+  const extra = plus > itemPlus(id) ? plus : itemPlus(id)
+  return extra > 0 ? `${itemBase(id)}+${extra}` : itemBase(id)
+}
+
+export function statsOf(survivor: {
+  attributes: SurvivorAttributes
+  equipment: EquipmentLoadout
+  enhance?: EnhanceLoadout
+}) {
+  return derivedStats(survivor.attributes, survivor.equipment, survivor.enhance ?? emptyEnhance())
+}
+
+export function derivedStats(
+  base: SurvivorAttributes,
+  loadout: EquipmentLoadout,
+  enhance: EnhanceLoadout = emptyEnhance(),
+) {
+  const total = totalAttributes(base, loadout, enhance)
   return {
     total,
     attackPower: Math.round(10 + total.strength * 2),
