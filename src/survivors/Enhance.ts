@@ -1,4 +1,5 @@
 import { emptyEnhance, statsOf } from '@/data/equipment'
+import { isGearId } from '@/data/loot'
 import { itemPlus, withPlus } from '@/data/items'
 import { countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
@@ -57,6 +58,8 @@ export function tryEnhance(
   removeItem(stock, 'scrap', cost)
   const roll = enhanceRoll(`${survivor.id}:${slot}:${plus}:${world.time.daySeconds.toFixed(2)}`)
   if (roll >= enhanceChance(plus)) return 'fail'
+  const worn = survivor.equipment[slot]
+  if (worn && isGearId(worn) && world.gear[worn]) world.gear[worn].plus = plus + 1
   survivor.enhance[slot] = plus + 1
   applyEquipmentStats(survivor)
   return 'ok'

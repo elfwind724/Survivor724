@@ -7,6 +7,7 @@ import { cellCenter, isBlocked, worldToCell } from '@/navigation/NavGrid'
 import { lookXZ } from '@/controls/CameraWish'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { WORK_XP } from '@/data/items'
+import { maybeDropGear } from '@/data/loot'
 import { extraYieldCount, skillDefenseBonus } from '@/data/skills'
 import { grantSkillXp, grantXp, recordWorkYield } from '@/survivors/Progress'
 import { markHarvested, nearestLivingWildlife, wildlifeKillXp, wildlifeMeat } from '@/world/Wildlife'
@@ -40,7 +41,7 @@ export function tickCooldowns(world: WorldState, dt: number): void {
 
 export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
   if (survivor.downed || survivor.fireCooldown > 0) return false
-  const profile = fireProfile(survivor)
+  const profile = fireProfile(survivor, 0, world)
   if (!profile.weapon || profile.pellets <= 0) return false
   if (!INFINITE_AMMO) {
     const mag = readMag(survivor, profile.weapon.id)
@@ -71,15 +72,34 @@ export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
       vy = (dy / len) * profile.speed
       vz = (dz / len) * profile.speed + lookXZ(yaw + Math.PI / 2).z * side * 8
     }
+    const roll = unitNoise(`${survivor.id}:dmg:${world.time.daySeconds.toFixed(3)}:${index}`)
+    const span = Math.max(0, profile.maxDamage - profile.minDamage)
+    let damage = Math.round(profile.minDamage + span * roll)
+    const crit = roll > 1 - profile.critChance
+    if (crit) damage = Math.round(damage * profile.critDamage)
+    const status = profile.procs.includes('burn') ? 'burn'
+      : profile.procs.includes('freeze') ? 'freeze'
+        : profile.procs.includes('poison') ? 'poison'
+          : profile.procs.includes('paralyze') ? 'paralyze'
+            : null
     world.projectiles.push({
       id: `proj-${(projectileSerial += 1)}`,
       ownerId: survivor.id,
       weaponId: profile.weapon.id,
       position: cloneVec3(origin),
       velocity: { x: vx, y: vy, z: vz },
-      damage: profile.damage,
+      damage,
       remaining: range,
       range,
+      pierce: profile.procs.includes('pierce') ? 2 : 0,
+      explode: profile.procs.includes('explode') ? 2.4 : 0,
+      split: profile.procs.includes('split'),
+      lightning: profile.procs.includes('lightning'),
+      knockback: profile.knockback,
+      charm: profile.charm,
+      status,
+      crit,
+      hitIds: [],
     })
   }
   return true
@@ -105,7 +125,7 @@ export function nearestLivingEnemy(
 
 export function autoCombat(world: WorldState, survivor: SurvivorState): boolean {
   if (survivor.downed) return false
-  const profile = fireProfile(survivor)
+  const profile = fireProfile(survivor, 0, world)
   if (!profile.weapon) return false
   const enemy = nearestLivingEnemy(world, survivor.position, profile.range + towerRangeBonus(world, survivor))
   if (!enemy) return false
@@ -195,13 +215,24 @@ export function stepEnemies(world: WorldState, dt: number): void {
   const warehouse = findContainer(world, 'warehouse')
   const goal = warehouse?.position ?? { x: 0, y: 0, z: 0 }
   for (const enemy of world.enemies) {
+    if (enemy.paralyze > 0) continue
     const prey = nearestLivingSurvivor(world, enemy.position, 18)
-    const target = prey && distanceXZ(prey.position, enemy.position) < 22 ? prey.position : goal
+    const flee = enemy.charm > 0
+    const target = flee
+      ? { x: enemy.position.x * 2 - (prey?.position.x ?? 0), z: enemy.position.z * 2 - (prey?.position.z ?? 0) }
+      : prey && distanceXZ(prey.position, enemy.position) < 22 ? prey.position : goal
     const dx = target.x - enemy.position.x
     const dz = target.z - enemy.position.z
     const distance = Math.hypot(dx, dz)
     if (distance > 0.001) enemy.facingYaw = Math.atan2(dx, dz)
     const definition = ENEMY_DEFINITIONS[enemy.kind]
+    if (enemy.freeze > 0 || flee) {
+      if (distance > 0.2) {
+        const slow = enemy.freeze > 0 ? 0.35 : 1
+        slideMove(world, enemy.position, (dx / distance) * enemy.moveSpeed * dt * slow, (dz / distance) * enemy.moveSpeed * dt * slow)
+      }
+      continue
+    }
     if (prey && distance <= definition.attackRange) {
       if (enemy.attackCooldown <= 0 && !prey.downed) {
         const defense = statsOf(prey).defense
@@ -253,6 +284,11 @@ export function createEnemy(kind: EnemyState['kind'], position: Vec3, id: string
     facingYaw: 0,
     attackCooldown: 0,
     hitFlash: 0,
+    burn: 0,
+    freeze: 0,
+    poison: 0,
+    paralyze: 0,
+    charm: 0,
   }
 }
 
@@ -292,33 +328,123 @@ function impactTarget(world: WorldState, shot: ProjectileState, from: Vec3): boo
     hit = { kind: 'wildlife', wildlife }
   }
   if (!hit) return false
+  const targetId = hit.kind === 'enemy' ? hit.enemy.id : hit.wildlife.id
+  if (shot.hitIds.includes(targetId)) return false
+  shot.hitIds.push(targetId)
   const owner = world.survivors.find((entry) => entry.id === shot.ownerId)
+  const point = hit.kind === 'enemy' ? hit.enemy.position : hit.wildlife.position
   if (hit.kind === 'enemy') {
-    hit.enemy.health -= shot.damage
-    hit.enemy.hitFlash = 0.18
-    spawnImpact(world, hit.enemy.health <= 0 ? 'kill' : 'hit', { x: hit.enemy.position.x, y: 1.35, z: hit.enemy.position.z }, 0.22)
+    applyShotToEnemy(world, shot, hit.enemy)
+    spawnImpact(world, hit.enemy.health <= 0 ? 'kill' : shot.crit ? 'hit' : 'hit', { x: point.x, y: 1.35, z: point.z }, 0.22)
     if (hit.enemy.health <= 0) {
       if (owner) {
         grantXp(owner, KILL_XP[hit.enemy.kind])
         grantSkillXp(owner, 'marksmanship', 6)
         grantSkillXp(owner, 'combat', 5)
+        maybeDropGear(world, owner, `${hit.enemy.id}:${owner.id}`, hit.enemy.kind)
       }
       world.nightKills += 1
       world.enemies = world.enemies.filter((entry) => entry.id !== hit.enemy.id)
     }
-    return true
-  }
-  hit.wildlife.health -= shot.damage
-  spawnImpact(world, 'hit', { x: hit.wildlife.position.x, y: 1.1, z: hit.wildlife.position.z }, 0.18)
-  if (hit.wildlife.health <= 0) {
-    hit.wildlife.alive = false
-    if (owner) {
-      grantXp(owner, wildlifeKillXp(hit.wildlife.kind))
-      grantSkillXp(owner, 'marksmanship', 5)
-      grantSkillXp(owner, 'hunt', 4)
+  } else {
+    hit.wildlife.health -= shot.damage
+    spawnImpact(world, 'hit', { x: point.x, y: 1.1, z: point.z }, 0.18)
+    if (hit.wildlife.health <= 0) {
+      hit.wildlife.alive = false
+      if (owner) {
+        grantXp(owner, wildlifeKillXp(hit.wildlife.kind))
+        grantSkillXp(owner, 'marksmanship', 5)
+        grantSkillXp(owner, 'hunt', 4)
+        maybeDropGear(world, owner, `${hit.wildlife.id}:${owner.id}`, 'wildlife')
+      }
     }
   }
+  if (shot.explode > 0) explodeAt(world, shot, point)
+  if (shot.lightning) chainLightning(world, shot, point)
+  if (shot.split) splitShot(world, shot)
+  if (shot.pierce > 0) {
+    shot.pierce -= 1
+    return false
+  }
   return true
+}
+
+function applyShotToEnemy(world: WorldState, shot: ProjectileState, enemy: EnemyState): void {
+  enemy.health -= shot.damage
+  enemy.hitFlash = 0.18
+  if (shot.knockback > 0) {
+    const dx = enemy.position.x - shot.position.x
+    const dz = enemy.position.z - shot.position.z
+    const len = Math.hypot(dx, dz) || 1
+    enemy.position.x += (dx / len) * shot.knockback
+    enemy.position.z += (dz / len) * shot.knockback
+  }
+  if (shot.status === 'burn') enemy.burn = Math.max(enemy.burn, 2.8)
+  if (shot.status === 'freeze') enemy.freeze = Math.max(enemy.freeze, 1.6)
+  if (shot.status === 'poison') enemy.poison = Math.max(enemy.poison, 3.2)
+  if (shot.status === 'paralyze') enemy.paralyze = Math.max(enemy.paralyze, 1.1)
+  if (shot.charm > 0 && unitNoise(`${enemy.id}:charm:${shot.id}`) < shot.charm) enemy.charm = Math.max(enemy.charm, 2.2)
+}
+
+function explodeAt(world: WorldState, shot: ProjectileState, point: Vec3): void {
+  for (const enemy of world.enemies) {
+    if (shot.hitIds.includes(enemy.id)) continue
+    if (distanceXZ(enemy.position, point) > shot.explode) continue
+    enemy.health -= Math.max(1, Math.round(shot.damage * 0.45))
+    enemy.hitFlash = 0.14
+    if (enemy.health <= 0) {
+      world.nightKills += 1
+      world.enemies = world.enemies.filter((entry) => entry.id !== enemy.id)
+    }
+  }
+}
+
+function chainLightning(world: WorldState, shot: ProjectileState, point: Vec3): void {
+  const next = nearestLivingEnemy(world, point, 8)
+  if (!next || shot.hitIds.includes(next.id)) return
+  next.health -= Math.max(1, Math.round(shot.damage * 0.55))
+  next.hitFlash = 0.16
+  spawnImpact(world, 'hit', { x: next.position.x, y: 1.35, z: next.position.z }, 0.16)
+}
+
+function splitShot(world: WorldState, shot: ProjectileState): void {
+  if (shot.hitIds.length > 1) return
+  const speed = Math.hypot(shot.velocity.x, shot.velocity.z) || 1
+  for (const side of [-0.4, 0.4]) {
+    const yaw = Math.atan2(shot.velocity.x, shot.velocity.z) + side
+    const look = lookXZ(yaw)
+    world.projectiles.push({
+      ...shot,
+      id: `proj-${(projectileSerial += 1)}`,
+      velocity: { x: look.x * speed, y: shot.velocity.y, z: look.z * speed },
+      damage: Math.max(1, Math.round(shot.damage * 0.55)),
+      remaining: shot.range * 0.45,
+      range: shot.range * 0.45,
+      split: false,
+      pierce: 0,
+      explode: 0,
+      hitIds: [...shot.hitIds],
+    })
+  }
+}
+
+export function stepAilments(world: WorldState, dt: number): void {
+  for (const enemy of [...world.enemies]) {
+    if (enemy.burn > 0) {
+      enemy.health -= 7 * dt
+      enemy.burn -= dt
+    }
+    if (enemy.poison > 0) {
+      enemy.health -= 4 * dt
+      enemy.poison -= dt
+    }
+    if (enemy.freeze > 0) enemy.freeze -= dt
+    if (enemy.paralyze > 0) enemy.paralyze -= dt
+    if (enemy.charm > 0) enemy.charm -= dt
+    if (enemy.health > 0) continue
+    world.nightKills += 1
+    world.enemies = world.enemies.filter((entry) => entry.id !== enemy.id)
+  }
 }
 
 function spawnImpact(world: WorldState, kind: ImpactState['kind'], position: Vec3, life: number): void {

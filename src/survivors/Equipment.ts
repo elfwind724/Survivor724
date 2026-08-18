@@ -56,7 +56,7 @@ export function availableForSlot(world: WorldState, survivor: SurvivorState, slo
   const seen = new Set<string>()
   const items: EquipItemDef[] = []
   const add = (id: string): void => {
-    const item = equipmentById(id)
+    const item = equipmentById(id, world)
     if (!item || item.slot !== slot || seen.has(id)) return
     seen.add(id)
     items.push(item)

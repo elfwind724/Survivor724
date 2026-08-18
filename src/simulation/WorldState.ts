@@ -183,6 +183,7 @@ export function createInitialWorld(): WorldState {
     ],
     enemies: [],
     wildlife: seedWildlife(),
+    gear: {},
     nightPosts: [],
     lastPhase: 'dawn',
     nightSpawnedDay: 0,

@@ -11,6 +11,7 @@ import {
   skillXpToNext,
 } from '@/data/skills'
 import { itemLabel } from '@/data/items'
+import { affixText, findGear, procLabel, RARITY_LABEL } from '@/data/loot'
 import { fireProfile, INFINITE_AMMO, magazineSize, weaponById } from '@/data/weapons'
 import { availableForSlot, equipItem, unequipSlot } from '@/survivors/Equipment'
 import { xpToNext } from '@/survivors/Progress'
@@ -176,7 +177,7 @@ function renderSheet(world: WorldState, survivor: SurvivorState, pick: EquipSlot
   const body = tab === 'skills'
     ? renderSkillTab(world, survivor)
     : tab === 'stats'
-      ? renderStatsTab(survivor)
+      ? renderStatsTab(world, survivor)
       : renderGearTab(world, survivor, pick)
   return `
     <div class="sheet">
@@ -228,7 +229,7 @@ function renderSkillCard(survivor: SurvivorState, id: SkillId, skill: { level: n
   </article>`
 }
 
-function renderStatsTab(survivor: SurvivorState): string {
+function renderStatsTab(world: WorldState, survivor: SurvivorState): string {
   const stats = statsOf(survivor)
   const fire = fireProfile(survivor)
   const plus = wornPlus(survivor, 'weapon')
@@ -256,7 +257,7 @@ function renderStatsTab(survivor: SurvivorState): string {
   return `<div class="sheet-stats-page">
     <p class="sheet-role">战力 ${combatRating(survivor)} · 可分配属性点 ${survivor.attrPoints}${survivor.spendOwnPoints ? ' · 自己点' : ' · 按职业自动加'}</p>
     ${attrs}
-    ${renderFireCard(fire, survivor.ammo, plus)}
+    ${renderFireCard(fire, survivor.ammo, plus, world, survivor)}
   </div>`
 }
 
@@ -264,12 +265,14 @@ function renderGearTab(world: WorldState, survivor: SurvivorState, pick: EquipSl
   const slots = EQUIP_SLOTS.map((slot) => {
     const worn = survivor.equipment[slot.id]
     const plus = wornPlus(survivor, slot.id)
-    const item = worn ? equipmentById(worn) : undefined
+    const item = worn ? equipmentById(worn, world) : undefined
+    const piece = worn ? world.gear[worn] : undefined
     const on = pick === slot.id ? ' is-on' : ''
     const name = item ? (plus > 0 ? `${item.label.replace(/ \+\d+$/, '')} +${plus}` : item.label) : '空'
+    const rare = piece ? ` rarity-${piece.rarity}` : plus >= 7 ? ' is-plus-high' : plus > 0 ? ' is-plus' : ''
     return `<button type="button" class="sheet-slot sheet-slot-${slot.id}${on}" data-slot="${slot.id}">
       <em>${slot.label}</em>
-      <span class="${plus >= 7 ? 'is-plus-high' : plus > 0 ? 'is-plus' : ''}">${name}</span>
+      <span class="${rare}">${name}</span>
     </button>`
   }).join('')
   let picker = ''
@@ -284,8 +287,12 @@ function renderGearTab(world: WorldState, survivor: SurvivorState, pick: EquipSl
           .map(([key, value]) => `${attrShort(key)}+${value}`)
           .join(' ')
         const gun = weaponById(item.id)
-        const extra = gun ? `伤${gun.damage} 距${gun.range} ${gun.pellets > 1 ? `${gun.pellets}弹` : ''}` : bonus || '无加成'
-        return `<button type="button" class="sheet-item${on}" data-equip="${item.id}">
+        const piece = world.gear[item.id]
+        const extra = piece
+          ? `${RARITY_LABEL[piece.rarity]} ${piece.affixes.slice(0, 2).map((affix) => affix.label).join(' ')}`
+          : gun ? `伤${gun.damage} 距${gun.range} ${gun.pellets > 1 ? `${gun.pellets}弹` : ''}` : bonus || '无加成'
+        const rare = piece ? ` rarity-${piece.rarity}` : ''
+        return `<button type="button" class="sheet-item${on}${rare}" data-equip="${item.id}">
           <strong>${item.label}</strong><span>${extra}</span>
         </button>`
       })
@@ -337,21 +344,35 @@ function enhanceNote(result: ReturnType<typeof tryEnhance>): string {
   return '这一格是空的'
 }
 
-function renderFireCard(fire: ReturnType<typeof fireProfile>, ammo: number, plus = 0): string {
+function renderFireCard(
+  fire: ReturnType<typeof fireProfile>,
+  ammo: number,
+  plus = 0,
+  world?: WorldState,
+  survivor?: SurvivorState,
+): string {
   if (!fire.weapon) {
     return `<div class="sheet-fire"><strong>未装备枪械</strong><span>去武器栏或工具柜换枪</span></div>`
   }
-  const name = plus > 0 ? `${fire.weapon.label} +${plus}` : fire.weapon.label
+  const piece = world && survivor ? findGear(world, survivor.equipment.weapon) : undefined
+  const name = piece ? piece.name : plus > 0 ? `${fire.weapon.label} +${plus}` : fire.weapon.label
+  const rare = piece ? ` rarity-${piece.rarity}` : ''
+  const affixes = piece
+    ? `<ul class="sheet-affix">${piece.affixes.map((affix) => `<li>${affixText(affix)}</li>`).join('')}${piece.procs.map((proc) => `<li class="is-proc">${procLabel(proc)}</li>`).join('')}</ul>`
+    : ''
   return `<div class="sheet-fire">
-    <strong>${name}</strong>
-    <span>弹药 ${INFINITE_AMMO ? '无限' : `${ammo}/${magazineSize(fire.weapon.id)}`} · ${fire.pellets > 1 ? `${fire.pellets}弹丸` : '单发'}</span>
+    <strong class="${rare}">${escapeHtml(name)}${piece ? ` · ${RARITY_LABEL[piece.rarity]}` : ''}</strong>
+    <span>弹药 ${INFINITE_AMMO ? '无限' : `${ammo}/${magazineSize(fire.weapon.id)}`} · ${fire.pellets > 1 ? `${fire.pellets}弹` : '单发'}</span>
     <ul>
-      <li>伤害 ${fire.damage}</li>
-      <li>间隔 ${fire.cooldown.toFixed(2)}秒</li>
+      <li>攻击 ${fire.minDamage}-${fire.maxDamage}</li>
+      <li>攻速 ${(1 / Math.max(0.08, fire.cooldown)).toFixed(2)}/秒</li>
+      <li>暴击 ${(fire.critChance * 100).toFixed(0)}%</li>
+      <li>暴伤 ×${fire.critDamage.toFixed(2)}</li>
+      <li>击退 ${fire.knockback.toFixed(1)}</li>
+      <li>魅惑 ${(fire.charm * 100).toFixed(0)}%</li>
       <li>射程 ${fire.range.toFixed(0)}米</li>
-      <li>弹速 ${fire.speed.toFixed(0)}</li>
-      <li>散布 ${(fire.spread * 100).toFixed(1)}</li>
     </ul>
+    ${affixes}
   </div>`
 }
 

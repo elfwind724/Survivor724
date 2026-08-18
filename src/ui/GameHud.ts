@@ -2,6 +2,7 @@ import { activityCaption } from '@/survivors/Activity'
 import { bagFill, HUD_STOCK_IDS } from '@/inventory/Cargo'
 import { countItem, usedSlots } from '@/inventory/Inventory'
 import { itemLabel } from '@/data/items'
+import { RARITY_COLOR, RARITY_LABEL } from '@/data/loot'
 import { assignmentLabel, postLabel } from '@/jobs/Roster'
 import { equippedWeapon, INFINITE_AMMO, magazineSize, readMag } from '@/data/weapons'
 import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
@@ -112,7 +113,14 @@ export function buildHudModel(world: WorldState, notice = ''): HudModel {
     extras: warehouse
       ? warehouse.items
         .filter((item) => !tracked.has(item.itemId) && item.count > 0)
-        .map((item) => ({ id: item.itemId, label: itemLabel(item.itemId), count: item.count }))
+        .map((item) => {
+          const piece = world.gear[item.itemId]
+          return {
+            id: item.itemId,
+            label: piece ? `${RARITY_LABEL[piece.rarity]} ${piece.name}` : itemLabel(item.itemId),
+            count: item.count,
+          }
+        })
       : [],
     warehouseUsed: warehouse ? usedSlots(warehouse) : 0,
     warehouseCap: warehouse?.capacity ?? 0,
@@ -150,7 +158,10 @@ export function renderHudHtml(model: HudModel): string {
     .map((item) => `<span class="hud-stock${item.count <= 0 ? ' is-empty' : ''}" data-stock="${item.id}"><i></i>${escapeHtml(item.label)} ${item.count}</span>`)
     .join('')
   const extras = model.extras
-    .map((item) => `<span class="hud-stock" data-stock="${item.id}"><i></i>${escapeHtml(item.label)} ${item.count}</span>`)
+    .map((item) => {
+      const rare = item.id.startsWith('g-') ? ' is-loot' : ''
+      return `<span class="hud-stock${rare}" data-stock="${item.id}"><i></i>${escapeHtml(item.label)} ${item.count}</span>`
+    })
     .join('')
   const bagItems = model.bag.items.length > 0
     ? model.bag.items.map((item) => `<span class="hud-stock" data-stock="${item.id}"><i></i>${escapeHtml(item.label)} ${item.count}</span>`).join('')
@@ -293,9 +304,10 @@ function focusWeapon(world: WorldState): HudModel['weapon'] {
   if (!survivor) return null
   const gun = equippedWeapon(survivor)
   if (!gun) return null
+  const piece = world.gear[survivor.equipment.weapon ?? '']
   const plus = survivor.enhance?.weapon ?? 0
   return {
-    name: plus > 0 ? `${gun.label} +${plus}` : gun.label,
+    name: piece ? piece.name : plus > 0 ? `${gun.label} +${plus}` : gun.label,
     ammo: readMag(survivor, gun.id),
     ammoMax: magazineSize(gun.id),
     cooldown: cooldownRatio(survivor),

@@ -1257,6 +1257,29 @@ body,
   color: #ff9a3c;
 }
 
+.rarity-common { color: #d8d4cc; }
+.rarity-magic { color: #5b8cff; }
+.rarity-rare { color: #ffd24a; }
+.rarity-legendary { color: #ff8a2a; }
+
+.sheet-item.rarity-magic,
+.sheet-item.rarity-rare,
+.sheet-item.rarity-legendary {
+  border-color: currentColor;
+}
+
+.sheet-affix {
+  margin-top: 6px;
+}
+
+.sheet-affix .is-proc {
+  color: #ff8a2a;
+}
+
+.hud-stock.is-loot {
+  color: #ffd24a;
+}
+
 .sheet-head {
   display: flex;
   align-items: center;

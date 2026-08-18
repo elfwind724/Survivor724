@@ -92,6 +92,38 @@ export interface InventoryState {
 
 export type EquipSlot = 'hat' | 'clothes' | 'gloves' | 'shoes' | 'weapon' | 'tool'
 
+export type ItemRarity = 'common' | 'magic' | 'rare' | 'legendary'
+
+export type WeaponProc =
+  | 'double'
+  | 'triple'
+  | 'scatter'
+  | 'split'
+  | 'pierce'
+  | 'explode'
+  | 'lightning'
+  | 'burn'
+  | 'freeze'
+  | 'poison'
+  | 'paralyze'
+
+export interface AffixRoll {
+  id: 'min_dmg' | 'max_dmg' | 'aspd' | 'crit' | 'crit_dmg' | 'knockback' | 'charm' | 'str' | 'agi' | 'con' | 'int'
+  label: string
+  value: number
+}
+
+export interface GearPiece {
+  id: string
+  baseId: string
+  slot: EquipSlot
+  rarity: ItemRarity
+  plus: number
+  affixes: AffixRoll[]
+  procs: WeaponProc[]
+  name: string
+}
+
 export interface SurvivorAttributes {
   strength: number
   agility: number
@@ -209,6 +241,11 @@ export interface EnemyState {
   facingYaw: number
   attackCooldown: number
   hitFlash: number
+  burn: number
+  freeze: number
+  poison: number
+  paralyze: number
+  charm: number
 }
 
 export interface ImpactState {
@@ -251,6 +288,15 @@ export interface ProjectileState {
   damage: number
   remaining: number
   range: number
+  pierce: number
+  explode: number
+  split: boolean
+  lightning: boolean
+  knockback: number
+  charm: number
+  status: 'burn' | 'freeze' | 'poison' | 'paralyze' | null
+  crit: boolean
+  hitIds: string[]
 }
 
 export type DefenseSectorId = 'north' | 'east' | 'west' | 'south'
@@ -314,6 +360,7 @@ export interface WorldState {
   player: PlayerState
   enemies: EnemyState[]
   wildlife: WildlifeState[]
+  gear: Record<string, GearPiece>
   nightPosts: NightPost[]
   lastPhase: DayPhase
   nightSpawnedDay: number

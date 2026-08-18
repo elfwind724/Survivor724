@@ -44,6 +44,10 @@ export const WORK_XP: Record<string, number> = {
 const PLUS_MARK = /^(.*)\+(\d+)$/
 
 export function itemBase(id: string): string {
+  if (id.startsWith('g-')) {
+    const parts = id.split('-')
+    return parts.slice(1, -1).join('-') || id
+  }
   return id.match(PLUS_MARK)?.[1] ?? id
 }
 

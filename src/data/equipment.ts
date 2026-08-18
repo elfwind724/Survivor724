@@ -63,7 +63,24 @@ export function emptyEnhance(): EnhanceLoadout {
   return { hat: 0, clothes: 0, gloves: 0, shoes: 0, weapon: 0, tool: 0 }
 }
 
-export function equipmentById(id: string): EquipItemDef | undefined {
+export function equipmentById(id: string, world?: { gear?: Record<string, { name: string; slot: EquipSlot; plus: number; baseId: string; affixes: Array<{ id: string; value: number }> }> }): EquipItemDef | undefined {
+  const piece = world?.gear?.[id]
+  if (piece) {
+    const bonuses: Partial<SurvivorAttributes> = {}
+    for (const affix of piece.affixes) {
+      if (affix.id === 'str') bonuses.strength = (bonuses.strength ?? 0) + affix.value
+      if (affix.id === 'agi') bonuses.agility = (bonuses.agility ?? 0) + affix.value
+      if (affix.id === 'con') bonuses.constitution = (bonuses.constitution ?? 0) + affix.value
+      if (affix.id === 'int') bonuses.intelligence = (bonuses.intelligence ?? 0) + affix.value
+    }
+    const def = EQUIPMENT.find((entry) => entry.id === piece.baseId)
+    return {
+      id,
+      label: piece.plus > 0 ? `${piece.name} +${piece.plus}` : piece.name,
+      slot: piece.slot,
+      bonuses: scaleBonuses({ ...def?.bonuses, ...bonuses }, piece.plus),
+    }
+  }
   const base = itemBase(id)
   const plus = itemPlus(id)
   const def = EQUIPMENT.find((entry) => entry.id === base)
@@ -117,12 +134,29 @@ function withDisplayId(id: string, plus: number): string {
   return extra > 0 ? `${itemBase(id)}+${extra}` : itemBase(id)
 }
 
-export function statsOf(survivor: {
-  attributes: SurvivorAttributes
-  equipment: EquipmentLoadout
-  enhance?: EnhanceLoadout
-}) {
-  return derivedStats(survivor.attributes, survivor.equipment, survivor.enhance ?? emptyEnhance())
+export function statsOf(
+  survivor: {
+    attributes: SurvivorAttributes
+    equipment: EquipmentLoadout
+    enhance?: EnhanceLoadout
+  },
+  world?: { gear?: Record<string, { name: string; slot: EquipSlot; plus: number; baseId: string; affixes: Array<{ id: string; value: number }> }> },
+) {
+  const stats = derivedStats(survivor.attributes, survivor.equipment, survivor.enhance ?? emptyEnhance())
+  if (!world?.gear) return stats
+  for (const slot of EQUIP_SLOTS) {
+    const id = survivor.equipment[slot.id]
+    if (!id) continue
+    const piece = world.gear[id]
+    if (!piece) continue
+    for (const affix of piece.affixes) {
+      if (affix.id === 'str') stats.total.strength += affix.value
+      if (affix.id === 'agi') stats.total.agility += affix.value
+      if (affix.id === 'con') stats.total.constitution += affix.value
+      if (affix.id === 'int') stats.total.intelligence += affix.value
+    }
+  }
+  return stats
 }
 
 export function derivedStats(

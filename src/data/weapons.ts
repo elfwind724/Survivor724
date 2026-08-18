@@ -1,5 +1,6 @@
 import { itemBase, itemPlus } from '@/data/items'
-import type { SurvivorState } from '@/simulation/types'
+import { findGear } from '@/data/loot'
+import type { SurvivorState, WeaponProc, WorldState } from '@/simulation/types'
 import { statsOf } from './equipment'
 import { skillDamageMult, skillRangeMult, skillSpreadMult } from './skills'
 
@@ -43,32 +44,89 @@ export function equippedWeapon(survivor: SurvivorState): WeaponDefinition | unde
   return undefined
 }
 
-export function fireProfile(survivor: SurvivorState, extraRange = 0) {
+export function fireProfile(survivor: SurvivorState, extraRange = 0, world?: WorldState) {
   const weapon = equippedWeapon(survivor)
-  const stats = statsOf(survivor)
+  const stats = statsOf(survivor, world)
   const level = Math.max(1, survivor.level)
-  const plus = Math.max(survivor.enhance?.weapon ?? 0, itemPlus(survivor.equipment.weapon ?? ''))
+  const piece = world ? findGear(world, survivor.equipment.weapon) : undefined
+  const plus = Math.max(survivor.enhance?.weapon ?? 0, itemPlus(survivor.equipment.weapon ?? ''), piece?.plus ?? 0)
   if (!weapon) {
-    return {
-      weapon: null,
-      damage: 0,
-      cooldown: 1,
-      range: 0,
-      speed: 0,
-      spread: 0,
-      pellets: 0,
-      ammoCost: 0,
-      muzzle: 0,
-    }
+    return emptyFireProfile()
   }
   const levelBonus = (level - 1) * 0.07
   const plusBonus = plus * 0.08
-  const damage = Math.round(weapon.damage * (1 + levelBonus + plusBonus + stats.total.strength * 0.035) * skillDamageMult(survivor))
-  const cooldown = Math.max(0.08, weapon.cooldown / (1 + stats.total.agility * 0.018 + (level - 1) * 0.025))
+  const mid = weapon.damage * (1 + levelBonus + plusBonus + stats.total.strength * 0.035) * skillDamageMult(survivor)
+  let minDamage = Math.round(mid * 0.88)
+  let maxDamage = Math.round(mid * 1.12)
+  let cooldown = Math.max(0.08, weapon.cooldown / (1 + stats.total.agility * 0.018 + (level - 1) * 0.025))
   const range = weapon.range * (1 + (level - 1) * 0.035 + plus * 0.02) * skillRangeMult(survivor) + extraRange
   const speed = weapon.speed * (1 + (level - 1) * 0.02)
-  const spread = Math.max(0.004, weapon.spread * (1 - Math.min(0.55, stats.total.agility * 0.012 + (level - 1) * 0.03)) * skillSpreadMult(survivor))
-  return { weapon, damage, cooldown, range, speed, spread, pellets: weapon.pellets, ammoCost: weapon.ammoCost, muzzle: weapon.muzzle }
+  let spread = Math.max(0.004, weapon.spread * (1 - Math.min(0.55, stats.total.agility * 0.012 + (level - 1) * 0.03)) * skillSpreadMult(survivor))
+  let pellets = weapon.pellets
+  let critChance = 0.04 + stats.total.agility * 0.002
+  let critDamage = 1.5
+  let knockback = 0
+  let charm = 0
+  const procs: WeaponProc[] = []
+  if (piece) {
+    for (const affix of piece.affixes) {
+      if (affix.id === 'min_dmg') minDamage += affix.value
+      if (affix.id === 'max_dmg') maxDamage += affix.value
+      if (affix.id === 'aspd') cooldown = Math.max(0.08, cooldown * (1 - affix.value / 100))
+      if (affix.id === 'crit') critChance += affix.value / 100
+      if (affix.id === 'crit_dmg') critDamage += affix.value / 100
+      if (affix.id === 'knockback') knockback += affix.value
+      if (affix.id === 'charm') charm += affix.value / 100
+    }
+    procs.push(...piece.procs)
+    if (procs.includes('scatter')) {
+      pellets += 3
+      spread += 0.08
+    }
+    if (procs.includes('double')) pellets += 1
+    if (procs.includes('triple')) pellets += 2
+  }
+  if (maxDamage < minDamage) maxDamage = minDamage
+  const damage = Math.round((minDamage + maxDamage) / 2)
+  return {
+    weapon,
+    damage,
+    minDamage,
+    maxDamage,
+    cooldown,
+    range,
+    speed,
+    spread,
+    pellets,
+    ammoCost: weapon.ammoCost,
+    muzzle: weapon.muzzle,
+    critChance,
+    critDamage,
+    knockback,
+    charm,
+    procs,
+  }
+}
+
+function emptyFireProfile() {
+  return {
+    weapon: null,
+    damage: 0,
+    minDamage: 0,
+    maxDamage: 0,
+    cooldown: 1,
+    range: 0,
+    speed: 0,
+    spread: 0,
+    pellets: 0,
+    ammoCost: 0,
+    muzzle: 0,
+    critChance: 0,
+    critDamage: 1.5,
+    knockback: 0,
+    charm: 0,
+    procs: [] as WeaponProc[],
+  }
 }
 
 const HOLD_ALONG: Record<string, number> = {

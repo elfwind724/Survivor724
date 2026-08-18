@@ -1,4 +1,4 @@
-import { autoCombat, butcherWildlife, stepEnemies, stepProjectiles, stepRevive, tickCooldowns } from '@/combat/Combat'
+import { autoCombat, butcherWildlife, stepAilments, stepEnemies, stepProjectiles, stepRevive, tickCooldowns } from '@/combat/Combat'
 import { depositIfNearWarehouse } from '@/inventory/Cargo'
 import { stepWildlife } from '@/world/Wildlife'
 import { stepNightCycle, stepNightDefender } from '@/combat/Night'
@@ -34,6 +34,7 @@ export function stepWorld(world: WorldState, dt: number, intent: ControlIntent |
     else stepDayWorker(world, survivor, dt)
   }
   stepProjectiles(world, dt)
+  stepAilments(world, dt)
   stepEnemies(world, dt)
   stepWildlife(world, dt)
   stepRevive(world, dt)

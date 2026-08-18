@@ -2,6 +2,7 @@ import { repairStructure } from '@/base/construction'
 import { hordeCounts } from '@/data/enemies'
 import { equippedWeapon, magazineSize, writeMag } from '@/data/weapons'
 import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
+import { RARITY_LABEL, rollGear } from '@/data/loot'
 import { cellCenter } from '@/navigation/NavGrid'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { BASE } from '@/simulation/baseLayout'
@@ -89,14 +90,19 @@ export function stepNightCycle(world: WorldState): void {
   world.lastPhase = phase
 }
 
-export function nightLootFor(kills: number): NightLoot[] {
+export function nightLootFor(kills: number, world?: WorldState): NightLoot[] {
   const fallen = Math.max(0, kills)
-  return [
+  const loot: NightLoot[] = [
     { itemId: 'wood', label: '木', count: 6 + fallen },
     { itemId: 'scrap', label: '铁', count: 3 + Math.floor(fallen / 2) },
     { itemId: 'ammo', label: '弹', count: 8 + fallen },
     { itemId: 'meal', label: '食', count: 2 + Math.floor(fallen / 6) },
   ]
+  if (world && fallen >= 6) {
+    const piece = rollGear(world, `night:${world.time.dayIndex}:${fallen}`, fallen > 18 ? 0.12 : 0.04, 'weapon')
+    loot.push({ itemId: piece.id, label: `${RARITY_LABEL[piece.rarity]} ${piece.name}`, count: 1 })
+  }
+  return loot
 }
 
 export function defeatReason(world: WorldState): string | null {
@@ -118,7 +124,7 @@ export function checkNightDefeat(world: WorldState): boolean {
 export function settleNight(world: WorldState): NightReport {
   if (world.gameOver && world.nightReport) return world.nightReport
   if (checkNightDefeat(world) && world.nightReport) return world.nightReport
-  const loot = nightLootFor(world.nightKills)
+  const loot = nightLootFor(world.nightKills, world)
   const warehouse = findContainer(world, 'warehouse')
   if (warehouse) {
     const stock = inventoryOf(world.inventories, warehouse.inventoryId)
