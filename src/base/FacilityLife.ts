@@ -121,8 +121,13 @@ export function occupiedFacilityIds(world: WorldState): Set<string> {
 }
 
 export function isSleeping(world: WorldState, survivor: SurvivorState): boolean {
-  if (!survivor.indoorId || (survivor.workerState !== 'Rest' && survivor.workerState !== 'RestOrNextJob')) return false
+  if (survivor.workerState !== 'Rest' && survivor.workerState !== 'RestOrNextJob') return false
   return distanceXZ(survivor.position, bedSpot(world, survivor)) < 1.1
+}
+
+/** Lie on the back with the head toward +Z, matching the bed headboard. */
+export function sleeperEuler(): { x: number; y: number; z: number; order: 'YXZ' } {
+  return { x: -Math.PI / 2, y: Math.PI, z: 0, order: 'YXZ' }
 }
 
 export function isCooking(world: WorldState, survivor: SurvivorState): boolean {
@@ -152,7 +157,7 @@ export function interiorProps(world: WorldState, structure: StructureState): Int
       assetId: 'interior/bed-single',
       x: bed.x,
       z: bed.z,
-      yaw: 0,
+      yaw: Math.PI,
       scale: 0.4,
     }))
     return [

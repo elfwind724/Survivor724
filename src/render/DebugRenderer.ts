@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { structureNear } from '@/base/construction'
-import { bedSpot, interiorProps, isCooking, isSleeping } from '@/base/FacilityLife'
+import { bedSpot, interiorProps, isCooking, isSleeping, sleeperEuler } from '@/base/FacilityLife'
 import { isLifeBuilding, TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { assetById } from '@/data/assetIndex'
 import { equippedWeapon, WEAPONS } from '@/data/weapons'
@@ -315,8 +315,10 @@ export class DebugRenderer {
       const bob = cooking || building ? 0.05 + Math.sin(world.time.daySeconds * 9) * 0.045 : 0
       if (sleeping) {
         const bed = bedSpot(world, survivor)
-        marker.mesh.position.set(bed.x, 0.48, bed.z)
-        marker.mesh.rotation.set(Math.PI / 2, 0, 0)
+        const pose = sleeperEuler()
+        marker.mesh.position.set(bed.x, 0.42, bed.z)
+        marker.mesh.rotation.order = pose.order
+        marker.mesh.rotation.set(pose.x, pose.y, pose.z)
       } else {
         const deck = this.watchDeck(world, survivor)
         marker.mesh.position.set(deck.x, deck.y + bob, deck.z)
@@ -324,7 +326,7 @@ export class DebugRenderer {
       }
       this.driveRig(world, survivor, dt)
       kit?.updateMatrixWorld(true)
-      this.syncHeldGun(survivor)
+      this.syncHeldGun(world, survivor)
       const fallback = marker.mesh.getObjectByName('fallback')
       if (fallback instanceof THREE.Mesh && fallback.material instanceof THREE.MeshLambertMaterial) {
         const controlled = world.player.controlledId === survivor.id
@@ -577,8 +579,12 @@ export class DebugRenderer {
     const existing = root.getObjectByName('interior')
     const props = interiorProps(world, structure)
     if (props.length === 0) return
-    if (existing && existing.children.length >= props.length) return
-    if (existing) existing.removeFromParent()
+    const layout = props.map((prop) => `${prop.assetId}:${prop.yaw.toFixed(2)}:${prop.x.toFixed(2)}:${prop.z.toFixed(2)}`).join('|')
+    if (existing && existing.userData.layout === layout) return
+    if (existing) {
+      existing.removeFromParent()
+      this.disposeObject(existing)
+    }
     const group = new THREE.Group()
     group.name = 'interior'
     group.visible = true
@@ -595,6 +601,7 @@ export class DebugRenderer {
       group.add(kit)
     }
     if (group.children.length === 0) return
+    group.userData.layout = layout
     root.add(group)
   }
 
@@ -1010,10 +1017,10 @@ export class DebugRenderer {
     return group
   }
 
-  private syncHeldGun(survivor: SurvivorState): void {
+  private syncHeldGun(world: WorldState, survivor: SurvivorState): void {
     const marker = this.survivors.get(survivor.id)
     if (!marker) return
-    const weapon = equippedWeapon(survivor)
+    const weapon = isSleeping(world, survivor) ? undefined : equippedWeapon(survivor)
     const want = weapon?.assetId ?? ''
     const existing = marker.mesh.getObjectByName('held-gun')
     const kit = marker.mesh.getObjectByName('kit')

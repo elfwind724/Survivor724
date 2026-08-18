@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bedSpot, enterFacility, facilityApproach, findFacility, isSleeping, leaveFacility, occupiedFacilityIds } from '@/base/FacilityLife'
+import { bedSpot, enterFacility, facilityApproach, findFacility, interiorProps, isSleeping, leaveFacility, occupiedFacilityIds, sleeperEuler } from '@/base/FacilityLife'
 import { isLifeBuilding } from '@/data/outdoorScenery'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { stepWorld } from '@/simulation/SimStep'
@@ -55,6 +55,19 @@ describe('facility life', () => {
     for (let i = 1; i < beds.length; i += 1) {
       expect(Math.abs((beds[i]?.x ?? 0) - (beds[i - 1]?.x ?? 0))).toBeGreaterThan(1.6)
     }
+  })
+
+  it('lays sleepers on their back with heads toward the bed headboard', () => {
+    const world = createInitialWorld()
+    const quarters = findFacility(world, 'quarters')
+    if (!quarters) throw new Error('missing quarters')
+    const beds = interiorProps(world, quarters).filter((prop) => prop.assetId === 'interior/bed-single')
+    expect(beds.length).toBe(5)
+    expect(beds.every((bed) => Math.abs(bed.yaw - Math.PI) < 1e-6)).toBe(true)
+    const pose = sleeperEuler()
+    expect(pose.order).toBe('YXZ')
+    expect(pose.x).toBeCloseTo(-Math.PI / 2, 5)
+    expect(pose.y).toBeCloseTo(Math.PI, 5)
   })
 
   it('treats kitchen and quarters as open living buildings', () => {
