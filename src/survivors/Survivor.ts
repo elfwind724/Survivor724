@@ -1,5 +1,6 @@
 import { defaultAttributes, emptyLoadout } from '@/data/equipment'
-import { cloneVec3, type EquipmentLoadout, type SurvivorAttributes, type SurvivorState, type Vec3 } from '@/simulation/types'
+import { seedSkills } from '@/data/skills'
+import { cloneVec3, type EquipmentLoadout, type SkillId, type SkillState, type SurvivorAttributes, type SurvivorState, type Vec3 } from '@/simulation/types'
 
 type SurvivorDraft = Omit<
   SurvivorState,
@@ -31,6 +32,7 @@ type SurvivorDraft = Omit<
   | 'lastYieldCount'
   | 'lastYieldXp'
   | 'lastYieldAt'
+  | 'skills'
 > & {
   destination?: Vec3 | null
   homePosition?: Vec3
@@ -60,6 +62,7 @@ type SurvivorDraft = Omit<
   lastYieldCount?: number
   lastYieldXp?: number
   lastYieldAt?: number
+  skills?: Record<SkillId, SkillState>
 }
 
 export function createSurvivor(input: SurvivorDraft): SurvivorState {
@@ -94,6 +97,7 @@ export function createSurvivor(input: SurvivorDraft): SurvivorState {
     lastYieldCount: input.lastYieldCount ?? 0,
     lastYieldXp: input.lastYieldXp ?? 0,
     lastYieldAt: input.lastYieldAt ?? 0,
+    skills: input.skills ?? seedSkills(input.professionId),
   }
 }
 

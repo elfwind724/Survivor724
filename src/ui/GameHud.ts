@@ -11,7 +11,7 @@ export interface HudPick {
   kind: 'select' | 'possess'
 }
 
-export type HudCommand = 'reset-view' | 'toggle-interiors' | 'restart' | 'ack-night'
+export type HudCommand = 'reset-view' | 'toggle-interiors' | 'restart' | 'ack-night' | 'open-sheet'
 
 interface HudStock {
   id: string
@@ -125,6 +125,7 @@ export function renderHudHtml(model: HudModel): string {
         ${scale}${sites}${model.warning ? `<span class="hud-chip hud-chip-warn">${model.warning}</span>` : ''}
         <button type="button" class="hud-reset" data-action="reset-view">复位镜头</button>
         <button type="button" class="hud-reset" data-action="toggle-interiors">${model.interiors ? '显示整栋' : '显示内部'}</button>
+        <button type="button" class="hud-reset" data-action="open-sheet">C 技能</button>
       </div>
       <div class="hud-stocks">${stocks}</div>
       ${renderWeaponHud(model.weapon)}
@@ -162,7 +163,7 @@ export class GameHud {
     if (!(target instanceof Element)) return
     const command = target.closest<HTMLButtonElement>('[data-action]')
     const action = command?.dataset.action
-    if (action === 'reset-view' || action === 'toggle-interiors' || action === 'restart' || action === 'ack-night') {
+    if (action === 'reset-view' || action === 'toggle-interiors' || action === 'restart' || action === 'ack-night' || action === 'open-sheet') {
       event.stopPropagation()
       this.onCommand(action)
       return
@@ -185,8 +186,8 @@ function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
     id: survivor.id,
     name: survivor.name,
     job: survivor.id === world.player.heroId
-      ? '主角'
-      : `${PROFESSION_LABEL[survivor.professionId] ?? survivor.professionId}·${assignmentLabel(survivor, world.player.heroId)}`,
+      ? `主角 · ${PROFESSION_LABEL[survivor.professionId] ?? survivor.professionId}Lv${survivor.level}`
+      : `${PROFESSION_LABEL[survivor.professionId] ?? survivor.professionId}Lv${survivor.level}·${assignmentLabel(survivor, world.player.heroId)}`,
     status: statusLabel(world, survivor),
     selected: world.player.selectedId === survivor.id,
     live: world.player.controlledId === survivor.id,

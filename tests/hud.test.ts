@@ -22,6 +22,7 @@ describe('game hud', () => {
     expect(html).toContain('第 1 天')
     expect(html).toContain('复位镜头')
     expect(html).toContain('显示整栋')
+    expect(html).toContain('C 技能')
     expect(html).not.toContain('AcquireEquipment')
     expect(html).not.toContain('Warehouse')
   })

@@ -7,7 +7,8 @@ import { cellCenter, isBlocked, worldToCell } from '@/navigation/NavGrid'
 import { lookXZ } from '@/controls/CameraWish'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { WORK_XP } from '@/data/items'
-import { grantXp, recordWorkYield } from '@/survivors/Progress'
+import { extraYieldCount, skillDefenseBonus } from '@/data/skills'
+import { grantSkillXp, grantXp, recordWorkYield } from '@/survivors/Progress'
 import { markHarvested, nearestLivingWildlife, wildlifeKillXp, wildlifeMeat } from '@/world/Wildlife'
 import { cloneVec3, distanceXZ, type EnemyState, type ImpactState, type ProjectileState, type StructureState, type SurvivorState, type Vec3, type WildlifeState, type WorldState } from '@/simulation/types'
 
@@ -151,10 +152,10 @@ export function harvestWildlife(world: WorldState, survivor: SurvivorState): boo
   const bag = inventoryOf(world.inventories, survivor.inventoryId)
   const carcass = world.wildlife.find((entry) => !entry.alive && !entry.harvested && distanceXZ(entry.position, survivor.position) < 2.2)
   if (!carcass) return false
-  const meat = wildlifeMeat(carcass.kind)
+  const meat = wildlifeMeat(carcass.kind) + extraYieldCount(survivor, 'hunt', carcass.id)
   if (!addItem(bag, 'raw_meat', meat)) return false
   markHarvested(carcass)
-  recordWorkYield(world, survivor, 'raw_meat', meat, WORK_XP.hunt ?? 6)
+  recordWorkYield(world, survivor, 'raw_meat', meat, WORK_XP.hunt ?? 6, 'hunt')
   return true
 }
 
@@ -172,7 +173,7 @@ export function stepEnemies(world: WorldState, dt: number): void {
     if (prey && distance <= definition.attackRange) {
       if (enemy.attackCooldown <= 0 && !prey.downed) {
         const defense = derivedStats(prey.attributes, prey.equipment).defense
-        prey.health -= Math.max(1, definition.damage - defense)
+        prey.health -= Math.max(1, definition.damage - defense - skillDefenseBonus(prey))
         enemy.attackCooldown = definition.attackCooldown
         if (prey.health <= 0) {
           prey.health = 0
@@ -265,7 +266,11 @@ function impactTarget(world: WorldState, shot: ProjectileState, from: Vec3): boo
     hit.enemy.hitFlash = 0.18
     spawnImpact(world, hit.enemy.health <= 0 ? 'kill' : 'hit', { x: hit.enemy.position.x, y: 1.35, z: hit.enemy.position.z }, 0.22)
     if (hit.enemy.health <= 0) {
-      if (owner) grantXp(owner, KILL_XP[hit.enemy.kind])
+      if (owner) {
+        grantXp(owner, KILL_XP[hit.enemy.kind])
+        grantSkillXp(owner, 'marksmanship', 6)
+        grantSkillXp(owner, 'combat', 5)
+      }
       world.nightKills += 1
       world.enemies = world.enemies.filter((entry) => entry.id !== hit.enemy.id)
     }
@@ -275,7 +280,11 @@ function impactTarget(world: WorldState, shot: ProjectileState, from: Vec3): boo
   spawnImpact(world, 'hit', { x: hit.wildlife.position.x, y: 1.1, z: hit.wildlife.position.z }, 0.18)
   if (hit.wildlife.health <= 0) {
     hit.wildlife.alive = false
-    if (owner) grantXp(owner, wildlifeKillXp(hit.wildlife.kind))
+    if (owner) {
+      grantXp(owner, wildlifeKillXp(hit.wildlife.kind))
+      grantSkillXp(owner, 'marksmanship', 5)
+      grantSkillXp(owner, 'hunt', 4)
+    }
   }
   return true
 }

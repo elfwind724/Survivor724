@@ -94,6 +94,11 @@ export class GameApp {
         this.world.nightReport = null
         this.notice = '新的一天，继续干活、修墙、备战下一夜'
       }
+      if (command === 'open-sheet') {
+        const id = this.world.player.selectedId ?? this.world.player.heroId
+        this.sheet.open(id)
+        this.notice = '技能面板：点头顶卡片或按 C 可换人看'
+      }
     })
     this.sheet = new CharacterSheet(sheetRoot)
     this.minimap = new Minimap(minimapCanvas)
@@ -266,6 +271,17 @@ export class GameApp {
       }
       possessSurvivor(this.world, this.world.player.heroId)
       this.notice = '继续操控冯老师'
+    }
+    if (event.code === 'KeyC') {
+      const id = this.world.player.selectedId ?? this.world.player.heroId
+      if (this.sheet.isOpen()) {
+        this.sheet.close()
+        this.notice = '已关闭技能面板'
+      } else {
+        this.sheet.open(id)
+        this.notice = '技能面板 · 点卡片换人看'
+      }
+      return
     }
     if (event.code === 'KeyX') {
       const id = this.world.player.selectedId

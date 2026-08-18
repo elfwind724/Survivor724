@@ -1,5 +1,6 @@
 import type { SurvivorState } from '@/simulation/types'
 import { derivedStats } from './equipment'
+import { skillDamageMult, skillRangeMult, skillSpreadMult } from './skills'
 
 export type WeaponClass = 'pistol' | 'revolver' | 'smg' | 'rifle' | 'shotgun' | 'sniper'
 
@@ -59,11 +60,11 @@ export function fireProfile(survivor: SurvivorState, extraRange = 0) {
     }
   }
   const levelBonus = (level - 1) * 0.07
-  const damage = Math.round(weapon.damage * (1 + levelBonus + stats.total.strength * 0.035))
+  const damage = Math.round(weapon.damage * (1 + levelBonus + stats.total.strength * 0.035) * skillDamageMult(survivor))
   const cooldown = Math.max(0.08, weapon.cooldown / (1 + stats.total.agility * 0.018 + (level - 1) * 0.025))
-  const range = weapon.range * (1 + (level - 1) * 0.035) + extraRange
+  const range = weapon.range * (1 + (level - 1) * 0.035) * skillRangeMult(survivor) + extraRange
   const speed = weapon.speed * (1 + (level - 1) * 0.02)
-  const spread = Math.max(0.004, weapon.spread * (1 - Math.min(0.55, stats.total.agility * 0.012 + (level - 1) * 0.03)))
+  const spread = Math.max(0.004, weapon.spread * (1 - Math.min(0.55, stats.total.agility * 0.012 + (level - 1) * 0.03)) * skillSpreadMult(survivor))
   return { weapon, damage, cooldown, range, speed, spread, pellets: weapon.pellets, ammoCost: weapon.ammoCost, muzzle: weapon.muzzle }
 }
 

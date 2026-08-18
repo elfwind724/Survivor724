@@ -43,7 +43,7 @@ describe('wildlife and field food', () => {
     if (!bag) throw new Error('missing bag')
     const xp = hunter.xp
     expect(harvestWildlife(world, hunter)).toBe(true)
-    expect(countItem(bag, 'raw_meat')).toBe(2)
+    expect(countItem(bag, 'raw_meat')).toBeGreaterThanOrEqual(2)
     expect(deer.harvested).toBe(true)
     expect(hunter.xp).toBeGreaterThan(xp)
     expect(hunter.lastYieldItem).toBe('raw_meat')

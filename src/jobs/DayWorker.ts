@@ -3,6 +3,7 @@ import { isHero } from '@/controls/PlayerControl'
 import { stepFollowHero } from '@/jobs/Follow'
 import { bedSpot, cookSpot, eatSpot, enterFacility, tryEnterAfterArrival } from '@/base/FacilityLife'
 import { derivedStats } from '@/data/equipment'
+import { extraYieldCount, skillForJob, skillWorkMult } from '@/data/skills'
 import { weaponById } from '@/data/weapons'
 import { clearJobTools, syncToolsToEquipment } from '@/survivors/Equipment'
 import { harvestWildlife, tryShoot } from '@/combat/Combat'
@@ -284,7 +285,8 @@ function stepWork(world: WorldState, survivor: SurvivorState, dt: number): void 
       return
     }
   }
-  survivor.workElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate
+  const jobId = job ? jobDefinition(job.definitionId)?.id ?? '' : ''
+  survivor.workElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate * skillWorkMult(survivor, jobId)
   if (survivor.workElapsed >= WORK_SECONDS) {
     survivor.workElapsed = 0
     survivor.workerState = 'CollectOutput'
@@ -321,7 +323,9 @@ function stepCollect(world: WorldState, survivor: SurvivorState): void {
 
   if (addItem(bag, definition.outputItemId, 1)) {
     node.reserve -= 1
-    recordWorkYield(world, survivor, definition.outputItemId, 1, WORK_XP[definition.id] ?? 3)
+    const extra = extraYieldCount(survivor, skillForJob(definition.id) ?? 'survival', `${node.id}:${node.reserve}`)
+    if (extra > 0) addItem(bag, definition.outputItemId, extra)
+    recordWorkYield(world, survivor, definition.outputItemId, 1 + extra, WORK_XP[definition.id] ?? 3, skillForJob(definition.id))
   }
 
   if (shouldReturn(world, survivor) || node.reserve <= 0) {
@@ -347,7 +351,9 @@ function stepCookCollect(world: WorldState, survivor: SurvivorState): void {
   if (bagRaw) {
     if (removeItem(bag, bagRaw, 1)) {
       addItem(bag, 'meal', 1)
-      recordWorkYield(world, survivor, 'meal', 1, WORK_XP.cook ?? 5)
+      const extra = extraYieldCount(survivor, 'cook', `${kitchen.id}:${world.time.daySeconds.toFixed(0)}`)
+      if (extra > 0) addItem(bag, 'meal', extra)
+      recordWorkYield(world, survivor, 'meal', 1 + extra, WORK_XP.cook ?? 5, 'cook')
     }
     if (shouldReturn(world, survivor) || (countRawFood(stock) <= 0 && countRawFood(bag) <= 0)) {
       beginReturn(world, survivor)
@@ -435,7 +441,7 @@ function stepDemolish(world: WorldState, survivor: SurvivorState, dt: number): v
     goHome(world, survivor)
     return
   }
-  structure.buildElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate
+  structure.buildElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate * skillWorkMult(survivor, 'demolish')
   if (structure.buildElapsed >= structure.buildDuration) {
     finishDemolish(world, structure)
     goHome(world, survivor)
@@ -451,7 +457,7 @@ function stepBuild(world: WorldState, survivor: SurvivorState, dt: number): void
   }
 
   structure.stage = 'building'
-  structure.buildElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate
+  structure.buildElapsed += dt * derivedStats(survivor.attributes, survivor.equipment).workRate * skillWorkMult(survivor, 'build')
   if (structure.buildElapsed >= structure.buildDuration) {
     completeStructure(world, structure)
     goHome(world, survivor)

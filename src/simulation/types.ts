@@ -94,6 +94,23 @@ export interface SurvivorAttributes {
   intelligence: number
 }
 
+export type SkillId =
+  | 'hunt'
+  | 'fish'
+  | 'gather'
+  | 'cook'
+  | 'scavenge'
+  | 'build'
+  | 'haul'
+  | 'marksmanship'
+  | 'combat'
+  | 'survival'
+
+export interface SkillState {
+  level: number
+  xp: number
+}
+
 export interface EquipmentLoadout {
   hat: string | null
   clothes: string | null
@@ -144,6 +161,7 @@ export interface SurvivorState {
   lastYieldCount: number
   lastYieldXp: number
   lastYieldAt: number
+  skills: Record<SkillId, SkillState>
 }
 
 export type CameraView = 'topdown' | 'firstperson'

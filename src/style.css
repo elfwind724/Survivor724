@@ -1060,7 +1060,7 @@ body,
   left: var(--hud-safe);
   display: flex;
   flex-direction: column;
-  width: min(440px, 46vw);
+  width: min(520px, 52vw);
   max-height: calc(100% - 140px);
   overflow: auto;
   padding: 10px 12px 12px;
@@ -1068,6 +1068,105 @@ body,
   background: var(--hud-panel);
   color: var(--hud-ink);
   pointer-events: auto;
+}
+
+.sheet-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.sheet-tab {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel-2);
+  color: var(--hud-muted);
+  cursor: pointer;
+}
+
+.sheet-tab.is-on,
+.sheet-tab:hover {
+  border-color: var(--hud-brass);
+  color: var(--hud-ink);
+}
+
+.sheet-role,
+.sheet-yield {
+  margin: 0 0 8px;
+  color: var(--hud-muted);
+  font-size: 13px;
+}
+
+.sheet-yield {
+  color: #d8c07a;
+}
+
+.sheet-skills {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sheet-skill {
+  padding: 8px 8px 7px;
+  border: 1px solid var(--hud-line);
+  background: #1a1612;
+}
+
+.sheet-skill.is-main {
+  border-color: #6a5a38;
+  background: #221c12;
+}
+
+.sheet-skill header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.sheet-skill strong {
+  flex: 1;
+  font-size: 14px;
+}
+
+.sheet-skill span {
+  color: var(--hud-brass);
+  font-size: 13px;
+}
+
+.sheet-skill small,
+.sheet-skill p,
+.sheet-skill li {
+  color: var(--hud-muted);
+  font-size: 12px;
+}
+
+.sheet-skill i {
+  display: block;
+  height: 4px;
+  margin: 5px 0 6px;
+  background: #2a241c;
+}
+
+.sheet-skill b {
+  display: block;
+  height: 100%;
+  background: #8fa86a;
+}
+
+.sheet-skill p {
+  margin: 0 0 4px;
+}
+
+.sheet-skill ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.sheet-stats-page {
+  display: flex;
+  flex-direction: column;
 }
 
 .sheet-head {
@@ -1291,6 +1390,16 @@ body,
   background: #2a1c18;
   color: #e3b3a3;
   cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .sheet {
+    width: calc(100vw - 40px);
+  }
+
+  .sheet-skills {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
