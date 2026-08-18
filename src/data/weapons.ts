@@ -87,7 +87,7 @@ export function muzzleOrigin(survivor: SurvivorState): { x: number; y: number; z
   const side = -0.28
   return {
     x: survivor.position.x + lookX * along + rightX * side,
-    y: 2.06 + Math.max(0, survivor.position.y),
+    y: survivor.position.y > 0.6 ? survivor.position.y + 1.52 : 2.06,
     z: survivor.position.z + lookZ * along + rightZ * side,
   }
 }

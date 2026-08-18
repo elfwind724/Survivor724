@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { structureNear } from '@/base/construction'
-import { bedSpot, interiorProps, isCooking, isSleeping, sleeperEuler, SLEEPER_HEIGHT } from '@/base/FacilityLife'
+import { bedSpot, interiorProps, isCooking, isEating, isSleeping, isWorkingInPlace, sleeperEuler, sleeperWorld } from '@/base/FacilityLife'
+import { nearestLivingEnemy } from '@/combat/Combat'
 import { isLifeBuilding, TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { assetById } from '@/data/assetIndex'
 import { equippedWeapon, WEAPONS } from '@/data/weapons'
@@ -314,15 +315,25 @@ export class DebugRenderer {
       const building = isBuildingNow(world, survivor)
       const bob = cooking || building ? 0.05 + Math.sin(world.time.daySeconds * 9) * 0.045 : 0
       if (sleeping) {
-        const bed = bedSpot(world, survivor)
         const pose = sleeperEuler()
-        marker.mesh.position.set(bed.x, SLEEPER_HEIGHT, bed.z)
+        const spot = sleeperWorld(bedSpot(world, survivor))
+        marker.mesh.position.set(spot.x, spot.y, spot.z)
         marker.mesh.rotation.order = pose.order
         marker.mesh.rotation.set(pose.x, pose.y, pose.z)
       } else {
         const deck = this.watchDeck(world, survivor)
         marker.mesh.position.set(deck.x, deck.y + bob, deck.z)
-        marker.mesh.rotation.set(0, survivor.facingYaw, 0)
+        const aim = nearestLivingEnemy(world, survivor.position, 42)
+        const yaw = aim
+          ? Math.atan2(aim.position.x - survivor.position.x, aim.position.z - survivor.position.z)
+          : survivor.facingYaw
+        let pitch = 0
+        if (aim && deck.y > 0.8) {
+          const dist = Math.hypot(aim.position.x - survivor.position.x, aim.position.z - survivor.position.z)
+          pitch = Math.atan2(0.9 - (deck.y + 1.5), Math.max(1, dist))
+        }
+        marker.mesh.rotation.order = 'YXZ'
+        marker.mesh.rotation.set(pitch, yaw, 0)
       }
       this.driveRig(world, survivor, dt)
       kit?.updateMatrixWorld(true)
@@ -1131,7 +1142,7 @@ export class DebugRenderer {
     const mixer = new THREE.AnimationMixer(kit)
     const clips = this.library.clips(assetId)
     const poses: CharacterRig['poses'] = {}
-    for (const kind of ['idle', 'walk', 'run', 'idleGun', 'aim', 'shoot', 'runShoot'] as const) {
+    for (const kind of ['idle', 'walk', 'run', 'idleGun', 'aim', 'shoot', 'runShoot', 'sit', 'interact'] as const) {
       const clip = pickCharacterClip(clips, kind)
       if (clip) poses[kind] = mixer.clipAction(clip)
     }
@@ -1150,11 +1161,13 @@ export class DebugRenderer {
     const rig = this.rigs.get(survivor.id)
     if (!rig) return
     if (isSleeping(world, survivor)) {
-      if (rig.current !== 'idle') {
-        rig.poses[rig.current]?.fadeOut(0.08)
-        rig.poses.idle?.reset().fadeIn(0.08).play()
-        rig.current = 'idle'
+      const rest = rig.poses.sit ? 'sit' : 'idle'
+      if (rig.current !== rest) {
+        rig.poses[rig.current]?.fadeOut(0.1)
+        rig.poses[rest]?.reset().fadeIn(0.12).play()
+        rig.current = rest
       }
+      rig.mixer.timeScale = 0.35
       rig.lastX = survivor.position.x
       rig.lastZ = survivor.position.z
       rig.mixer.update(dt)
@@ -1164,10 +1177,14 @@ export class DebugRenderer {
     rig.lastX = survivor.position.x
     rig.lastZ = survivor.position.z
     rig.displaySpeed = speed > 0.2 ? speed : rig.displaySpeed * Math.exp(-dt * 12)
-    const armed = Boolean(equippedWeapon(survivor))
-    const next = armed
-      ? pickArmedPose(rig.displaySpeed, survivor.fireCooldown > 0.05, rig.poses)
-      : (rig.displaySpeed > 2.6 ? 'run' : rig.displaySpeed > 0.35 ? 'walk' : 'idle')
+    const busy = isCooking(world, survivor) || isEating(survivor) || isWorkingInPlace(world, survivor) || isBuildingNow(world, survivor)
+    const armed = Boolean(equippedWeapon(survivor)) && !busy
+    const next = busy && rig.poses.interact
+      ? 'interact'
+      : armed
+        ? pickArmedPose(rig.displaySpeed, survivor.fireCooldown > 0.05, rig.poses)
+        : (rig.displaySpeed > 2.6 ? 'run' : rig.displaySpeed > 0.35 ? 'walk' : 'idle')
+    rig.mixer.timeScale = busy ? 1.15 : 1
     if (next !== rig.current) {
       rig.poses[rig.current]?.fadeOut(0.12)
       rig.poses[next]?.reset().fadeIn(0.12).play()

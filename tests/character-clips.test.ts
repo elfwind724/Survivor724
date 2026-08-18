@@ -37,6 +37,8 @@ describe('character clips', () => {
       clip('CharacterArmature|Run_Shoot'),
       clip('CharacterArmature|Walk'),
     ]
+    expect(pickCharacterClip([...clips, clip('CharacterArmature|Interact'), clip('HumanArmature|Man_Sitting')], 'interact')?.name).toContain('Interact')
+    expect(pickCharacterClip([clip('HumanArmature|Man_Sitting'), clip('CharacterArmature|Idle')], 'sit')?.name).toContain('Sitting')
     expect(pickCharacterClip(clips, 'aim')?.name).toBe('CharacterArmature|Idle_Gun_Pointing')
     expect(pickCharacterClip(clips, 'shoot')?.name).toBe('CharacterArmature|Idle_Gun_Shoot')
     expect(pickCharacterClip(clips, 'idleGun')?.name).toBe('CharacterArmature|Idle_Gun')

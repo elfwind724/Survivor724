@@ -69,7 +69,8 @@ export function facilityBounds(world: WorldState, structure: StructureState): {
 }
 
 export const BED_SCALE = 0.82
-export const SLEEPER_HEIGHT = 0.62
+export const SLEEPER_HEIGHT = 0.5
+export const SLEEPER_ALONG = 1.05
 
 export function facilityBeds(world: WorldState, structure: StructureState): Vec3[] {
   const bounds = facilityBounds(world, structure)
@@ -129,9 +130,24 @@ export function isSleeping(world: WorldState, survivor: SurvivorState): boolean 
   return distanceXZ(survivor.position, bedSpot(world, survivor)) < 1.1
 }
 
-/** Lie on the back with the head toward +Z, matching the bed headboard. */
+/** Lie on the back, head toward the south pillow, body along the mattress. */
 export function sleeperEuler(): { x: number; y: number; z: number; order: 'YXZ' } {
-  return { x: -Math.PI / 2, y: Math.PI, z: 0, order: 'YXZ' }
+  return { x: -Math.PI / 2, y: 0, z: 0, order: 'YXZ' }
+}
+
+export function sleeperWorld(bed: { x: number; z: number }): { x: number; y: number; z: number } {
+  return { x: bed.x, y: SLEEPER_HEIGHT, z: bed.z + SLEEPER_ALONG }
+}
+
+export function isEating(survivor: { workerState: string }): boolean {
+  return survivor.workerState === 'Eat'
+}
+
+export function isWorkingInPlace(world: WorldState, survivor: SurvivorState): boolean {
+  if (survivor.workerState !== 'Work') return false
+  const job = world.jobs.find((entry) => entry.id === survivor.currentJobId)
+  const id = job?.definitionId ?? ''
+  return id === 'build' || id === 'demolish' || id === 'cook' || id === 'haul'
 }
 
 export function isCooking(world: WorldState, survivor: SurvivorState): boolean {

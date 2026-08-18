@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BED_SCALE, bedSpot, enterFacility, facilityApproach, findFacility, interiorProps, isSleeping, leaveFacility, occupiedFacilityIds, sleeperEuler } from '@/base/FacilityLife'
+import { BED_SCALE, bedSpot, enterFacility, facilityApproach, findFacility, interiorProps, isSleeping, leaveFacility, occupiedFacilityIds, sleeperEuler, sleeperWorld } from '@/base/FacilityLife'
 import { isLifeBuilding } from '@/data/outdoorScenery'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { stepWorld } from '@/simulation/SimStep'
@@ -69,7 +69,8 @@ describe('facility life', () => {
     const pose = sleeperEuler()
     expect(pose.order).toBe('YXZ')
     expect(pose.x).toBeCloseTo(-Math.PI / 2, 5)
-    expect(pose.y).toBeCloseTo(Math.PI, 5)
+    expect(pose.y).toBeCloseTo(0, 5)
+    expect(sleeperWorld({ x: 0, z: 0 }).z).toBeGreaterThan(0.6)
   })
 
   it('treats kitchen and quarters as open living buildings', () => {

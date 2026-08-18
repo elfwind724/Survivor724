@@ -49,16 +49,30 @@ export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
   const aimJitter = (unitNoise(`${survivor.id}:${world.time.daySeconds.toFixed(2)}`) * 2 - 1) * profile.spread
   const origin = muzzleOrigin(survivor)
   const range = profile.range + towerRangeBonus(world, survivor)
+  const aimed = nearestLivingEnemy(world, survivor.position, range)
   spawnImpact(world, 'muzzle', origin, 0.08)
   for (let index = 0; index < profile.pellets; index += 1) {
     const yaw = survivor.facingYaw + aimJitter + pelletSpread(index, profile.spread)
     const look = lookXZ(yaw)
+    let vx = look.x * profile.speed
+    let vy = 0
+    let vz = look.z * profile.speed
+    if (aimed) {
+      const dx = aimed.position.x - origin.x
+      const dy = 0.95 - origin.y
+      const dz = aimed.position.z - origin.z
+      const len = Math.hypot(dx, dy, dz) || 1
+      const side = pelletSpread(index, profile.spread)
+      vx = (dx / len) * profile.speed + lookXZ(yaw + Math.PI / 2).x * side * 8
+      vy = (dy / len) * profile.speed
+      vz = (dz / len) * profile.speed + lookXZ(yaw + Math.PI / 2).z * side * 8
+    }
     world.projectiles.push({
       id: `proj-${(projectileSerial += 1)}`,
       ownerId: survivor.id,
       weaponId: profile.weapon.id,
       position: cloneVec3(origin),
-      velocity: { x: look.x * profile.speed, y: 0, z: look.z * profile.speed },
+      velocity: { x: vx, y: vy, z: vz },
       damage: profile.damage,
       remaining: range,
       range,
