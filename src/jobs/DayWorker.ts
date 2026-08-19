@@ -1,6 +1,5 @@
 import { completeStructure, findStructure, finishDemolish, materialsMet, needsRepair, REPAIR_HP, repairStructure, sitePosition, stillNeeded } from '@/base/construction'
 import { finishUpgrade } from '@/base/upgrade'
-import { isHero } from '@/controls/PlayerControl'
 import { stepFollowHero } from '@/jobs/Follow'
 import { bedSpot, cookSpot, eatSpot, enterFacility, tryEnterAfterArrival } from '@/base/FacilityLife'
 import { statsOf } from '@/data/equipment'
@@ -49,8 +48,20 @@ export function shouldReturn(world: WorldState, survivor: SurvivorState): boolea
   return isReturnPhase(world.time.phase) || bagIsFull(world, survivor)
 }
 
+export function recallFieldWorkers(world: WorldState): number {
+  let count = 0
+  for (const survivor of world.survivors) {
+    if (survivor.downed || survivor.id === world.player.controlledId) continue
+    if (survivor.dayAssignment === 'follow') continue
+    if (insideBase(survivor.position)) continue
+    beginReturn(world, survivor)
+    count += 1
+  }
+  return count
+}
+
 export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: number): void {
-  if (world.player.controlledId === survivor.id || isHero(world, survivor)) return
+  if (world.player.controlledId === survivor.id) return
   if (survivor.dayAssignment === 'follow') {
     stepFollowHero(world, survivor, dt)
     return

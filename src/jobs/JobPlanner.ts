@@ -15,15 +15,16 @@ export function planJobs(world: WorldState): void {
   for (const job of world.jobs) {
     if (!job.assigneeId) continue
     const survivor = findSurvivor(world, job.assigneeId)
-    if (!survivor || isHero(world, survivor)) {
+    if (!survivor || survivor.downed) {
       job.assigneeId = null
       continue
     }
+    if (survivor.id === world.player.controlledId) continue
     if (survivor.currentJobId !== job.id) survivor.currentJobId = job.id
   }
 
   for (const survivor of world.survivors) {
-    if (isHero(world, survivor) || survivor.dayAssignment === 'follow') continue
+    if (survivor.id === world.player.controlledId || survivor.dayAssignment === 'follow') continue
     if (hasActiveJob(world, survivor.currentJobId, survivor.id)) continue
     if (!survivor.dayAssignment) continue
     const job = world.jobs.find(

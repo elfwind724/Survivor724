@@ -6,9 +6,36 @@ import { stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { activityCaption, activityLines } from '@/survivors/Activity'
 import { recordWorkYield } from '@/survivors/Progress'
+import { recallFieldWorkers } from '@/jobs/DayWorker'
 import { WILDLIFE_SPECIES, nearestLivingWildlife, seedWildlife, stepWildlife } from '@/world/Wildlife'
 
 describe('wildlife and field food', () => {
+  it('sends 冯老师 hunting when the player is possessing someone else', () => {
+    const world = createInitialWorld()
+    world.player.controlledId = null
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    const start = { x: hunter.position.x, z: hunter.position.z }
+    for (let i = 0; i < 30 * 18; i += 1) stepWorld(world, 1 / 30)
+    const moved = Math.hypot(hunter.position.x - start.x, hunter.position.z - start.z)
+    expect(hunter.dayAssignment).toBe('hunt')
+    expect(moved).toBeGreaterThan(8)
+    expect(hunter.position.x).toBeGreaterThan(start.x)
+  })
+
+  it('recalls field workers home without teleporting them', () => {
+    const world = createInitialWorld()
+    const fisher = world.survivors.find((entry) => entry.id === 'fisher')
+    if (!fisher) throw new Error('missing fisher')
+    fisher.position = { x: -55, y: 0, z: 32 }
+    fisher.workerState = 'Work'
+    fisher.destination = null
+    fisher.path = []
+    expect(recallFieldWorkers(world)).toBeGreaterThan(0)
+    expect(fisher.workerState).toBe('ReturnToBase')
+    expect(Math.hypot(fisher.position.x + 55, fisher.position.z - 32)).toBeLessThan(0.05)
+  })
+
   it('seeds forest, grass, and river animals at people-sized heights', () => {
     const animals = seedWildlife()
     expect(animals.some((entry) => entry.kind === 'deer' && entry.habitat === 'forest')).toBe(true)

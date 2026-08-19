@@ -7,8 +7,10 @@ import { gearLabel, isGearId, nearbyLootName } from '@/data/loot'
 import { isInDungeon, nearDungeonEntrance } from '@/dungeon/Dungeon'
 import { assignmentLabel } from '@/jobs/Roster'
 import { equippedWeapon, magazineSize, readMag } from '@/data/weapons'
-import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
-import type { ItemRarity, SurvivorState, WorldState } from '@/simulation/types'
+import { findContainer } from '@/simulation/EntityRegistry'
+import { duskStatus, duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel, secondsUntilDusk } from '@/simulation/TimeSystem'
+import { insideBase } from '@/survivors/Living'
+import { distanceXZ, type ItemRarity, type SurvivorState, type WorldState } from '@/simulation/types'
 import { clampVital } from '@/survivors/Vitals'
 import { HOTBAR_SIZE, hotbarOf, type HotbarEntry } from '@/survivors/Equipment'
 import type { PackClick, PackCursor } from '@/inventory/Pack'
@@ -59,6 +61,7 @@ export interface HudCard {
   bars: HudBar[]
   bagUsed: number
   bagCap: number
+  dusk: string
 }
 
 export interface HudModel {
@@ -190,7 +193,7 @@ export function hudModelKey(model: HudModel): string {
   const extras = model.extras.map((item) => `${item.id}:${item.count}`).join(',')
   const bag = `${model.bag.used}/${model.bag.capacity}:${model.bag.items.map((item) => `${item.id}:${item.count}`).join(',')}`
   const cards = model.cards
-    .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.job}:${card.status}:${card.ammo ?? '-'}:${card.cooldown.toFixed(2)}:${card.bagUsed}/${card.bagCap}`)
+    .map((card) => `${card.id}:${card.live ? 1 : 0}${card.selected ? 1 : 0}:${Math.round(card.bars[0]?.value ?? 0)}:${Math.round(card.bars[1]?.value ?? 0)}:${Math.round(card.bars[2]?.value ?? 0)}:${card.job}:${card.status}:${card.ammo ?? '-'}:${card.cooldown.toFixed(2)}:${card.bagUsed}/${card.bagCap}:${card.dusk}`)
     .join('|')
   const weapon = model.weapon ? `${model.weapon.name}:${model.weapon.ammo}/${model.weapon.ammoMax}:${model.weapon.cooldown.toFixed(2)}` : '-'
   const hotbar = model.hotbar.map((slot) => slot ? `${slot.itemId}:${slot.count}:${slot.equipped ? 1 : 0}:${slot.picked ? 1 : 0}` : '-').join(',')
@@ -383,6 +386,7 @@ function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
     portrait: survivorPortrait(survivor),
     bagUsed: fill.used,
     bagCap: fill.capacity,
+    dusk: duskReturnHint(world, survivor),
     bars: [
       { key: 'hp', label: '血', value: clampVital(survivor.health) },
       { key: 'hunger', label: '饥', value: clampVital(survivor.hunger) },
@@ -432,7 +436,7 @@ function renderInspect(model: HudModel): string {
       <strong>${escapeHtml(card.name)}</strong>
       <span>${escapeHtml(card.job)}</span>
     </header>
-    <p>${escapeHtml(card.status)} · 袋${card.bagUsed}/${card.bagCap}</p>
+    <p>${escapeHtml(card.status)} · 袋${card.bagUsed}/${card.bagCap}${card.dusk ? ` · ${escapeHtml(card.dusk)}` : ''}</p>
     ${bars}
     ${gun}
     <small>C 装备 · 双击接管</small>
@@ -441,6 +445,19 @@ function renderInspect(model: HudModel): string {
 
 function shortName(name: string): string {
   return name.slice(0, 2)
+}
+
+function duskReturnHint(world: WorldState, survivor: SurvivorState): string {
+  if (insideBase(survivor.position)) return ''
+  if (world.time.phase !== 'dawn' && world.time.phase !== 'day' && world.time.phase !== 'dusk') return ''
+  const warehouse = findContainer(world, 'warehouse')
+  if (!warehouse) return ''
+  const eta = distanceXZ(survivor.position, warehouse.position) / Math.max(0.5, survivor.moveSpeed)
+  const remain = world.time.phase === 'dusk' ? 0 : secondsUntilDusk(world)
+  const status = duskStatus(eta, remain)
+  if (status === 'green') return '能赶回'
+  if (status === 'yellow') return '可能迟到'
+  return '赶不回 · H召回'
 }
 
 function hotbarModel(world: WorldState, cursor: PackCursor | null): HudModel['hotbar'] {

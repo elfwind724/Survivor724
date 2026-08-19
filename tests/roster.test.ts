@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { stepFollowHero, toggleFollow } from '@/jobs/Follow'
-import { applyRosterStrategy, assignmentLabel, assignPost, postLabel } from '@/jobs/Roster'
+import { applyRosterStrategy, assignmentLabel, assignPost, commandableSurvivors, postLabel } from '@/jobs/Roster'
 import { planJobs } from '@/jobs/JobPlanner'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { stepWorld } from '@/simulation/SimStep'
@@ -10,7 +10,7 @@ describe('base roster', () => {
     const world = createInitialWorld()
     expect(assignPost(world, 'hunter', 'watch')).toBe(false)
     expect(world.survivors.find((entry) => entry.id === 'hunter')?.name).toBe('冯老师')
-    expect(world.survivors.find((entry) => entry.id === 'hunter')?.dayAssignment).toBeNull()
+    expect(world.survivors.find((entry) => entry.id === 'hunter')?.dayAssignment).toBe('hunt')
   })
 
   it('lets a teammate follow the hero', () => {
@@ -46,7 +46,7 @@ describe('base roster', () => {
     expect(world.survivors.some((survivor) => survivor.dayAssignment === 'cook')).toBe(true)
     expect(world.survivors.filter((survivor) => survivor.dayAssignment === 'hunt').length).toBeGreaterThanOrEqual(1)
     applyRosterStrategy(world, 'balanced')
-    expect(world.survivors.find((survivor) => survivor.id === 'hunter')?.dayAssignment).toBeNull()
+    expect(world.survivors.find((survivor) => survivor.id === 'hunter')?.dayAssignment).toBe('hunt')
     expect(world.survivors.find((survivor) => survivor.id === 'hauler')?.dayAssignment).toBe('haul')
     expect(world.rosterStrategy).toBe('balanced')
   })
@@ -55,7 +55,8 @@ describe('base roster', () => {
     const world = createInitialWorld()
     applyRosterStrategy(world, 'rest')
     planJobs(world)
-    expect(world.survivors.every((survivor) => survivor.dayAssignment === null)).toBe(true)
+    expect(commandableSurvivors(world).every((survivor) => survivor.dayAssignment === null)).toBe(true)
+    expect(world.survivors.find((survivor) => survivor.id === 'hunter')?.dayAssignment).toBe('hunt')
   })
 
   it('posts four people onto the four watchtowers in one click', () => {

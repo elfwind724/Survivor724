@@ -1133,15 +1133,19 @@ export class DebugRenderer {
     this.decorPreview.position.set(pose.x, 0, pose.z)
     this.decorPreview.rotation.y = pose.yaw
     const existing = this.decorPreview.getObjectByName('kit')
-    if (existing?.userData.previewId !== pose.assetId) {
+    const previewKey = `${pose.assetId}:${pose.scale.toFixed(3)}`
+    if (existing?.userData.previewKey !== previewKey) {
       if (existing) this.decorPreview.remove(existing)
       const kit = this.spawnKit(pose.assetId, pose.scale)
       if (kit) {
+        kit.userData.previewKey = previewKey
         kit.userData.previewId = pose.assetId
         ghostMaterial(kit)
         this.decorPreview.add(kit)
       }
     }
+    const frame = this.decorPreview.getObjectByName('ghost-frame')
+    if (frame) frame.scale.setScalar(Math.max(0.4, Math.min(8, pose.scale)))
   }
 
   private syncDressing(world: WorldState): void {

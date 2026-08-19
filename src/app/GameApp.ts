@@ -37,6 +37,7 @@ import { postForTower } from '@/combat/Night'
 import { isSleeping } from '@/base/FacilityLife'
 import { assignWatch } from '@/jobs/Roster'
 import { activityLines } from '@/survivors/Activity'
+import { recallFieldWorkers } from '@/jobs/DayWorker'
 import { BuildMenu } from '@/ui/BuildMenu'
 import { CharacterSheet } from '@/ui/CharacterSheet'
 import { handlePackClick, type PackCursor } from '@/inventory/Pack'
@@ -359,9 +360,10 @@ export class GameApp {
       this.notice = this.sandbox.isOpen() ? '沙盘：改尸潮和防线，立刻开打' : '已关闭沙盘'
     }
     if (event.code === 'KeyI') this.editor.toggle()
-    if (event.code === 'KeyR' && this.editor.getBrush()) {
-      this.editor.rotate(event.shiftKey ? -Math.PI / 2 : Math.PI / 2)
-      this.notice = '已旋转手中素材'
+    if ((event.code === 'KeyR' || event.code === 'KeyQ') && this.editor.getBrush()) {
+      event.preventDefault()
+      this.editor.rotate(event.shiftKey || event.code === 'KeyQ' ? -Math.PI / 2 : Math.PI / 2)
+      this.notice = `已旋转手中素材 ${Math.round((this.editor.getBrush()?.yaw ?? 0) * 180 / Math.PI)}°`
       return
     }
     if (event.code === 'KeyR') {
@@ -380,13 +382,17 @@ export class GameApp {
       else if (result === 'no_gun') this.notice = '没有装备枪械'
       else this.notice = '仓库没有备用弹药'
     }
-    if ((event.code === 'Equal' || event.code === 'NumpadAdd') && this.editor.getBrush()) {
+    if (this.editor.getBrush() && isScaleUpKey(event)) {
+      event.preventDefault()
       this.editor.nudgeScale(1.15)
-      this.notice = '放大装饰'
+      this.notice = `放大 ${this.editor.getBrush()?.scale.toFixed(2)}`
+      return
     }
-    if ((event.code === 'Minus' || event.code === 'NumpadSubtract') && this.editor.getBrush()) {
+    if (this.editor.getBrush() && isScaleDownKey(event)) {
+      event.preventDefault()
       this.editor.nudgeScale(1 / 1.15)
-      this.notice = '缩小装饰'
+      this.notice = `缩小 ${this.editor.getBrush()?.scale.toFixed(2)}`
+      return
     }
     if (event.code === 'KeyE') {
       const actor = this.focusActor()
@@ -437,6 +443,11 @@ export class GameApp {
         return
       }
     }
+    if (event.code === 'KeyH') {
+      const count = recallFieldWorkers(this.world)
+      this.notice = count > 0 ? `召回 ${count} 名外勤立刻回营` : '没有人在野外'
+      return
+    }
     if (event.code === 'KeyT') {
       this.world.time.timeScale = this.world.time.timeScale === 1 ? 2 : 1
       this.notice = `时间倍率 ${this.world.time.timeScale}×`
@@ -450,6 +461,11 @@ export class GameApp {
   private readonly onWheel = (event: WheelEvent): void => {
     if (this.world.player.view === 'firstperson') return
     event.preventDefault()
+    if (this.editor.getBrush()) {
+      this.editor.nudgeScale(event.deltaY > 0 ? 1 / 1.12 : 1.12)
+      this.notice = `缩放 ${this.editor.getBrush()?.scale.toFixed(2)}`
+      return
+    }
     this.renderer.zoomBy(event.deltaY)
   }
 
@@ -963,6 +979,14 @@ export class GameApp {
     this.hud.render(this.world, this.notice)
     this.sheet.render(this.world)
   }
+}
+
+function isScaleUpKey(event: KeyboardEvent): boolean {
+  return event.code === 'Equal' || event.code === 'NumpadAdd' || event.key === '=' || event.key === '+'
+}
+
+function isScaleDownKey(event: KeyboardEvent): boolean {
+  return event.code === 'Minus' || event.code === 'NumpadSubtract' || event.key === '-' || event.key === '_'
 }
 
 function escapeChrome(value: string): string {

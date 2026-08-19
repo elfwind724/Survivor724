@@ -17,6 +17,13 @@ describe('game hud', () => {
 
     const html = renderHudHtml(model)
     expect(html).toContain('冯老师')
+    const far = world.survivors.find((entry) => entry.id === 'fisher')
+    if (far) {
+      far.position = { x: -55, y: 0, z: 32 }
+      world.player.selectedId = far.id
+    }
+    const fieldHud = renderHudHtml(buildHudModel(world))
+    expect(fieldHud).toMatch(/能赶回|可能迟到|赶不回/)
     expect(html).toContain('血')
     expect(html).toContain('饥')
     expect(html).toContain('渴')
