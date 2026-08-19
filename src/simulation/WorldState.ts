@@ -206,6 +206,8 @@ export function createInitialWorld(): WorldState {
     dungeonRun: null,
     raidEntered: false,
     raidBestRarity: null,
+    dayGunshots: 0,
+    dayNoise: { north: 0, east: 0, west: 0, south: 0 },
   }
 
   seedBaseWalls(world)

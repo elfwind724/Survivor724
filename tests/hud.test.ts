@@ -37,6 +37,8 @@ describe('game hud', () => {
     expect(html).toContain('仓库')
     expect(html).toContain('背包')
     expect(html).toContain('熟食')
+    expect(html).toContain('兽皮')
+    expect(html).toContain('骨料')
     expect(html).toContain('水')
     expect(html).not.toContain('AcquireEquipment')
     expect(html).not.toContain('Warehouse')
@@ -120,5 +122,15 @@ describe('game hud', () => {
     expect(hunter.hunger).toBeLessThan(hunger)
     expect(hunter.thirst).toBeLessThan(thirst)
     expect(hunter.hunger).toBeGreaterThan(40)
+  })
+
+  it('warns that daytime hunting gunfire makes that night worse', () => {
+    const world = createInitialWorld()
+    world.time.phase = 'night'
+    world.dayGunshots = 20
+    world.dayNoise.east = 20
+    const html = renderHudHtml(buildHudModel(world))
+    expect(html).toContain('白天打了 20 枪')
+    expect(html).toContain('东面更危险')
   })
 })

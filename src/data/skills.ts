@@ -21,7 +21,7 @@ export const SKILL_IDS: readonly SkillId[] = [
 ]
 
 export const SKILL_DEFS: readonly SkillDef[] = [
-  { id: 'hunt', label: '狩猎', group: 'profession', hint: '追踪野兽，剥出生肉' },
+  { id: 'hunt', label: '狩猎', group: 'profession', hint: '追踪野兽，剥出生肉、兽皮和骨料' },
   { id: 'fish', label: '钓鱼', group: 'profession', hint: '河边下竿，捞出生鱼' },
   { id: 'gather', label: '采集', group: 'profession', hint: '灌木丛里摘果子' },
   { id: 'cook', label: '厨艺', group: 'profession', hint: '把生料做成熟食' },

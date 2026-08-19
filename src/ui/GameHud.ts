@@ -2,6 +2,7 @@ import { activityCaption } from '@/survivors/Activity'
 import { bagFill, HUD_STOCK_IDS } from '@/inventory/Cargo'
 import { countItem, usedSlots } from '@/inventory/Inventory'
 import { PICK_LABEL, TUTORIAL_LINES, type DungeonPickId } from '@/data/dungeon'
+import { gunshotHordeExtra, loudestGunshotSector } from '@/data/enemies'
 import { itemLabel } from '@/data/items'
 import { gearLabel, isGearId, nearbyLootName } from '@/data/loot'
 import { isInDungeon, nearDungeonEntrance } from '@/dungeon/Dungeon'
@@ -148,7 +149,7 @@ export function buildHudModel(world: WorldState, notice = '', pack?: { open: boo
     caption: hudTimeCaption(world),
     timeScale: world.time.timeScale,
     notice,
-    warning: dungeonWarning(world) || duskWarningText(duskWarningLevel(world)) || raidNightWarning(world),
+    warning: dungeonWarning(world) || duskWarningText(duskWarningLevel(world)) || raidNightWarning(world) || huntNoiseWarning(world),
     sites: world.structures.filter((structure) => structure.stage !== 'complete').length,
     interiors: world.showInteriors,
     stocks: HUD_STOCK_IDS.map((id) => ({
@@ -643,6 +644,15 @@ function raidNightWarning(world: WorldState): string {
   if (world.raidBestRarity === 'rare') return ''
   if (world.raidBestRarity === 'magic') return '只带回蓝枪，今夜稍难'
   return '空手回营，今夜尸潮更凶'
+}
+
+function huntNoiseWarning(world: WorldState): string {
+  if (world.time.phase !== 'night' && world.time.phase !== 'dusk') return ''
+  const extra = gunshotHordeExtra(world.dayGunshots)
+  if (extra.wanderers + extra.runners <= 0) return ''
+  const dir = loudestGunshotSector(world.dayNoise)
+  const side = dir === 'north' ? '北面' : dir === 'east' ? '东面' : dir === 'west' ? '西面' : dir === 'south' ? '南面' : '四周'
+  return `白天打了 ${world.dayGunshots} 枪，今夜${side}更危险`
 }
 
 function dungeonWarning(world: WorldState): string {

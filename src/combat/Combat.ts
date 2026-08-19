@@ -1,7 +1,7 @@
 import { damageStructure } from '@/base/construction'
-import { ENEMY_DEFINITIONS } from '@/data/enemies'
+import { ENEMY_DEFINITIONS, sectorOfPoint } from '@/data/enemies'
 import { statsOf } from '@/data/equipment'
-import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
+import { addItem, canAdd, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { equippedWeapon, fireProfile, infiniteAmmo, magazineSize, muzzleOrigin, readMag, writeMag } from '@/data/weapons'
 import { cellCenter, isBlocked, worldToCell } from '@/navigation/NavGrid'
 import { lookXZ } from '@/controls/CameraWish'
@@ -10,7 +10,7 @@ import { WORK_XP } from '@/data/items'
 import { maybeDropGear } from '@/data/loot'
 import { extraYieldCount, skillDefenseBonus } from '@/data/skills'
 import { grantSkillXp, grantXp, recordWorkYield } from '@/survivors/Progress'
-import { markHarvested, nearestLivingWildlife, wildlifeKillXp, wildlifeMeat } from '@/world/Wildlife'
+import { markHarvested, nearestLivingWildlife, wildlifeKillXp, wildlifeYield } from '@/world/Wildlife'
 import { cloneVec3, distanceXZ, type EnemyState, type ImpactState, type ProjectileState, type StructureState, type SurvivorState, type Vec3, type WildlifeState, type WorldState } from '@/simulation/types'
 
 const HIT_RADIUS = 0.78
@@ -102,7 +102,15 @@ export function tryShoot(world: WorldState, survivor: SurvivorState): boolean {
       hitIds: [],
     })
   }
+  recordDayGunshot(world, survivor.position)
   return true
+}
+
+export function recordDayGunshot(world: WorldState, position: { x: number; z: number }): void {
+  if (world.time.phase === 'night' || world.time.phase === 'aftermath') return
+  world.dayGunshots += 1
+  const sector = sectorOfPoint(position.x, position.z)
+  world.dayNoise[sector] = (world.dayNoise[sector] ?? 0) + 1
 }
 
 export function nearestLivingEnemy(
@@ -206,8 +214,14 @@ export function harvestWildlife(world: WorldState, survivor: SurvivorState): boo
   const bag = inventoryOf(world.inventories, survivor.inventoryId)
   const carcass = nearestCarcass(world, survivor.position, 2.2)
   if (!carcass || carcass.butcherElapsed < BUTCHER_SECONDS) return false
-  const meat = wildlifeMeat(carcass.kind) + extraYieldCount(survivor, 'hunt', carcass.id)
-  if (!addItem(bag, 'raw_meat', meat)) return false
+  const yieldOf = wildlifeYield(carcass.kind)
+  const meat = yieldOf.meat + extraYieldCount(survivor, 'hunt', carcass.id)
+  const hide = yieldOf.hide
+  const bone = yieldOf.bone
+  if (!canAdd(bag, meat + hide + bone)) return false
+  if (meat > 0) addItem(bag, 'raw_meat', meat)
+  if (hide > 0) addItem(bag, 'hide', hide)
+  if (bone > 0) addItem(bag, 'bone', bone)
   markHarvested(carcass)
   recordWorkYield(world, survivor, 'raw_meat', meat, WORK_XP.hunt ?? 6, 'hunt')
   return true

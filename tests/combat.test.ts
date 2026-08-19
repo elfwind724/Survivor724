@@ -4,7 +4,7 @@ import { reinforceSector } from '@/combat/Defense'
 import { assignedRescuer, nightLootFor, stepNightCycle, stepNightDefender } from '@/combat/Night'
 import { demolishStructure } from '@/base/construction'
 import { countItem } from '@/inventory/Inventory'
-import { hordeCounts } from '@/data/enemies'
+import { gunshotHordeExtra, hordeCounts, sectorOfPoint } from '@/data/enemies'
 import { assignWatch } from '@/jobs/Roster'
 import { TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { equippedWeapon, fireProfile, magazineSize, muzzleOrigin, readMag } from '@/data/weapons'
@@ -206,6 +206,55 @@ describe('combat and night', () => {
     expect(empty.wanderers).toBeGreaterThan(skipped.wanderers)
     expect(empty.runners).toBeGreaterThan(skipped.runners)
     expect(legend.wanderers).toBeLessThan(skipped.wanderers)
+  })
+
+  it('adds extra night enemies from the direction of daytime gunshots', () => {
+    const world = createInitialWorld()
+    world.time.phase = 'day'
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.position = { x: 56, y: 0, z: -22 }
+    hunter.facingYaw = 0
+    hunter.equipment.weapon = 'rifle'
+    hunter.fireCooldown = 0
+    expect(sectorOfPoint(56, -22)).toBe('east')
+    for (let i = 0; i < 20; i += 1) {
+      hunter.fireCooldown = 0
+      expect(tryShoot(world, hunter)).toBe(true)
+    }
+    expect(world.dayGunshots).toBe(20)
+    expect(world.dayNoise.east).toBe(20)
+    const extra = gunshotHordeExtra(20)
+    expect(extra.wanderers).toBe(4)
+    expect(extra.runners).toBe(2)
+    const base = hordeCounts(world.time.dayIndex)
+    world.time.phase = 'night'
+    world.nightSpawnedDay = 0
+    stepNightCycle(world)
+    expect(world.nightSpawned).toBe(base.wanderers + base.runners + extra.wanderers + extra.runners)
+    expect(world.enemies.filter((enemy) => enemy.position.x > 50).length).toBeGreaterThanOrEqual(extra.wanderers)
+  })
+
+  it('does not count night gunfire toward the next horde', () => {
+    const world = createInitialWorld()
+    world.time.phase = 'night'
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.equipment.weapon = 'rifle'
+    hunter.fireCooldown = 0
+    expect(tryShoot(world, hunter)).toBe(true)
+    expect(world.dayGunshots).toBe(0)
+  })
+
+  it('clears hunting noise at dawn', () => {
+    const world = createInitialWorld()
+    world.dayGunshots = 20
+    world.dayNoise.east = 20
+    world.lastPhase = 'night'
+    world.time.phase = 'dawn'
+    stepNightCycle(world)
+    expect(world.dayGunshots).toBe(0)
+    expect(world.dayNoise.east).toBe(0)
   })
 
   it('pays salvage into the warehouse after a survived night', () => {

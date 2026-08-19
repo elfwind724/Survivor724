@@ -92,6 +92,8 @@ function itemLabel(id: string): string {
   if (id === 'wood') return '木'
   if (id === 'scrap') return '废铁'
   if (id === 'raw_meat') return '生肉'
+  if (id === 'hide') return '兽皮'
+  if (id === 'bone') return '骨料'
   if (id === 'berry') return '果子'
   return id
 }

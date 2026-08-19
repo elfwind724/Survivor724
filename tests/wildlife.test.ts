@@ -72,9 +72,28 @@ describe('wildlife and field food', () => {
     const xp = hunter.xp
     expect(harvestWildlife(world, hunter)).toBe(true)
     expect(countItem(bag, 'raw_meat')).toBeGreaterThanOrEqual(2)
+    expect(countItem(bag, 'hide')).toBeGreaterThanOrEqual(1)
+    expect(countItem(bag, 'bone')).toBeGreaterThanOrEqual(1)
     expect(deer.harvested).toBe(true)
     expect(hunter.xp).toBeGreaterThan(xp)
     expect(hunter.lastYieldItem).toBe('raw_meat')
+  })
+
+  it('skins a fox for meat and hide without bone', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    const fox = world.wildlife.find((entry) => entry.kind === 'fox')
+    if (!hunter || !fox) throw new Error('missing fox')
+    fox.alive = false
+    fox.health = 0
+    fox.butcherElapsed = 4
+    hunter.position = { ...fox.position }
+    const bag = world.inventories[hunter.inventoryId]
+    if (!bag) throw new Error('missing bag')
+    expect(harvestWildlife(world, hunter)).toBe(true)
+    expect(countItem(bag, 'raw_meat')).toBeGreaterThanOrEqual(1)
+    expect(countItem(bag, 'hide')).toBeGreaterThanOrEqual(1)
+    expect(countItem(bag, 'bone')).toBe(0)
   })
 
   it('needs a butcher action before meat can be taken', () => {

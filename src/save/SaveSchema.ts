@@ -27,6 +27,15 @@ export function deserializeWorld(raw: unknown): WorldState {
   if (world.dungeonRun && !Array.isArray(world.dungeonRun.spawnedRooms)) world.dungeonRun.spawnedRooms = []
   if (world.raidEntered !== true) world.raidEntered = false
   if (world.raidBestRarity === undefined) world.raidBestRarity = null
+  if (typeof world.dayGunshots !== 'number' || world.dayGunshots < 0) world.dayGunshots = 0
+  if (!world.dayNoise || typeof world.dayNoise !== 'object') {
+    world.dayNoise = { north: 0, east: 0, west: 0, south: 0 }
+  } else {
+    world.dayNoise.north = Math.max(0, world.dayNoise.north || 0)
+    world.dayNoise.east = Math.max(0, world.dayNoise.east || 0)
+    world.dayNoise.west = Math.max(0, world.dayNoise.west || 0)
+    world.dayNoise.south = Math.max(0, world.dayNoise.south || 0)
+  }
   return world
 }
 

@@ -1,5 +1,5 @@
 import { repairStructure } from '@/base/construction'
-import { hordeCounts } from '@/data/enemies'
+import { emptyDayNoise, gunshotHordeExtra, hordeCounts, loudestGunshotSector } from '@/data/enemies'
 import { equippedWeapon, magazineSize, writeMag } from '@/data/weapons'
 import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { isGearId, RARITY_LABEL, rollGear, spawnGroundLoot } from '@/data/loot'
@@ -79,6 +79,8 @@ export function stepNightCycle(world: WorldState): void {
   if (phase === 'dawn' && world.lastPhase !== 'dawn') {
     world.raidEntered = false
     world.raidBestRarity = null
+    world.dayGunshots = 0
+    world.dayNoise = emptyDayNoise()
     world.enemies = []
     for (const post of world.nightPosts) post.occupantId = null
     for (const survivor of world.survivors) {
@@ -245,6 +247,10 @@ function spawnHorde(world: WorldState): void {
     'all',
     true,
   )
+  const extra = gunshotHordeExtra(world.dayGunshots)
+  const approach = loudestGunshotSector(world.dayNoise)
+  if (!approach || extra.wanderers + extra.runners <= 0) return
+  spawnHordeWave(world, extra, approach, false)
 }
 
 export function edgePoint(seed: number, approach: HordeApproach = 'all') {

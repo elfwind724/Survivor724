@@ -405,6 +405,8 @@ export interface WorldState {
   debugInfiniteAmmo?: boolean
   raidEntered: boolean
   raidBestRarity: ItemRarity | null
+  dayGunshots: number
+  dayNoise: Record<DefenseSectorId, number>
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

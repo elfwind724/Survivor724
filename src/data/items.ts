@@ -8,6 +8,8 @@ export const ITEM_LABELS: Record<string, string> = {
   scrap: '废铁',
   ammo: '弹药',
   raw_meat: '生肉',
+  hide: '兽皮',
+  bone: '骨料',
   raw_fish: '生鱼',
   berry: '果子',
   meal: '熟食',

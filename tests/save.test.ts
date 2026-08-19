@@ -18,6 +18,19 @@ describe('save schema', () => {
     expect(loaded.time.dayIndex).toBe(4)
     expect(loaded.survivors).toHaveLength(roster)
     expect(loaded.survivors.map((survivor) => survivor.id)).toEqual(world.survivors.map((survivor) => survivor.id))
+    expect(loaded.dayGunshots).toBe(0)
+    expect(loaded.dayNoise.east).toBe(0)
+  })
+
+  it('fills hunting noise on old saves', () => {
+    const world = createInitialWorld()
+    const save = serializeWorld(world)
+    const raw = save as { world: Partial<typeof world> }
+    delete raw.world.dayGunshots
+    delete raw.world.dayNoise
+    const loaded = deserializeWorld(save)
+    expect(loaded.dayGunshots).toBe(0)
+    expect(loaded.dayNoise).toEqual({ north: 0, east: 0, west: 0, south: 0 })
   })
 
   it('keeps dayIndex and headcount after a JSON load roundtrip', () => {

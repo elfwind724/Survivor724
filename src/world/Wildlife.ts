@@ -7,22 +7,30 @@ export interface SpeciesDef {
   height: number
   health: number
   meat: number
+  hide: number
+  bone: number
   fleeRadius: number
   speed: number
   killXp: number
   assetId: string
 }
 
+export interface WildlifeYield {
+  meat: number
+  hide: number
+  bone: number
+}
+
 export const WILDLIFE_SPECIES: Record<WildlifeKind, SpeciesDef> = {
-  deer: { kind: 'deer', habitat: 'forest', height: 1.18, health: 28, meat: 2, fleeRadius: 14, speed: 3.4, killXp: 8, assetId: 'animals/deer' },
-  stag: { kind: 'stag', habitat: 'forest', height: 1.36, health: 36, meat: 3, fleeRadius: 13, speed: 3.6, killXp: 10, assetId: 'animals/stag' },
-  fox: { kind: 'fox', habitat: 'forest', height: 0.62, health: 16, meat: 1, fleeRadius: 16, speed: 4.2, killXp: 5, assetId: 'animals/fox' },
-  wolf: { kind: 'wolf', habitat: 'forest', height: 0.86, health: 32, meat: 2, fleeRadius: 9, speed: 4.0, killXp: 9, assetId: 'animals/wolf' },
-  cow: { kind: 'cow', habitat: 'grass', height: 1.32, health: 40, meat: 4, fleeRadius: 12, speed: 2.2, killXp: 8, assetId: 'animals/cow' },
-  bull: { kind: 'bull', habitat: 'grass', height: 1.42, health: 48, meat: 4, fleeRadius: 10, speed: 2.4, killXp: 10, assetId: 'animals/bull' },
-  horse: { kind: 'horse', habitat: 'grass', height: 1.52, health: 36, meat: 3, fleeRadius: 16, speed: 5.0, killXp: 8, assetId: 'animals/horse' },
-  alpaca: { kind: 'alpaca', habitat: 'grass', height: 1.12, health: 24, meat: 2, fleeRadius: 14, speed: 2.8, killXp: 6, assetId: 'animals/alpaca' },
-  donkey: { kind: 'donkey', habitat: 'grass', height: 1.08, health: 28, meat: 2, fleeRadius: 13, speed: 2.6, killXp: 6, assetId: 'animals/donkey' },
+  deer: { kind: 'deer', habitat: 'forest', height: 1.18, health: 28, meat: 2, hide: 1, bone: 1, fleeRadius: 14, speed: 3.4, killXp: 8, assetId: 'animals/deer' },
+  stag: { kind: 'stag', habitat: 'forest', height: 1.36, health: 36, meat: 3, hide: 2, bone: 2, fleeRadius: 13, speed: 3.6, killXp: 10, assetId: 'animals/stag' },
+  fox: { kind: 'fox', habitat: 'forest', height: 0.62, health: 16, meat: 1, hide: 1, bone: 0, fleeRadius: 16, speed: 4.2, killXp: 5, assetId: 'animals/fox' },
+  wolf: { kind: 'wolf', habitat: 'forest', height: 0.86, health: 32, meat: 2, hide: 1, bone: 1, fleeRadius: 9, speed: 4.0, killXp: 9, assetId: 'animals/wolf' },
+  cow: { kind: 'cow', habitat: 'grass', height: 1.32, health: 40, meat: 4, hide: 1, bone: 2, fleeRadius: 12, speed: 2.2, killXp: 8, assetId: 'animals/cow' },
+  bull: { kind: 'bull', habitat: 'grass', height: 1.42, health: 48, meat: 4, hide: 1, bone: 2, fleeRadius: 10, speed: 2.4, killXp: 10, assetId: 'animals/bull' },
+  horse: { kind: 'horse', habitat: 'grass', height: 1.52, health: 36, meat: 3, hide: 1, bone: 2, fleeRadius: 16, speed: 5.0, killXp: 8, assetId: 'animals/horse' },
+  alpaca: { kind: 'alpaca', habitat: 'grass', height: 1.12, health: 24, meat: 2, hide: 2, bone: 1, fleeRadius: 14, speed: 2.8, killXp: 6, assetId: 'animals/alpaca' },
+  donkey: { kind: 'donkey', habitat: 'grass', height: 1.08, health: 28, meat: 2, hide: 1, bone: 1, fleeRadius: 13, speed: 2.6, killXp: 6, assetId: 'animals/donkey' },
 }
 
 const HABITATS: Record<WildlifeState['habitat'], { x: number; z: number; radius: number }> = {
@@ -39,6 +47,11 @@ export function wildlifeHeight(kind: WildlifeKind): number {
 
 export function wildlifeMeat(kind: WildlifeKind): number {
   return WILDLIFE_SPECIES[kind].meat
+}
+
+export function wildlifeYield(kind: WildlifeKind): WildlifeYield {
+  const species = WILDLIFE_SPECIES[kind]
+  return { meat: species.meat, hide: species.hide, bone: species.bone }
 }
 
 export function wildlifeKillXp(kind: WildlifeKind): number {
