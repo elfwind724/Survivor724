@@ -77,7 +77,7 @@ export class GameApp {
     lastY: number
     dragging: boolean
   } | null = null
-  private notice = '冯老师是主角。点队员选中，双击让他们跟随 · N 打开背包 · Q/E 转镜头'
+  private notice = ''
   private packCursor: PackCursor | null = null
 
   constructor(
@@ -112,13 +112,13 @@ export class GameApp {
       if (command === 'open-sheet') {
         const id = this.world.player.selectedId ?? this.world.player.heroId
         this.sheet.open(id, 'gear')
-        this.notice = '装备对比：绿比现在强，红比现在弱'
+        this.notice = ''
       }
       if (command === 'open-bag') {
         this.hud.toggleBag()
         this.packCursor = null
         this.hud.setCursor(null)
-        this.notice = this.hud.isBagOpen() ? '背包：点物品再点快捷栏互换，关上后 1-9 直接用' : '已关闭背包'
+        this.notice = ''
       }
       if (command === 'close-bag') {
         this.hud.closeBag()
@@ -323,7 +323,7 @@ export class GameApp {
       this.hud.toggleBag()
       this.packCursor = null
       this.hud.setCursor(null)
-      this.notice = this.hud.isBagOpen() ? '背包：点物品再点快捷栏互换，关上后 1-9 直接用' : '已关闭背包'
+      this.notice = ''
       return
     }
     if (event.code === 'KeyC') {
@@ -333,7 +333,7 @@ export class GameApp {
         this.notice = '已关闭人物面板'
       } else {
         this.sheet.open(id, 'gear')
-        this.notice = '装备对比：点武器格看哪把更强'
+        this.notice = ''
       }
       return
     }

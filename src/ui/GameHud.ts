@@ -243,7 +243,7 @@ export function renderHudHtml(model: HudModel): string {
       <div class="hud-bag${model.bag.full ? ' is-full' : ''}">
         <strong>背包 ${model.bag.used}/${model.bag.capacity}</strong>
         ${bagItems}
-        ${model.bag.full ? '<em>满了，回仓库卸货</em>' : model.bag.used > 0 ? '<em>走近仓库自动入库 · G 卸货</em>' : ''}
+        ${model.bag.full ? '<em>满了</em>' : ''}
       </div>
       ${renderWeaponHud(model.weapon)}
     </div>
@@ -254,7 +254,6 @@ export function renderHudHtml(model: HudModel): string {
     ${loot}
     ${model.dungeonHint ? `<p class="hud-toast hud-loot">${escapeHtml(model.dungeonHint)}</p>` : ''}
     ${renderDungeon(model)}
-    <p class="hud-tutorial">${escapeHtml(model.tutorial)}</p>
     ${renderReport(model)}
   `
 }
@@ -482,7 +481,7 @@ function renderPack(model: HudModel): string {
   return `<div class="pack">
     <header>
       <strong>${escapeHtml(model.pack.owner)}的背包 ${model.pack.used}/${model.pack.capacity}</strong>
-      <span>点背包再点快捷栏互换 · 关上背包后 1-9 直接用</span>
+      <span></span>
       <button type="button" data-action="close-bag">关闭</button>
     </header>
     <div class="pack-grid">${cells}</div>

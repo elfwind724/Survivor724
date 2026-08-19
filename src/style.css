@@ -506,7 +506,8 @@ body,
 .hud-toast {
   position: absolute;
   left: 50%;
-  bottom: 24px;
+  top: 92px;
+  bottom: auto;
   z-index: var(--z-toast);
   width: max-content;
   max-width: min(42vw, 420px);
@@ -1698,7 +1699,8 @@ body,
 }
 
 .hud-loot {
-  bottom: 96px;
+  top: 92px;
+  bottom: auto;
   color: #ffd24a;
   background: rgba(12, 10, 7, 0.94);
   border: 1px solid #c9a45c;
