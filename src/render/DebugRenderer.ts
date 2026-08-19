@@ -19,6 +19,7 @@ import {
   isInDungeon,
 } from '@/dungeon/Dungeon'
 import { AssetLibrary } from './AssetLibrary'
+import { animalPoseFrom, fallbackAnimalPose, pickAnimalClip, type AnimalPose } from './AnimalClips'
 import { pickArmedPose, pickCharacterClip, type CharacterPose } from './CharacterClips'
 import { barrelTipWorld, findHoldBone, prepareHeldGun, snapHeldGun } from './HeldWeapon'
 import { fitToHeight, prepareKit, suggestedScale, SURVIVOR_HEIGHT } from './ModelFit'
@@ -28,10 +29,12 @@ interface Marker {
   mesh: THREE.Object3D
 }
 
+type RigPose = CharacterPose | AnimalPose
+
 interface CharacterRig {
   mixer: THREE.AnimationMixer
-  poses: Partial<Record<CharacterPose, THREE.AnimationAction>>
-  current: CharacterPose
+  poses: Partial<Record<RigPose, THREE.AnimationAction>>
+  current: RigPose
   lastX: number
   lastZ: number
   displaySpeed: number
@@ -882,15 +885,11 @@ export class DebugRenderer {
       this.kitWildlife(animal)
       const height = wildlifeHeight(animal.kind)
       marker.mesh.visible = true
-      if (animal.alive) {
-        marker.mesh.position.set(animal.position.x, 0, animal.position.z)
-        marker.mesh.rotation.order = 'YXZ'
-        marker.mesh.rotation.set(0, animal.facingYaw, 0)
-      } else {
-        marker.mesh.position.set(animal.position.x, 0.18, animal.position.z)
-        marker.mesh.rotation.order = 'YXZ'
-        marker.mesh.rotation.set(Math.PI / 2, animal.facingYaw, 0)
-      }
+      marker.mesh.position.set(animal.position.x, animal.alive ? 0 : 0.02, animal.position.z)
+      marker.mesh.rotation.order = 'YXZ'
+      const rig = this.rigs.get(animal.id)
+      const useDeathClip = !animal.alive && Boolean(rig?.poses.death)
+      marker.mesh.rotation.set(useDeathClip || animal.alive ? 0 : Math.PI / 2, animal.facingYaw, 0)
       this.driveWildlife(animal, dt)
       const kit = marker.mesh.getObjectByName('kit')
       const fallback = marker.mesh.getObjectByName('fallback')
@@ -920,9 +919,15 @@ export class DebugRenderer {
     const mixer = new THREE.AnimationMixer(kit)
     const clips = this.library.clips(assetId)
     const poses: CharacterRig['poses'] = {}
-    for (const kind of ['idle', 'walk', 'run'] as const) {
-      const clip = pickCharacterClip(clips, kind)
-      if (clip) poses[kind] = mixer.clipAction(clip)
+    for (const kind of ['idle', 'walk', 'run', 'eat', 'death'] as const) {
+      const clip = pickAnimalClip(clips, kind)
+      if (!clip) continue
+      const action = mixer.clipAction(clip)
+      if (kind === 'death') {
+        action.setLoop(THREE.LoopOnce, 1)
+        action.clampWhenFinished = true
+      }
+      poses[kind] = action
     }
     if (!poses.idle && clips[0]) poses.idle = mixer.clipAction(clips[0])
     poses.idle?.play()
@@ -939,20 +944,21 @@ export class DebugRenderer {
   private driveWildlife(animal: WildlifeState, dt: number): void {
     const rig = this.rigs.get(animal.id)
     if (!rig) return
-    if (!animal.alive) {
-      rig.mixer.update(dt)
-      return
-    }
     const speed = Math.hypot(animal.position.x - rig.lastX, animal.position.z - rig.lastZ) / Math.max(dt, 1 / 120)
     rig.lastX = animal.position.x
     rig.lastZ = animal.position.z
-    rig.displaySpeed = speed > 0.15 ? speed : rig.displaySpeed * Math.exp(-dt * 10)
-    const next = !animal.alive ? 'idle' : rig.displaySpeed > 3.2 ? 'run' : rig.displaySpeed > 0.35 ? 'walk' : 'idle'
-    if (next !== rig.current) {
-      rig.poses[rig.current]?.fadeOut(0.12)
-      rig.poses[next]?.reset().fadeIn(0.12).play()
+    rig.displaySpeed = speed > 0.12 ? speed : rig.displaySpeed * Math.exp(-dt * 10)
+    const wanted = animalPoseFrom(animal.mood, animal.alive, rig.displaySpeed)
+    const next = fallbackAnimalPose(wanted, rig.poses)
+    if (next !== rig.current && rig.poses[next]) {
+      rig.poses[rig.current]?.fadeOut(0.14)
+      const action = rig.poses[next]
+      action?.reset().fadeIn(0.14).play()
       rig.current = next
     }
+    if (next === 'walk') rig.mixer.timeScale = Math.min(1.35, Math.max(0.8, rig.displaySpeed / 1.7))
+    else if (next === 'run') rig.mixer.timeScale = Math.min(1.4, Math.max(0.9, rig.displaySpeed / 4.2))
+    else rig.mixer.timeScale = 1
     rig.mixer.update(dt)
   }
 
@@ -1058,7 +1064,10 @@ export class DebugRenderer {
       'animals/fox',
       'animals/wolf',
       'animals/cow',
+      'animals/bull',
       'animals/horse',
+      'animals/alpaca',
+      'animals/donkey',
     ]
     return ids
   }

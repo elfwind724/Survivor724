@@ -171,13 +171,15 @@ export function stepWildlife(world: WorldState, dt: number): void {
       }, animal, 1.8)
     } else if (animal.fleeTimer > 0) {
       animal.fleeTimer -= dt
-      if (animal.fleeTimer <= 0) animal.mood = day ? 'wander' : 'graze'
+      if (animal.fleeTimer <= 0) {
+        if (animal.mood === 'flee') animal.mood = day ? 'wander' : 'graze'
+        animal.destination = null
+      }
     } else if (!animal.destination || distanceXZ(animal.position, animal.destination) < 0.7) {
-      animal.mood = day ? (unitNoise(animal.id + world.time.daySeconds.toFixed(0)) > 0.55 ? 'wander' : 'graze') : 'graze'
-      animal.destination = pickHabitatPoint(world, animal, day)
+      chooseNextMove(world, animal, day)
     }
-    if (!animal.destination) continue
-    const speed = animal.mood === 'flee' ? species.speed * 1.35 : animal.mood === 'wander' ? species.speed * 0.55 : species.speed * 0.22
+    if (animal.mood === 'graze' || !animal.destination) continue
+    const speed = animal.mood === 'flee' ? species.speed * 1.35 : species.speed * 0.7
     stepToward(animal, animal.destination, speed * dt)
   }
 }
@@ -206,6 +208,27 @@ function nearestThreatTo(world: WorldState, from: Vec3, range: number): Vec3 | n
     }
   }
   return best
+}
+
+function chooseNextMove(world: WorldState, animal: WildlifeState, day: boolean): void {
+  const roll = unitNoise(`${animal.id}:${Math.floor(world.time.daySeconds)}`)
+  if (!day) {
+    animal.mood = 'graze'
+    animal.destination = null
+    animal.fleeTimer = 4 + roll * 6
+    return
+  }
+  const arrivedWander = animal.mood === 'wander' && animal.destination
+  animal.mood = arrivedWander
+    ? (roll > 0.42 ? 'graze' : 'wander')
+    : roll > 0.48 ? 'wander' : 'graze'
+  if (animal.mood === 'wander') {
+    animal.destination = pickHabitatPoint(world, animal, day)
+    animal.fleeTimer = 0
+    return
+  }
+  animal.destination = null
+  animal.fleeTimer = 2.6 + unitNoise(`${animal.id}:dwell`) * 6.5
 }
 
 function pickHabitatPoint(world: WorldState, animal: WildlifeState, day: boolean): Vec3 {
