@@ -57,12 +57,8 @@ describe('simulation layer', () => {
 
     simulate(world, 220)
 
-    const warehouse = world.inventories['inv-warehouse']
-    const bag = world.inventories[fisher.inventoryId]
-    if (!warehouse || !bag) throw new Error('missing inventories')
-
     expect(fisher.carriedTools.includes('rod'), fisher.blockedReason ?? 'no reason').toBe(true)
-    expect(countItem(warehouse, 'raw_fish') + usedSlots(bag)).toBeGreaterThan(0)
+    expect(fisher.lastYieldItem).toBe('raw_fish')
     expect(fisher.currentJobId).toBe('job-fish')
   })
 
@@ -94,7 +90,7 @@ describe('simulation layer', () => {
 
     let sawFullBag = false
     let sawReturn = false
-    for (let i = 0; i < 30 * 80; i += 1) {
+    for (let i = 0; i < 30 * 140; i += 1) {
       stepWorld(world, DT)
       const currentBag = world.inventories[fisher.inventoryId]
       if (currentBag && usedSlots(currentBag) >= 2) sawFullBag = true

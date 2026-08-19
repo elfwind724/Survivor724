@@ -1,6 +1,7 @@
 import { isCooking, isSleeping } from '@/base/FacilityLife'
 import { nearestCarcass } from '@/combat/Combat'
 import { WORK_SECONDS } from '@/data/jobs'
+import { isCasting, remainingCast } from '@/world/Fishing'
 import { itemLabel } from '@/data/items'
 import { EAT_SECONDS } from '@/survivors/Living'
 import { xpToNext } from '@/survivors/Progress'
@@ -29,6 +30,7 @@ export function activityCaption(world: WorldState, survivor: SurvivorState): str
   if (jobId(world, survivor) === 'hunt' && survivor.workerState === 'Work' && nearestCarcass(world, survivor.position, 1.8)) {
     return '剥皮取肉中'
   }
+  if (isCasting(world, survivor)) return '下竿等待'
   if (world.time.phase === 'night' || world.time.phase === 'aftermath') return '守夜中'
   const job = jobId(world, survivor)
   switch (survivor.workerState) {
@@ -56,8 +58,10 @@ export function activityCaption(world: WorldState, survivor: SurvivorState): str
 }
 
 export function activityCooldown(world: WorldState, survivor: SurvivorState): number {
+  if (isCasting(world, survivor)) return remainingCast(world, survivor)
   if (survivor.workerState === 'Work') {
     if (jobId(world, survivor) === 'hunt' && survivor.fireCooldown > 0) return survivor.fireCooldown
+    if (jobId(world, survivor) === 'fish') return remainingCast(world, survivor)
     return Math.max(0, WORK_SECONDS - survivor.workElapsed)
   }
   if (survivor.workerState === 'Eat') return Math.max(0, EAT_SECONDS - survivor.workElapsed)
@@ -94,7 +98,7 @@ function jobId(world: WorldState, survivor: SurvivorState): string {
 
 function workCaption(job: string): string {
   if (job === 'hunt') return '打猎中'
-  if (job === 'fish') return '钓鱼中'
+  if (job === 'fish') return '下竿等待'
   if (job === 'gather') return '采集中'
   if (job === 'draw') return '打水中'
   if (job === 'upgrade') return '升级中'

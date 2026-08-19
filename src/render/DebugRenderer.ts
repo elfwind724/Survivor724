@@ -10,6 +10,7 @@ import { cellCenter, worldToCell } from '@/navigation/NavGrid'
 import { followCameraOffset } from '@/controls/CameraWish'
 import { BASE } from '@/simulation/baseLayout'
 import type { EnemyState, GridCell, StructureState, SurvivorState, WildlifeState, WorldState } from '@/simulation/types'
+import { isCasting } from '@/world/Fishing'
 import { wildlifeAssetOf, wildlifeHeight } from '@/world/Wildlife'
 import { ENEMY_DEFINITIONS } from '@/data/enemies'
 import { RARITY_COLOR } from '@/data/loot'
@@ -78,6 +79,7 @@ export class DebugRenderer {
   private readonly impacts = new Map<string, Marker>()
   private dungeonRoot: THREE.Group | null = null
   private dungeonKey = ''
+  private readonly fishingLines = new Map<string, THREE.Line>()
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
@@ -366,6 +368,7 @@ export class DebugRenderer {
         fallback.position.y = 0.9
       }
     }
+    this.syncFishingLines(world)
     this.syncProjectiles(world)
     this.syncImpacts(world)
     this.syncViewGun(world)
@@ -776,6 +779,46 @@ export class DebugRenderer {
     stream.position.set(-54, 0.05, 32)
     this.scene.add(stream)
     this.extras.push(stream)
+
+    for (const hole of world.fishingSpots) {
+      const peg = new THREE.Mesh(
+        new THREE.CylinderGeometry(hole.kind === 'deep' ? 0.22 : 0.16, 0.18, 1.1, 8),
+        new THREE.MeshLambertMaterial({ color: hole.kind === 'deep' ? 0x1f4f6a : 0x6aa8c2 }),
+      )
+      peg.position.set(hole.position.x, 0.55, hole.position.z)
+      this.scene.add(peg)
+      this.extras.push(peg)
+    }
+  }
+
+  private syncFishingLines(world: WorldState): void {
+    const seen = new Set<string>()
+    for (const survivor of world.survivors) {
+      if (!isCasting(world, survivor)) continue
+      const hole = world.fishingSpots.find((entry) => entry.occupantId === survivor.id)
+      if (!hole) continue
+      seen.add(survivor.id)
+      let line = this.fishingLines.get(survivor.id)
+      if (!line) {
+        const geometry = new THREE.BufferGeometry()
+        geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3))
+        line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0xd5e4ec }))
+        this.scene.add(line)
+        this.fishingLines.set(survivor.id, line)
+      }
+      const attr = line.geometry.getAttribute('position')
+      attr.setXYZ(0, survivor.position.x, 1.35, survivor.position.z)
+      attr.setXYZ(1, hole.water.x, 0.08, hole.water.z)
+      attr.needsUpdate = true
+      line.visible = true
+    }
+    for (const [id, line] of this.fishingLines) {
+      if (seen.has(id)) continue
+      this.scene.remove(line)
+      line.geometry.dispose()
+      if (line.material instanceof THREE.Material) line.material.dispose()
+      this.fishingLines.delete(id)
+    }
   }
 
   private syncDungeon(world: WorldState): void {

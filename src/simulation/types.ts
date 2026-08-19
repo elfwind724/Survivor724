@@ -259,6 +259,16 @@ export interface ImpactState {
   maxLife: number
 }
 
+export type FishingSpotKind = 'shallow' | 'deep'
+
+export interface FishingSpotState {
+  id: string
+  kind: FishingSpotKind
+  position: Vec3
+  water: Vec3
+  occupantId: string | null
+}
+
 export type WildlifeKind = 'deer' | 'stag' | 'fox' | 'wolf' | 'cow' | 'bull' | 'horse' | 'alpaca' | 'donkey'
 export type WildlifeHabitat = 'forest' | 'grass' | 'river'
 export type WildlifeMood = 'graze' | 'wander' | 'flee'
@@ -382,6 +392,7 @@ export interface WorldState {
   player: PlayerState
   enemies: EnemyState[]
   wildlife: WildlifeState[]
+  fishingSpots: FishingSpotState[]
   gear: Record<string, GearPiece>
   groundLoot: GroundLoot[]
   nightPosts: NightPost[]

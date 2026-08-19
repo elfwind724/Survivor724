@@ -2,6 +2,7 @@ import { autoCombat, butcherWildlife, stepAilments, stepEnemies, stepProjectiles
 import { ejectWarehouseGear, pickupGroundLoot } from '@/data/loot'
 import { applyDungeonNav, stepDungeonRun } from '@/dungeon/Dungeon'
 import { depositIfNearWarehouse } from '@/inventory/Cargo'
+import { stepFishing } from '@/world/Fishing'
 import { stepWildlife } from '@/world/Wildlife'
 import { readyForNightPost, stepNightCycle, stepNightDefender } from '@/combat/Night'
 import { type ControlIntent, stepPlayerControl } from '@/controls/PlayerControl'
@@ -29,6 +30,8 @@ export function stepWorld(world: WorldState, dt: number, intent: ControlIntent |
     if (intent) stepPlayerControl(world, dt, intent)
     if (self) {
       butcherWildlife(world, self, dt)
+      const moving = !!intent && (intent.wishX !== 0 || intent.wishZ !== 0)
+      stepFishing(world, self, dt, { autoTravel: false, moving })
       pickupGroundLoot(world, self)
       depositIfNearWarehouse(world, self)
       autoCombat(world, self)

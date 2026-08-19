@@ -147,7 +147,7 @@ export function isWorkingInPlace(world: WorldState, survivor: SurvivorState): bo
   if (survivor.workerState !== 'Work') return false
   const job = world.jobs.find((entry) => entry.id === survivor.currentJobId)
   const id = job?.definitionId ?? ''
-  return id === 'build' || id === 'demolish' || id === 'cook' || id === 'haul' || id === 'repair' || id === 'upgrade' || id === 'hunt'
+  return id === 'build' || id === 'demolish' || id === 'cook' || id === 'haul' || id === 'repair' || id === 'upgrade' || id === 'hunt' || id === 'fish'
 }
 
 export function isCooking(world: WorldState, survivor: SurvivorState): boolean {

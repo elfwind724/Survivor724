@@ -1,3 +1,4 @@
+import { seedFishingSpots } from '@/world/Fishing'
 import type { WorldState } from '@/simulation/types'
 
 export const SAVE_VERSION = 3
@@ -36,6 +37,7 @@ export function deserializeWorld(raw: unknown): WorldState {
     world.dayNoise.west = Math.max(0, world.dayNoise.west || 0)
     world.dayNoise.south = Math.max(0, world.dayNoise.south || 0)
   }
+  if (!Array.isArray(world.fishingSpots) || world.fishingSpots.length === 0) world.fishingSpots = seedFishingSpots()
   return world
 }
 

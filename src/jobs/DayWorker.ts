@@ -9,6 +9,7 @@ import { clearJobTools, syncToolsToEquipment } from '@/survivors/Equipment'
 import { butcherWildlife, nearestCarcass, tryShoot } from '@/combat/Combat'
 import { countRawFood, firstRawFood, WORK_XP } from '@/data/items'
 import { recordWorkYield } from '@/survivors/Progress'
+import { claimFishingSpot, releaseFishingSpot, stepFishing } from '@/world/Fishing'
 import { nearestLivingWildlife } from '@/world/Wildlife'
 import { nodeAllowedForSurvivor } from '@/base/workZones'
 import { WORK_SECONDS, jobDefinition } from '@/data/jobs'
@@ -219,6 +220,29 @@ function startNextAction(world: WorldState, survivor: SurvivorState): void {
     return
   }
 
+  if (definition.id === 'fish') {
+    const node = findNode(world, job.targetId)
+    if (node && !nodeAllowedForSurvivor(world, survivor, node)) {
+      goHome(world, survivor)
+      return
+    }
+    const hole = claimFishingSpot(world, survivor)
+    const target = hole?.position ?? node?.position
+    if (!target) {
+      goHome(world, survivor)
+      return
+    }
+    if (distanceXZ(survivor.position, target) <= 1.4) {
+      survivor.workElapsed = 0
+      survivor.workerState = 'Work'
+      survivor.destination = null
+      survivor.path = []
+      return
+    }
+    if (beginTravel(world, survivor, target)) survivor.workerState = 'TravelToTarget'
+    return
+  }
+
   if (definition.id === 'build' || definition.id === 'demolish') {
     const structure = findStructure(world, job.targetId)
     if (!structure) {
@@ -313,6 +337,16 @@ function stepTravel(world: WorldState, survivor: SurvivorState, dt: number): voi
 
 function stepWork(world: WorldState, survivor: SurvivorState, dt: number): void {
   const job = currentJob(world, survivor)
+  if (job && jobDefinition(job.definitionId)?.id === 'fish') {
+    const result = stepFishing(world, survivor, dt, { autoTravel: true })
+    if (result === 'travel') survivor.workerState = 'TravelToTarget'
+    else if (result === 'full' || (result === 'caught' && shouldReturn(world, survivor))) beginReturn(world, survivor)
+    else if (result === 'none' && !hasRequiredTools(survivor, 'fish')) {
+      survivor.blockedReason = 'missing_tool'
+      beginReturn(world, survivor)
+    }
+    return
+  }
   if (job && jobDefinition(job.definitionId)?.id === 'hunt') {
     const carcass = nearestCarcass(world, survivor.position, 28)
     if (carcass) {
@@ -376,6 +410,11 @@ function stepCollect(world: WorldState, survivor: SurvivorState): void {
       else survivor.workerState = 'Work'
       return
     }
+    survivor.workerState = 'Work'
+    return
+  }
+
+  if (definition.id === 'fish') {
     survivor.workerState = 'Work'
     return
   }
@@ -622,6 +661,7 @@ function stepBuild(world: WorldState, survivor: SurvivorState, dt: number): void
 }
 
 function beginReturn(world: WorldState, survivor: SurvivorState): void {
+  releaseFishingSpot(world, survivor)
   const warehouse = findContainer(world, 'warehouse')
   const target = warehouse ? warehouse.position : survivor.homePosition
   survivor.workerState = 'ReturnToBase'
@@ -678,6 +718,7 @@ function goToLocker(
 }
 
 function goHome(world: WorldState, survivor: SurvivorState): void {
+  releaseFishingSpot(world, survivor)
   survivor.workerState = 'RestOrNextJob'
   beginTravel(world, survivor, survivor.homePosition)
 }
