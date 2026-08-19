@@ -198,6 +198,15 @@ describe('combat and night', () => {
     expect(hordeCounts(3).runners).toBe(12)
   })
 
+  it('makes the night worse if the raid came back without a good gun', () => {
+    const empty = hordeCounts(1, { entered: true, best: null })
+    const legend = hordeCounts(1, { entered: true, best: 'legendary' })
+    const skipped = hordeCounts(1)
+    expect(empty.wanderers).toBeGreaterThan(skipped.wanderers)
+    expect(empty.runners).toBeGreaterThan(skipped.runners)
+    expect(legend.wanderers).toBeLessThan(skipped.wanderers)
+  })
+
   it('pays salvage into the warehouse after a survived night', () => {
     const world = createInitialWorld()
     const warehouse = world.inventories['inv-warehouse']

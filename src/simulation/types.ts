@@ -401,6 +401,8 @@ export interface WorldState {
   worldSeed: string
   dungeonRun: DungeonRun | null
   debugInfiniteAmmo?: boolean
+  raidEntered: boolean
+  raidBestRarity: ItemRarity | null
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

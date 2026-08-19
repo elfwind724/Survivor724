@@ -12,8 +12,9 @@ import {
 import { itemBase } from '@/data/items'
 import { findGear, giveGear, isGearId, rollGear, spawnGroundLoot } from '@/data/loot'
 import { addItem, inventoryOf, usedSlots } from '@/inventory/Inventory'
+import { ensureHotbar } from '@/inventory/Pack'
 import { findContainer, findSurvivor } from '@/simulation/EntityRegistry'
-import { cloneVec3, distanceXZ, type AffixRoll, type DungeonRun, type SurvivorState, type Vec3, type WorldState } from '@/simulation/types'
+import { cloneVec3, distanceXZ, type AffixRoll, type DungeonRun, type ItemRarity, type SurvivorState, type Vec3, type WorldState } from '@/simulation/types'
 
 const ROOM_RADIUS = DUNGEON_ROOM_SPACING * 0.42
 const ENTRANCE_RANGE = 2.2
@@ -64,6 +65,7 @@ export function enterDungeon(world: WorldState, survivor: SurvivorState): boolea
     picks: null,
     evacuated: false,
   }
+  world.raidEntered = true
   placeInRoom(world, survivor, 0)
   spawnRoom(world, world.dungeonRun)
   return true
@@ -112,7 +114,41 @@ export function evacuateDungeon(world: WorldState, survivor?: SurvivorState): bo
   run.evacuated = true
   run.picks = null
   run.roomCleared = true
+  recordRaidLoot(world, actor)
   return true
+}
+
+const RARITY_RANK: Record<ItemRarity, number> = {
+  common: 1,
+  magic: 2,
+  rare: 3,
+  legendary: 4,
+}
+
+export function recordRaidLoot(world: WorldState, survivor: SurvivorState): void {
+  world.raidEntered = true
+  const best = bestCarriedRarity(world, survivor)
+  const current = world.raidBestRarity
+  if (!best) return
+  if (!current || RARITY_RANK[best] > RARITY_RANK[current]) world.raidBestRarity = best
+}
+
+function bestCarriedRarity(world: WorldState, survivor: SurvivorState): ItemRarity | null {
+  let best: ItemRarity | null = null
+  const consider = (id: string | null | undefined): void => {
+    if (!id || !isGearId(id)) return
+    const piece = world.gear[id]
+    if (!piece) return
+    if (!best || RARITY_RANK[piece.rarity] > RARITY_RANK[best]) best = piece.rarity
+  }
+  consider(survivor.equipment.weapon)
+  consider(survivor.equipment.tool)
+  const bag = inventoryOf(world.inventories, survivor.inventoryId)
+  for (const item of bag.items) consider(item.itemId)
+  for (const slot of ensureHotbar(survivor)) {
+    if (slot) consider(slot.itemId)
+  }
+  return best
 }
 
 export function stepDungeonRun(world: WorldState): void {

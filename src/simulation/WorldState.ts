@@ -204,6 +204,8 @@ export function createInitialWorld(): WorldState {
     paused: false,
     worldSeed: 'dawn',
     dungeonRun: null,
+    raidEntered: false,
+    raidBestRarity: null,
   }
 
   seedBaseWalls(world)

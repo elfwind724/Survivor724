@@ -76,6 +76,8 @@ export function stepNightCycle(world: WorldState): void {
   if (phase === 'night') checkNightDefeat(world)
   if (phase === 'aftermath' && world.lastPhase === 'night') settleNight(world)
   if (phase === 'dawn' && world.lastPhase !== 'dawn') {
+    world.raidEntered = false
+    world.raidBestRarity = null
     world.enemies = []
     for (const post of world.nightPosts) post.occupantId = null
     for (const survivor of world.survivors) {
@@ -229,7 +231,12 @@ export function spawnHordeWave(
 }
 
 function spawnHorde(world: WorldState): void {
-  spawnHordeWave(world, hordeCounts(world.time.dayIndex), 'all', true)
+  spawnHordeWave(
+    world,
+    hordeCounts(world.time.dayIndex, { entered: world.raidEntered, best: world.raidBestRarity }),
+    'all',
+    true,
+  )
 }
 
 export function edgePoint(seed: number, approach: HordeApproach = 'all') {

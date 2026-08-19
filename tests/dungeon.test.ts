@@ -192,6 +192,19 @@ describe('dungeon run', () => {
     expect(html).toContain('读取')
   })
 
+  it('marks a raid empty until a shrine or chest gun comes home', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    expect(world.raidEntered).toBe(false)
+    enterDungeon(world, hunter)
+    expect(world.raidEntered).toBe(true)
+    evacuateDungeon(world, hunter)
+    expect(world.raidBestRarity).toBeNull()
+    const html = renderHudHtml(buildHudModel({ ...world, time: { ...world.time, phase: 'night' } }))
+    expect(html).toContain('空手回营')
+  })
+
   it('lets a shrine bless the starter pistol into a magic drop', () => {
     const world = createInitialWorld()
     const hunter = findSurvivor(world, 'hunter')

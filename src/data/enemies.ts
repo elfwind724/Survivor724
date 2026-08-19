@@ -1,3 +1,5 @@
+import type { ItemRarity } from '@/simulation/types'
+
 export interface EnemyDefinition {
   id: 'wanderer' | 'runner'
   health: number
@@ -14,10 +16,22 @@ export const ENEMY_DEFINITIONS: Record<EnemyDefinition['id'], EnemyDefinition> =
 
 export const NIGHT_HORDE = { wanderers: 18, runners: 8 }
 
-export function hordeCounts(dayIndex: number): { wanderers: number; runners: number } {
+export function raidHordeExtra(entered: boolean, best: ItemRarity | null): { wanderers: number; runners: number } {
+  if (!entered) return { wanderers: 0, runners: 0 }
+  if (best === 'legendary') return { wanderers: -2, runners: -1 }
+  if (best === 'rare') return { wanderers: 0, runners: 0 }
+  if (best === 'magic') return { wanderers: 2, runners: 1 }
+  return { wanderers: 6, runners: 3 }
+}
+
+export function hordeCounts(
+  dayIndex: number,
+  raid?: { entered: boolean; best: ItemRarity | null },
+): { wanderers: number; runners: number } {
   const night = Math.max(1, dayIndex)
+  const extra = raidHordeExtra(raid?.entered === true, raid?.best ?? null)
   return {
-    wanderers: NIGHT_HORDE.wanderers + (night - 1) * 4,
-    runners: NIGHT_HORDE.runners + (night - 1) * 2,
+    wanderers: Math.max(8, NIGHT_HORDE.wanderers + (night - 1) * 4 + extra.wanderers),
+    runners: Math.max(4, NIGHT_HORDE.runners + (night - 1) * 2 + extra.runners),
   }
 }

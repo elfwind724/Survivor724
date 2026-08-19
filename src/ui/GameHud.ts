@@ -145,7 +145,7 @@ export function buildHudModel(world: WorldState, notice = '', pack?: { open: boo
     caption: hudTimeCaption(world),
     timeScale: world.time.timeScale,
     notice,
-    warning: dungeonWarning(world) || duskWarningText(duskWarningLevel(world)),
+    warning: dungeonWarning(world) || duskWarningText(duskWarningLevel(world)) || raidNightWarning(world),
     sites: world.structures.filter((structure) => structure.stage !== 'complete').length,
     interiors: world.showInteriors,
     stocks: HUD_STOCK_IDS.map((id) => ({
@@ -595,6 +595,15 @@ function dungeonHintFor(world: WorldState, hero: SurvivorState | undefined): str
   if (!hero || isInDungeon(world)) return ''
   if (!nearDungeonEntrance(world, hero)) return ''
   return '山洞入口 · 按 E 进本'
+}
+
+function raidNightWarning(world: WorldState): string {
+  if (world.time.phase !== 'night' && world.time.phase !== 'dusk') return ''
+  if (!world.raidEntered) return ''
+  if (world.raidBestRarity === 'legendary') return '带回传奇枪，今夜好打些'
+  if (world.raidBestRarity === 'rare') return ''
+  if (world.raidBestRarity === 'magic') return '只带回蓝枪，今夜稍难'
+  return '空手回营，今夜尸潮更凶'
 }
 
 function dungeonWarning(world: WorldState): string {

@@ -1,6 +1,6 @@
 import type { WorldState } from '@/simulation/types'
 
-export const SAVE_VERSION = 2
+export const SAVE_VERSION = 3
 export const SAVE_KEY = 'dawn-bastion-save'
 
 export interface SaveFile {
@@ -24,6 +24,8 @@ export function deserializeWorld(raw: unknown): WorldState {
   const world = structuredClone(file.world)
   if (typeof world.worldSeed !== 'string' || world.worldSeed.length === 0) world.worldSeed = 'dawn'
   if (world.dungeonRun === undefined) world.dungeonRun = null
+  if (world.raidEntered !== true) world.raidEntered = false
+  if (world.raidBestRarity === undefined) world.raidBestRarity = null
   return world
 }
 

@@ -1188,9 +1188,10 @@ export class DebugRenderer {
       seen.add(shot.id)
       let marker = this.projectiles.get(shot.id)
       if (!marker) {
+        const size = tracerSize(shot)
         const mesh = new THREE.Mesh(
-          new THREE.BoxGeometry(0.07, 0.07, 0.85),
-          new THREE.MeshBasicMaterial({ color: tracerColor(shot.weaponId) }),
+          new THREE.BoxGeometry(size.w, size.h, size.l),
+          new THREE.MeshBasicMaterial({ color: tracerColor(shot) }),
         )
         this.scene.add(mesh)
         marker = { id: shot.id, mesh }
@@ -1590,12 +1591,37 @@ function fireLamp(definitionId: string): { height: number; distance: number; day
   return null
 }
 
-function tracerColor(weaponId: string): number {
-  if (weaponId === 'shotgun') return 0xe07a4a
-  if (weaponId === 'smg') return 0x8ec8e8
-  if (weaponId === 'sniper') return 0xf4f0c8
-  if (weaponId === 'revolver') return 0xe8b86d
-  if (weaponId === 'pistol') return 0xf0d27a
+function tracerSize(shot: { explode: number; lightning: boolean; pierce: number; split: boolean }): { w: number; h: number; l: number } {
+  if (shot.explode > 0) return { w: 0.18, h: 0.18, l: 1.15 }
+  if (shot.lightning) return { w: 0.11, h: 0.11, l: 1.45 }
+  if (shot.split) return { w: 0.1, h: 0.1, l: 1.05 }
+  if (shot.pierce > 0) return { w: 0.05, h: 0.05, l: 1.65 }
+  return { w: 0.07, h: 0.07, l: 0.85 }
+}
+
+function tracerColor(shot: {
+  weaponId: string
+  explode: number
+  lightning: boolean
+  pierce: number
+  split: boolean
+  crit: boolean
+  status: 'burn' | 'freeze' | 'poison' | 'paralyze' | null
+}): number {
+  if (shot.lightning) return 0x9fd9ff
+  if (shot.status === 'freeze') return 0x7ec8ff
+  if (shot.status === 'poison') return 0x6dcc5a
+  if (shot.status === 'burn') return 0xff6a2a
+  if (shot.status === 'paralyze') return 0xffe066
+  if (shot.explode > 0) return 0xff8a2a
+  if (shot.split) return 0xe07aff
+  if (shot.pierce > 0) return 0xfff4c8
+  if (shot.crit) return 0xffd24a
+  if (shot.weaponId === 'shotgun') return 0xe07a4a
+  if (shot.weaponId === 'smg') return 0x8ec8e8
+  if (shot.weaponId === 'sniper') return 0xf4f0c8
+  if (shot.weaponId === 'revolver') return 0xe8b86d
+  if (shot.weaponId === 'pistol') return 0xf0d27a
   return 0xd8e07a
 }
 
