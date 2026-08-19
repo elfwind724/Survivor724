@@ -3,7 +3,7 @@ import { loadDecorations } from '@/base/decorations'
 import { facilityBeds } from '@/base/FacilityLife'
 import { seedOutdoorScenery } from '@/data/outdoorScenery'
 import { createWorkZone } from '@/base/workZones'
-import { seedWildlife } from '@/world/Wildlife'
+import { loadCreativeWildlife, seedWildlife } from '@/world/Wildlife'
 import { createDefenseSectors } from '@/combat/Defense'
 import { rebuildNightPosts } from '@/combat/Night'
 import { createInventory } from '@/inventory/Inventory'
@@ -217,6 +217,7 @@ export function createInitialWorld(): WorldState {
   const blueprintCell = worldToCell(world.nav, vec3(0, 0, BASE.south - 4))
   placeBlueprint(world, 'wall', blueprintCell.x, blueprintCell.z)
   loadCreativeStructures(world)
+  loadCreativeWildlife(world)
   promoteBuildingDecorations(world)
   rebuildNightPosts(world)
   rebuildNav(world)

@@ -9,8 +9,9 @@ import { ENEMY_ASSETS, gateOpenAsset, STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '
 import { cellCenter, worldToCell } from '@/navigation/NavGrid'
 import { followCameraOffset } from '@/controls/CameraWish'
 import { BASE } from '@/simulation/baseLayout'
-import type { GridCell, StructureState, SurvivorState, WildlifeState, WorldState } from '@/simulation/types'
-import { wildlifeAsset, wildlifeHeight } from '@/world/Wildlife'
+import type { EnemyState, GridCell, StructureState, SurvivorState, WildlifeState, WorldState } from '@/simulation/types'
+import { wildlifeAssetOf, wildlifeHeight } from '@/world/Wildlife'
+import { ENEMY_DEFINITIONS } from '@/data/enemies'
 import { RARITY_COLOR } from '@/data/loot'
 import { DUNGEON_DRESS_ASSETS } from '@/data/dungeon'
 import {
@@ -922,7 +923,7 @@ export class DebugRenderer {
 
   private kitWildlife(animal: WildlifeState): void {
     const marker = this.wildlife.get(animal.id)
-    const assetId = wildlifeAsset(animal.kind)
+    const assetId = wildlifeAssetOf(animal)
     this.enqueueAsset(assetId)
     if (!marker || marker.mesh.getObjectByName('kit')) return
     const kit = this.spawnKit(assetId, 1)
@@ -1004,22 +1005,31 @@ export class DebugRenderer {
     }
   }
 
-  private kitEnemy(enemy: { id: string; kind: string; position: { x: number; z: number } }): void {
+  private kitEnemy(enemy: EnemyState): void {
     const marker = this.enemies.get(enemy.id)
-    const assetId = ENEMY_ASSETS[enemy.kind] ?? 'people/zombie'
+    const assetId = ENEMY_ASSETS[enemy.kind] ?? 'people/punk'
     this.enqueueAsset(assetId)
     if (!marker || marker.mesh.getObjectByName('kit')) return
     const kit = this.spawnKit(assetId, 1)
     if (!kit) return
-    fitToHeight(kit, enemy.kind === 'runner' ? 1.08 : 2.45)
+    fitToHeight(kit, enemy.kind === 'runner' ? 0.96 : 2.35)
     marker.mesh.add(kit)
     const mixer = new THREE.AnimationMixer(kit)
     const clips = this.library.clips(assetId)
     const poses: CharacterRig['poses'] = {}
-    for (const kind of ['idle', 'walk', 'run'] as const) {
-      const clip = pickCharacterClip(clips, kind)
-      if (clip) poses[kind] = mixer.clipAction(clip)
+    const animal = clips.some((clip) => /gallop|animalarmature/i.test(clip.name))
+    const kinds = ['idle', 'walk', 'run', 'attack'] as const
+    for (const kind of kinds) {
+      const clip = animal ? pickAnimalClip(clips, kind) : pickCharacterClip(clips, kind)
+      if (!clip) continue
+      const action = mixer.clipAction(clip)
+      if (kind === 'attack') {
+        action.setLoop(THREE.LoopOnce, 1)
+        action.clampWhenFinished = true
+      }
+      poses[kind] = action
     }
+    if (!poses.idle && clips[0]) poses.idle = mixer.clipAction(clips[0])
     poses.idle?.play()
     this.rigs.set(enemy.id, {
       mixer,
@@ -1031,19 +1041,25 @@ export class DebugRenderer {
     })
   }
 
-  private driveEnemy(enemy: { id: string; position: { x: number; z: number } }, dt: number): void {
+  private driveEnemy(enemy: EnemyState, dt: number): void {
     const rig = this.rigs.get(enemy.id)
     if (!rig) return
     const speed = Math.hypot(enemy.position.x - rig.lastX, enemy.position.z - rig.lastZ) / Math.max(dt, 1 / 120)
     rig.lastX = enemy.position.x
     rig.lastZ = enemy.position.z
     rig.displaySpeed = speed > 0.2 ? speed : rig.displaySpeed * Math.exp(-dt * 12)
-    const next = rig.displaySpeed > 2.6 ? 'run' : rig.displaySpeed > 0.35 ? 'walk' : 'idle'
-    if (next !== rig.current) {
+    const definition = ENEMY_DEFINITIONS[enemy.kind]
+    const attacking = enemy.attackCooldown > definition.attackCooldown * 0.42
+    const wanted = attacking ? 'attack' : rig.displaySpeed > 2.8 ? 'run' : rig.displaySpeed > 0.28 ? 'walk' : 'idle'
+    const next = rig.poses[wanted] ? wanted : rig.poses.walk ? 'walk' : 'idle'
+    if (next !== rig.current && rig.poses[next]) {
       rig.poses[rig.current]?.fadeOut(0.12)
       rig.poses[next]?.reset().fadeIn(0.12).play()
       rig.current = next
     }
+    if (next === 'walk') rig.mixer.timeScale = Math.min(1.25, Math.max(0.75, rig.displaySpeed / 1.8))
+    else if (next === 'run') rig.mixer.timeScale = Math.min(1.35, Math.max(0.85, rig.displaySpeed / 3.6))
+    else rig.mixer.timeScale = 1
     rig.mixer.update(dt)
   }
 
@@ -1051,6 +1067,7 @@ export class DebugRenderer {
     const ids = [
       ...Object.values(SURVIVOR_ASSETS),
       ...Object.values(ENEMY_ASSETS),
+      'people/punk',
       ...Object.values(STRUCTURE_ASSETS),
       'fort/wall-towers',
       'fort/wall-towers-door-seco',

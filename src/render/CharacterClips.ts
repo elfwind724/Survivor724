@@ -1,7 +1,7 @@
 import type { AnimationClip } from 'three'
 
 export type Locomotion = 'idle' | 'walk' | 'run'
-export type CharacterPose = Locomotion | 'idleGun' | 'aim' | 'shoot' | 'runShoot' | 'sit' | 'interact'
+export type CharacterPose = Locomotion | 'idleGun' | 'aim' | 'shoot' | 'runShoot' | 'sit' | 'interact' | 'attack'
 
 export function clipScore(name: string, kind: CharacterPose): number {
   const n = name.toLowerCase()
@@ -45,6 +45,13 @@ export function clipScore(name: string, kind: CharacterPose): number {
   if (kind === 'interact') {
     if (n.includes('interact')) return 2
     if (n.includes('clap')) return 1
+    return 0
+  }
+  if (kind === 'attack') {
+    if (n.includes('punch')) return 3
+    if (n.includes('attack')) return 2
+    if (n.includes('kick')) return 1
+    if (n.includes('sword_slash')) return 1
     return 0
   }
   if (n.includes('run_shoot')) return 2

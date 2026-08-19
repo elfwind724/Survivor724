@@ -23,8 +23,8 @@ export const STRUCTURE_ASSETS: Record<string, string> = {
 }
 
 export const ENEMY_ASSETS: Record<string, string> = {
-  wanderer: 'people/zombie',
-  runner: 'people/zombie-dog',
+  wanderer: 'people/punk',
+  runner: 'animals/wolf',
 }
 
 export function gateOpenAsset(closedAssetId: string): string {

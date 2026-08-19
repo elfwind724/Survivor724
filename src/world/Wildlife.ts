@@ -49,16 +49,53 @@ export function wildlifeAsset(kind: WildlifeKind): string {
   return WILDLIFE_SPECIES[kind].assetId
 }
 
+export function wildlifeAssetOf(animal: WildlifeState): string {
+  return animal.assetId ?? WILDLIFE_SPECIES[animal.kind].assetId
+}
+
+const ASSET_KIND: Record<string, WildlifeKind> = {
+  deer: 'deer',
+  stag: 'stag',
+  fox: 'fox',
+  wolf: 'wolf',
+  cow: 'cow',
+  bull: 'bull',
+  horse: 'horse',
+  alpaca: 'alpaca',
+  donkey: 'donkey',
+  husky: 'wolf',
+  'shiba-inu': 'fox',
+  'white-horse': 'horse',
+}
+
+export function animalKindFromAsset(assetId: string): WildlifeKind | null {
+  if (!assetId.startsWith('animals/')) return null
+  return ASSET_KIND[assetId.slice('animals/'.length)] ?? null
+}
+
+export const WILDLIFE_LABEL: Record<WildlifeKind, string> = {
+  deer: '鹿',
+  stag: '牡鹿',
+  fox: '狐狸',
+  wolf: '狼',
+  cow: '牛',
+  bull: '公牛',
+  horse: '马',
+  alpaca: '羊驼',
+  donkey: '驴',
+}
+
 export function createAnimal(input: {
   id: string
   kind: WildlifeKind
   habitat?: WildlifeState['habitat']
   herdId: string
   position: Vec3
+  assetId?: string
 }): WildlifeState {
   const species = WILDLIFE_SPECIES[input.kind]
   const habitat = input.habitat ?? species.habitat
-  return {
+  const animal: WildlifeState = {
     id: input.id,
     kind: input.kind,
     habitat,
@@ -75,6 +112,80 @@ export function createAnimal(input: {
     harvested: false,
     respawnIn: 0,
     butcherElapsed: 0,
+  }
+  if (input.assetId) animal.assetId = input.assetId
+  return animal
+}
+
+const CREATIVE_WILDLIFE_KEY = 'dawn-bastion-creative-wildlife'
+
+interface SavedCreativeAnimal {
+  kind: WildlifeKind
+  assetId: string
+  x: number
+  z: number
+  yaw: number
+}
+
+export function spawnCreativeAnimal(
+  world: WorldState,
+  assetId: string,
+  x: number,
+  z: number,
+  yaw = 0,
+): WildlifeState | null {
+  const kind = animalKindFromAsset(assetId)
+  if (!kind) return null
+  const id = `creative-${kind}-${world.wildlife.length + 1}`
+  const animal = createAnimal({
+    id,
+    kind,
+    herdId: `creative-${id}`,
+    position: { x, y: 0, z },
+    assetId,
+  })
+  animal.facingYaw = yaw
+  animal.mood = 'wander'
+  world.wildlife.push(animal)
+  return animal
+}
+
+export function removeCreativeAnimal(world: WorldState, id: string): boolean {
+  const index = world.wildlife.findIndex((entry) => entry.id === id && entry.id.startsWith('creative-'))
+  if (index < 0) return false
+  world.wildlife.splice(index, 1)
+  persistCreativeWildlife(world)
+  return true
+}
+
+export function persistCreativeWildlife(world: WorldState): void {
+  if (typeof localStorage === 'undefined') return
+  const saved: SavedCreativeAnimal[] = world.wildlife
+    .filter((entry) => entry.id.startsWith('creative-') && entry.alive)
+    .map((entry) => ({
+      kind: entry.kind,
+      assetId: wildlifeAssetOf(entry),
+      x: entry.position.x,
+      z: entry.position.z,
+      yaw: entry.facingYaw,
+    }))
+  localStorage.setItem(CREATIVE_WILDLIFE_KEY, JSON.stringify(saved))
+}
+
+export function loadCreativeWildlife(world: WorldState): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    const raw = localStorage.getItem(CREATIVE_WILDLIFE_KEY)
+    if (!raw) return
+    const saved = JSON.parse(raw) as SavedCreativeAnimal[]
+    if (!Array.isArray(saved)) return
+    for (const entry of saved) {
+      if (!animalKindFromAsset(entry.assetId) && !WILDLIFE_SPECIES[entry.kind]) continue
+      if (!Number.isFinite(entry.x) || !Number.isFinite(entry.z)) continue
+      spawnCreativeAnimal(world, entry.assetId, entry.x, entry.z, entry.yaw)
+    }
+  } catch {
+    return
   }
 }
 

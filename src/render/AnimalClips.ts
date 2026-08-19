@@ -1,7 +1,7 @@
 import type { AnimationClip } from 'three'
 import type { WildlifeMood } from '@/simulation/types'
 
-export type AnimalPose = 'idle' | 'walk' | 'run' | 'eat' | 'death'
+export type AnimalPose = 'idle' | 'walk' | 'run' | 'eat' | 'death' | 'attack'
 
 export function animalClipScore(name: string, kind: AnimalPose): number {
   const n = name.toLowerCase()
@@ -31,7 +31,17 @@ export function animalClipScore(name: string, kind: AnimalPose): number {
     if (/(^|\|)run$/.test(n) || n.includes('run')) return 1
     return 0
   }
-  if (n.includes('death')) return (/(^|\|)death$/.test(n) ? 4 : 1) + armature
+  if (kind === 'attack') {
+    if (n.includes('jump')) return 0
+    if (/(^|\|)attack$/.test(n)) return 5 + armature
+    if (n.includes('attack')) return 3 + armature
+    return 0
+  }
+  if (kind === 'death') {
+    if (/(^|\|)death$/.test(n)) return 4 + armature
+    if (n.includes('death')) return 1
+    return 0
+  }
   return 0
 }
 
@@ -63,6 +73,7 @@ export function fallbackAnimalPose(
   if (available[wanted]) return wanted
   if (wanted === 'eat' && available.idle) return 'idle'
   if (wanted === 'run' && available.walk) return 'walk'
+  if (wanted === 'attack' && available.idle) return 'idle'
   if (wanted === 'death' && available.idle) return 'idle'
   if (available.idle) return 'idle'
   if (available.walk) return 'walk'

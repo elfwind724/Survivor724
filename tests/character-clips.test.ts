@@ -46,5 +46,6 @@ describe('character clips', () => {
     expect(pickArmedPose(0, true, { aim: true, shoot: true })).toBe('shoot')
     expect(pickArmedPose(3.2, true, { runShoot: true, shoot: true })).toBe('runShoot')
     expect(clipScore('CharacterArmature|Idle_Gun', 'idle')).toBe(0)
+    expect(pickCharacterClip([...clips, clip('CharacterArmature|Punch_Left')], 'attack')?.name).toContain('Punch')
   })
 })

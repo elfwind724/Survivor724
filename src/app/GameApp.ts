@@ -46,6 +46,7 @@ import { RosterPanel } from '@/ui/RosterPanel'
 import { DefenseBar } from '@/ui/DefenseBar'
 import { SandboxPanel } from '@/ui/SandboxPanel'
 import { Minimap } from '@/ui/Minimap'
+import { nearestLivingWildlife, persistCreativeWildlife, removeCreativeAnimal, WILDLIFE_LABEL } from '@/world/Wildlife'
 import { GameLoop } from './GameLoop'
 
 export class GameApp {
@@ -502,7 +503,12 @@ export class GameApp {
         this.renderer.enqueueAsset(brush.assetId)
         if (placed?.kind === 'structure') {
           if (placed.structure.definitionId === 'watchtower') rebuildNightPosts(this.world)
-          this.notice = `已放下 ${structureLabel(placed.structure)}，可切换内部，拆除会派人来拆`
+          this.notice = `已当场放下 ${structureLabel(placed.structure)}`
+          return
+        }
+        if (placed?.kind === 'wildlife') {
+          persistCreativeWildlife(this.world)
+          this.notice = `已放下会走动的${WILDLIFE_LABEL[placed.animal.kind]}`
           return
         }
         this.notice = placed ? `已放下 ${placed.decoration.assetId.split('/').pop()}` : '无法放置这个素材'
@@ -516,6 +522,11 @@ export class GameApp {
           this.notice = marked.result === 'cancelled'
             ? `已取消拆除 ${name}`
             : `已标记拆除 ${name}，工匠会过来拆`
+          return
+        }
+        const animal = nearestLivingWildlife(this.world, hit, 2.6)
+        if (animal && removeCreativeAnimal(this.world, animal.id)) {
+          this.notice = `已收回${WILDLIFE_LABEL[animal.kind]}`
           return
         }
         const target = decorationNear(this.world, hit.x, hit.z)

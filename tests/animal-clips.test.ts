@@ -29,6 +29,7 @@ describe('animal clips', () => {
     expect(pickAnimalClip(QUATERNIUS, 'eat')?.name).toBe('AnimalArmature|Eating')
     expect(pickAnimalClip(QUATERNIUS, 'idle')?.name).toBe('AnimalArmature|Idle')
     expect(pickAnimalClip(QUATERNIUS, 'death')?.name).toBe('AnimalArmature|Death')
+    expect(pickAnimalClip([...QUATERNIUS, clip('Attack'), clip('AnimalArmature|Attack')], 'attack')?.name).toBe('AnimalArmature|Attack')
     expect(animalClipScore('Gallop_Jump', 'run')).toBe(0)
     expect(animalClipScore('AnimalArmature|Gallop', 'run')).toBeGreaterThan(animalClipScore('Walk', 'run'))
   })

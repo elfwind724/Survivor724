@@ -10,7 +10,8 @@ import {
 } from '@/data/facilities'
 import { addItem, countItem, createInventory, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
-import type { GridCell, StructureState, Vec3, WorldState } from '@/simulation/types'
+import type { GridCell, StructureState, Vec3, WildlifeState, WorldState } from '@/simulation/types'
+import { spawnCreativeAnimal } from '@/world/Wildlife'
 import { cellCenter, cellIndex, inBounds, markNavDirty, rebuildNav, worldToCell } from '@/navigation/NavGrid'
 import { pathExists } from '@/navigation/AStar'
 
@@ -505,7 +506,9 @@ export function placeCreativeAsset(
   worldZ: number,
   yaw = 0,
   scale?: number,
-): { kind: 'structure'; structure: StructureState } | { kind: 'decoration'; decoration: NonNullable<ReturnType<typeof placeDecoration>> } | null {
+): { kind: 'structure'; structure: StructureState } | { kind: 'decoration'; decoration: NonNullable<ReturnType<typeof placeDecoration>> } | { kind: 'wildlife'; animal: WildlifeState } | null {
+  const animal = spawnCreativeAnimal(world, assetId, worldX, worldZ, yaw)
+  if (animal) return { kind: 'wildlife', animal }
   const preview = previewCreativePlacement(world, assetId, worldX, worldZ)
   if (!preview) {
     const decoration = placeDecoration(world, assetId, worldX, worldZ, yaw, scale)

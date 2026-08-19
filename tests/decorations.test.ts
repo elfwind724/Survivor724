@@ -48,6 +48,21 @@ describe('map decorations', () => {
     expect(structureLabel(placed.structure)).toBe('房屋')
   })
 
+  it('spawns a living animal from the creative animal tab instead of a statue', () => {
+    const world = createInitialWorld()
+    const placed = placeCreativeAsset(world, 'animals/deer', 50, -20, 0.4)
+    expect(placed?.kind).toBe('wildlife')
+    if (placed?.kind !== 'wildlife') throw new Error('expected wildlife')
+    expect(placed.animal.alive).toBe(true)
+    expect(placed.animal.kind).toBe('deer')
+    expect(placed.animal.mood).toBe('wander')
+    expect(world.decorations.some((entry) => entry.assetId === 'animals/deer')).toBe(false)
+    const house = placeCreativeAsset(world, 'fort/house-2', 0, 10)
+    expect(house?.kind).toBe('structure')
+    if (house?.kind !== 'structure') throw new Error('expected structure')
+    expect(house.structure.stage).toBe('complete')
+  })
+
   it('keeps trees as decorations and maps known buildings to facilities', () => {
     const world = createInitialWorld()
     const tree = placeCreativeAsset(world, 'nature/pine', 12, -8)

@@ -280,6 +280,7 @@ export interface WildlifeState {
   harvested: boolean
   respawnIn: number
   butcherElapsed: number
+  assetId?: string
 }
 
 export interface ProjectileState {
