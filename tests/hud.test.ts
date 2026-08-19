@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { stepWorld } from '@/simulation/SimStep'
+import type { SurvivorState } from '@/simulation/types'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { buildHudModel, renderHudHtml } from '@/ui/GameHud'
 
@@ -32,6 +33,21 @@ describe('game hud', () => {
     expect(html).toContain('水')
     expect(html).not.toContain('AcquireEquipment')
     expect(html).not.toContain('Warehouse')
+    expect((html.match(/class="hud-portrait /g) ?? []).length).toBe(world.survivors.length)
+    expect((html.match(/class="hud-inspect(?:\s|")/g) ?? []).length).toBe(1)
+    expect(html).not.toContain('hud-card')
+    expect(html).not.toContain('class="hud-bag')
+  })
+
+  it('keeps one inspect pane when more survivors join', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors[0]
+    if (!hunter) throw new Error('missing hunter')
+    world.survivors.push({ ...hunter, id: 'extra-1', name: '新来的' } as SurvivorState)
+    const html = renderHudHtml(buildHudModel(world))
+    expect((html.match(/class="hud-portrait /g) ?? []).length).toBe(world.survivors.length)
+    expect((html.match(/class="hud-inspect(?:\s|")/g) ?? []).length).toBe(1)
+    expect(html).toContain('新来的')
   })
 
   it('shows a night report overlay after a defense settles', () => {

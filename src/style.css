@@ -36,41 +36,48 @@ body,
   position: absolute;
   inset: 0;
   z-index: var(--z-hud);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  padding: var(--hud-safe);
   pointer-events: none;
   color: var(--hud-ink);
   text-shadow: 0 1px 2px #0a0806;
 }
 
-.hud-top {
+.hud-left {
+  position: absolute;
+  top: var(--hud-safe);
+  left: var(--hud-safe);
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: min(540px, calc(100vw - 220px));
+  max-height: calc(100vh - 140px);
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .hud-clock,
 .hud-stocks,
-.hud-bag,
-.hud-card,
+.hud-inspect,
 .hud-toast {
   background: var(--hud-panel);
   border: 1px solid var(--hud-line);
 }
 
 .hud-clock,
-.hud-stocks,
-.hud-bag {
+.hud-stocks {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px 12px;
-  min-height: 44px;
-  padding: 8px 12px;
+  gap: 6px 10px;
+  min-height: 36px;
+  padding: 6px 10px;
+  pointer-events: auto;
+}
+
+.hud-tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .hud-stocks strong,
@@ -205,12 +212,23 @@ body,
 .hud-stock[data-stock="bandage"] i { background: #c46a7a; }
 .hud-stock[data-stock="food"] i { background: #a45a42; }
 
+.hud-dock {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
 .hud-weapon {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 6px 12px 6px 8px;
+  gap: 8px;
+  min-height: 64px;
+  padding: 6px 10px 6px 8px;
   border: 1px solid var(--hud-line);
   background: var(--hud-panel);
 }
@@ -246,57 +264,175 @@ body,
   box-shadow: inset 0 0 0 3px #16130f, inset 0 0 0 5px #4d4336;
 }
 
-.hud-roster {
+.hud-colonists {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hud-portraits {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: min(62vh, 560px);
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel);
   pointer-events: auto;
 }
 
-.hud-card {
+.hud-portrait {
+  position: relative;
   display: flex;
-  gap: 6px;
-  width: 136px;
-  min-height: 48px;
-  padding: 4px 6px;
+  flex-direction: column;
+  align-items: center;
+  width: 52px;
+  padding: 2px 2px 1px;
+  border: 1px solid transparent;
+  background: #1a1612;
   color: inherit;
-  text-align: left;
   cursor: pointer;
   pointer-events: auto;
 }
 
-.hud-card:hover,
-.hud-card:focus-visible {
+.hud-portrait:hover,
+.hud-portrait:focus-visible {
   border-color: #7a6a50;
-  background: var(--hud-panel-2);
   outline: none;
 }
 
-.hud-card.is-selected {
+.hud-portrait.is-selected {
   border-color: var(--hud-brass);
 }
 
-.hud-card.is-live {
-  border-color: var(--hud-brass);
+.hud-portrait.is-live {
   box-shadow: inset 0 0 0 1px var(--hud-brass);
 }
 
-.hud-card.is-downed {
-  opacity: 0.55;
+.hud-portrait.is-downed {
+  opacity: 0.5;
+}
+
+.hud-portrait.is-downed::after {
+  position: absolute;
+  inset: 2px 2px 16px;
+  background: rgba(120, 24, 16, 0.35);
+  content: "";
+  pointer-events: none;
 }
 
 .hud-face {
-  flex: 0 0 28px;
-  width: 28px;
-  height: 34px;
+  display: block;
+  width: 44px;
+  height: 40px;
   overflow: hidden;
   background: #221c16;
 }
 
 .hud-face svg {
   display: block;
-  width: 28px;
-  height: 34px;
+  width: 44px;
+  height: 48px;
+  margin-top: -4px;
+}
+
+.hud-portrait em {
+  max-width: 48px;
+  overflow: hidden;
+  color: var(--hud-muted);
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-portrait .hud-hp {
+  display: block;
+  width: 44px;
+  height: 3px;
+  margin: 1px 0 1px;
+  background: #2a241c;
+}
+
+.hud-portrait .hud-hp b {
+  display: block;
+  height: 100%;
+  background: var(--hud-hp);
+}
+
+.hud-pip {
+  position: absolute;
+  top: 3px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #0a0806;
+}
+
+.hud-pip-hunger {
+  right: 3px;
+  background: var(--hud-hunger);
+}
+
+.hud-pip-thirst {
+  right: 12px;
+  background: var(--hud-thirst);
+}
+
+.hud-inspect {
+  width: 196px;
+  padding: 8px 10px 9px;
+  pointer-events: auto;
+}
+
+.hud-inspect header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.hud-inspect header strong {
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.hud-inspect header span,
+.hud-inspect p,
+.hud-inspect small {
+  color: var(--hud-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.hud-inspect p {
+  margin: 0 0 6px;
+}
+
+.hud-inspect small {
+  display: block;
+  margin-top: 6px;
+}
+
+.hud-inspect-gun {
+  margin: 6px 0 0;
+  color: var(--hud-ink);
+  font-size: 13px;
+}
+
+.hud-inspect-gun em {
+  color: var(--hud-brass);
+  font-style: normal;
+  font-weight: 650;
+}
+
+.hud-inspect.is-downed {
+  opacity: 0.7;
 }
 
 .hud-meta {
@@ -506,8 +642,8 @@ body,
 .hud-toast {
   position: absolute;
   left: 50%;
-  top: 92px;
-  bottom: auto;
+  top: auto;
+  bottom: 176px;
   z-index: var(--z-toast);
   width: max-content;
   max-width: min(42vw, 420px);
@@ -518,6 +654,14 @@ body,
   font-size: 15px;
   line-height: 1.4;
   pointer-events: none;
+}
+
+.hud-toast ~ .hud-toast {
+  bottom: 220px;
+}
+
+.hud-toast ~ .hud-toast ~ .hud-toast {
+  bottom: 264px;
 }
 
 #minimap {
@@ -536,10 +680,11 @@ body,
 #build-menu {
   position: absolute;
   left: var(--hud-safe);
-  bottom: 88px;
+  bottom: 108px;
   display: flex;
-  align-items: flex-end;
-  gap: 10px;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 8px;
   pointer-events: auto;
   z-index: var(--z-hud);
 }
@@ -572,7 +717,9 @@ body,
 
 .build-panel {
   display: none;
+  flex-wrap: wrap;
   gap: 8px;
+  max-width: min(420px, calc(50vw - 80px));
 }
 
 .build-panel.is-open {
@@ -610,7 +757,7 @@ body,
 .sandbox-root {
   position: absolute;
   left: calc(var(--hud-safe) + 288px);
-  bottom: 88px;
+  bottom: 108px;
   z-index: 34;
   pointer-events: none;
 }
@@ -727,27 +874,30 @@ body,
 
 #defense-bar {
   position: absolute;
+  top: calc(var(--hud-safe) + 176px);
   right: var(--hud-safe);
-  bottom: 88px;
+  bottom: auto;
+  width: 168px;
   pointer-events: auto;
   z-index: var(--z-hud);
 }
 
 .defense-label {
   color: var(--hud-muted);
-  font-size: 14px;
-  margin-bottom: 6px;
+  font-size: 12px;
+  margin-bottom: 4px;
 }
 
 .defense-row {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
 }
 
 .defense-card {
-  width: 80px;
-  min-height: 64px;
-  padding: 8px;
+  width: auto;
+  min-height: 48px;
+  padding: 6px 7px;
   border: 1px solid var(--hud-line);
   background: var(--hud-panel);
   color: var(--hud-ink);
@@ -758,7 +908,7 @@ body,
 .defense-card strong,
 .defense-card span {
   display: block;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .defense-card.is-active {
@@ -778,7 +928,7 @@ body,
 .roster-root {
   position: absolute;
   left: calc(var(--hud-safe) + 192px);
-  bottom: 88px;
+  bottom: 108px;
   z-index: var(--z-hud);
   pointer-events: none;
 }
@@ -897,15 +1047,15 @@ body,
 }
 
 .hud-hotbar {
-  position: absolute;
-  left: 50%;
-  bottom: 16px;
+  position: static;
+  left: auto;
+  bottom: auto;
   display: flex;
   gap: 4px;
   padding: 6px;
   border: 1px solid var(--hud-line);
   background: var(--hud-panel);
-  transform: translateX(-50%);
+  transform: none;
   pointer-events: auto;
 }
 
@@ -960,7 +1110,7 @@ body,
 .pack {
   position: absolute;
   left: 50%;
-  bottom: 92px;
+  bottom: 108px;
   z-index: 26;
   width: min(520px, calc(100vw - 40px));
   padding: 10px 12px 12px;
@@ -1207,17 +1357,18 @@ body,
 
 .sheet {
   position: absolute;
-  top: 92px;
-  left: var(--hud-safe);
+  top: 72px;
+  left: 50%;
   display: flex;
   flex-direction: column;
   width: min(580px, 60vw);
-  max-height: calc(100% - 140px);
+  max-height: calc(100% - 180px);
   overflow: auto;
   padding: 10px 12px 12px;
   border: 1px solid var(--hud-line);
   background: var(--hud-panel);
   color: var(--hud-ink);
+  transform: translateX(-50%);
   pointer-events: auto;
 }
 
@@ -1699,8 +1850,8 @@ body,
 }
 
 .hud-loot {
-  top: 92px;
-  bottom: auto;
+  top: auto;
+  bottom: 176px;
   color: #ffd24a;
   background: rgba(12, 10, 7, 0.94);
   border: 1px solid #c9a45c;
@@ -1719,6 +1870,9 @@ body,
 }
 
 .hud-dungeon {
+  position: absolute;
+  left: 50%;
+  bottom: 108px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1726,6 +1880,7 @@ body,
   padding: 6px 10px;
   border: 1px solid var(--hud-line);
   background: var(--hud-panel);
+  transform: translateX(-50%);
   pointer-events: auto;
 }
 
@@ -1755,7 +1910,7 @@ body,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hud-card,
+  .hud-portrait,
   .build-toggle,
   .build-card,
   .defense-card {
@@ -1764,12 +1919,16 @@ body,
 }
 
 @media (max-width: 900px) {
-  .hud-card {
-    width: 124px;
+  #minimap,
+  #defense-bar {
+    width: 132px;
   }
 
   #minimap {
-    width: 132px;
     height: 132px;
+  }
+
+  #defense-bar {
+    top: calc(var(--hud-safe) + 140px);
   }
 }

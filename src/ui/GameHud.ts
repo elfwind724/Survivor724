@@ -214,42 +214,41 @@ export function renderHudHtml(model: HudModel): string {
       return `<span class="hud-stock${rare}" data-stock="${item.id}"><i></i>${escapeHtml(item.label)} ${item.count}</span>`
     })
     .join('')
-  const bagItems = model.bag.items.length > 0
-    ? model.bag.items.map((item) => `<span class="hud-stock" data-stock="${item.id}"><i></i>${escapeHtml(item.label)} ${item.count}</span>`).join('')
-    : '<span class="hud-stock is-empty">空</span>'
-  const cards = model.cards.map(renderCard).join('')
+  const portraits = model.cards.map(renderPortrait).join('')
   const toast = model.notice ? `<p class="hud-toast">${escapeHtml(model.notice)}</p>` : ''
   const loot = model.lootHint ? `<p class="hud-toast hud-loot">${escapeHtml(model.lootHint)}</p>` : ''
   return `
-    <div class="hud-top">
+    <div class="hud-left">
       <div class="hud-clock">
         <strong>第 ${model.day} 天</strong>
         <span class="hud-phase">${model.phase}</span>
         <span class="hud-caption">${model.caption}</span>
         ${scale}${sites}${model.warning ? `<span class="hud-chip hud-chip-warn">${model.warning}</span>` : ''}
-        <button type="button" class="hud-reset" data-action="reset-view">复位镜头</button>
-        <button type="button" class="hud-reset" data-action="toggle-interiors">${model.interiors ? '显示整栋' : '显示内部'}</button>
-        <button type="button" class="hud-reset" data-action="open-sheet">C 装备</button>
-        <button type="button" class="hud-reset" data-action="open-bag">N 背包</button>
-        <button type="button" class="hud-reset" data-action="save">保存</button>
-        <button type="button" class="hud-reset" data-action="load">读取</button>
         ${model.dungeon ? `<span class="hud-chip">房间 ${model.dungeon.room}/${model.dungeon.total}</span>` : ''}
+        <span class="hud-tools">
+          <button type="button" class="hud-reset" data-action="reset-view">复位镜头</button>
+          <button type="button" class="hud-reset" data-action="toggle-interiors">${model.interiors ? '显示整栋' : '显示内部'}</button>
+          <button type="button" class="hud-reset" data-action="open-sheet">C 装备</button>
+          <button type="button" class="hud-reset" data-action="open-bag">N 背包</button>
+          <button type="button" class="hud-reset" data-action="save">保存</button>
+          <button type="button" class="hud-reset" data-action="load">读取</button>
+        </span>
       </div>
       <div class="hud-stocks">
         <strong>仓库 ${model.warehouseUsed}/${model.warehouseCap}</strong>
         ${stocks}
         ${extras}
       </div>
-      <div class="hud-bag${model.bag.full ? ' is-full' : ''}">
-        <strong>背包 ${model.bag.used}/${model.bag.capacity}</strong>
-        ${bagItems}
-        ${model.bag.full ? '<em>满了</em>' : ''}
+      <div class="hud-colonists">
+        <div class="hud-portraits">${portraits}</div>
+        ${renderInspect(model)}
       </div>
-      ${renderWeaponHud(model.weapon)}
     </div>
-    <div class="hud-roster">${cards}</div>
     ${renderPack(model)}
-    ${renderHotbar(model.hotbar)}
+    <div class="hud-dock">
+      ${renderWeaponHud(model.weapon)}
+      ${renderHotbar(model.hotbar)}
+    </div>
     ${toast}
     ${loot}
     ${model.dungeonHint ? `<p class="hud-toast hud-loot">${escapeHtml(model.dungeonHint)}</p>` : ''}
@@ -392,12 +391,30 @@ function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
   }
 }
 
-function renderCard(card: HudCard): string {
+function renderPortrait(card: HudCard): string {
   const flags = [
     card.live ? 'is-live' : '',
     card.selected ? 'is-selected' : '',
     card.downed ? 'is-downed' : '',
   ].filter(Boolean).join(' ')
+  const hp = Math.round(card.bars.find((bar) => bar.key === 'hp')?.value ?? 0)
+  const hunger = card.bars.find((bar) => bar.key === 'hunger')?.value ?? 100
+  const thirst = card.bars.find((bar) => bar.key === 'thirst')?.value ?? 100
+  const pips = [
+    hunger < 40 ? '<b class="hud-pip hud-pip-hunger" title="饿"></b>' : '',
+    thirst < 40 ? '<b class="hud-pip hud-pip-thirst" title="渴"></b>' : '',
+  ].join('')
+  return `<button type="button" class="hud-portrait ${flags}" data-survivor="${card.id}" title="${escapeHtml(card.name)} · ${escapeHtml(card.job)} · ${escapeHtml(card.status)}">
+    <span class="hud-face" aria-hidden="true">${card.portrait}</span>
+    <i class="hud-hp" aria-hidden="true"><b style="width:${Math.max(4, hp)}%"></b></i>
+    ${pips}
+    <em>${escapeHtml(shortName(card.name))}</em>
+  </button>`
+}
+
+function renderInspect(model: HudModel): string {
+  const card = model.cards.find((entry) => entry.selected) ?? model.cards[0]
+  if (!card) return ''
   const bars = card.bars
     .map((bar) => {
       const width = Math.max(4, Math.round(bar.value))
@@ -407,17 +424,23 @@ function renderCard(card: HudCard): string {
       </div>`
     })
     .join('')
-  const ammo = card.ammo !== null
-    ? `<em class="hud-ammo">${card.ammo}/${card.ammoMax}</em>`
+  const gun = card.weapon
+    ? `<p class="hud-inspect-gun">${escapeHtml(card.weapon)} <em>${card.ammo ?? 0}/${card.ammoMax}</em></p>`
     : ''
-  return `<button type="button" class="hud-card ${flags}" data-survivor="${card.id}">
-    <span class="hud-face" aria-hidden="true">${card.portrait}</span>
-    <span class="hud-meta">
-      <strong>${escapeHtml(card.name)}${ammo}</strong>
-      <small>${escapeHtml(card.job)} · ${escapeHtml(card.status)} · 袋${card.bagUsed}/${card.bagCap}</small>
-      ${bars}
-    </span>
-  </button>`
+  return `<aside class="hud-inspect${card.downed ? ' is-downed' : ''}">
+    <header>
+      <strong>${escapeHtml(card.name)}</strong>
+      <span>${escapeHtml(card.job)}</span>
+    </header>
+    <p>${escapeHtml(card.status)} · 袋${card.bagUsed}/${card.bagCap}</p>
+    ${bars}
+    ${gun}
+    <small>C 装备 · 双击接管</small>
+  </aside>`
+}
+
+function shortName(name: string): string {
+  return name.slice(0, 2)
 }
 
 function hotbarModel(world: WorldState, cursor: PackCursor | null): HudModel['hotbar'] {

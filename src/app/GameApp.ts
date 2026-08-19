@@ -97,7 +97,6 @@ export class GameApp {
     this.hud = new GameHud(hudRoot, ({ id, kind }) => {
       this.world.player.selectedId = id
       this.renderer.recenter()
-      this.sheet.open(id)
       if (kind === 'possess') this.handleDirect(id)
     }, (command) => {
       if (command === 'reset-view') this.resetView()
@@ -388,7 +387,6 @@ export class GameApp {
       this.editor.nudgeScale(1 / 1.15)
       this.notice = '缩小装饰'
     }
-    if (event.code === 'KeyC') this.resetView()
     if (event.code === 'KeyE') {
       const actor = this.focusActor()
       if (!actor) {
