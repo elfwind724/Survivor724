@@ -80,6 +80,12 @@ export class CreativeEditor {
   }
 
   render(): void {
+    if (!this.open) {
+      this.root.hidden = true
+      this.root.innerHTML = ''
+      return
+    }
+    this.root.hidden = false
     const items = this.visibleItems()
     const tabs = CREATIVE_TABS.map((tab) => {
       const active = this.tab === tab.id ? ' is-on' : ''
@@ -96,8 +102,7 @@ export class CreativeEditor {
       })
       .join('')
     this.root.innerHTML = `
-      <button type="button" class="cr-toggle${this.open || this.brush ? ' is-open' : ''}" data-action="toggle">装饰</button>
-      <div class="cr-overlay${this.open ? ' is-open' : ''}" data-overlay>
+      <div class="cr-overlay is-open" data-overlay>
         <div class="cr-panel" data-panel>
           <header class="cr-head">
             <strong>创造模式</strong>
@@ -111,7 +116,6 @@ export class CreativeEditor {
       </div>
     `
 
-    this.root.querySelector('[data-action="toggle"]')?.addEventListener('click', () => this.toggle())
     this.root.querySelector('[data-overlay]')?.addEventListener('pointerdown', (event) => {
       if (event.target === event.currentTarget) this.close()
     })

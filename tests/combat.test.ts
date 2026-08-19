@@ -26,6 +26,7 @@ function flyShots(world: ReturnType<typeof createInitialWorld>, seconds = 0.5): 
 describe('combat and night', () => {
   it('spawns a rifle projectile that hits after travel time', () => {
     const world = createInitialWorld()
+    world.debugInfiniteAmmo = true
     possessSurvivor(world, 'hunter')
     const hunter = findSurvivor(world, 'hunter')
     if (!hunter) throw new Error('missing hunter')
@@ -105,6 +106,7 @@ describe('combat and night', () => {
 
   it('keeps a separate magazine for each gun', () => {
     const world = createInitialWorld()
+    world.debugInfiniteAmmo = true
     const hunter = findSurvivor(world, 'hunter')
     if (!hunter) throw new Error('missing hunter')
     hunter.ammo = 3

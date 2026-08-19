@@ -892,22 +892,7 @@ body,
 }
 
 .cr-toggle {
-  position: absolute;
-  left: calc(var(--hud-safe) + 96px);
-  bottom: 88px;
-  min-width: 88px;
-  height: 48px;
-  border: 1px solid #6a5a3e;
-  background: #2a241b;
-  color: var(--hud-ink);
-  font-size: 16px;
-  pointer-events: auto;
-  cursor: pointer;
-}
-
-.cr-toggle.is-open {
-  border-color: var(--hud-brass);
-  background: #3d3424;
+  display: none;
 }
 
 .hud-hotbar {
@@ -1409,6 +1394,10 @@ body,
   color: #ff8a2a;
 }
 
+.sheet-affix .is-minor {
+  color: var(--hud-muted);
+}
+
 .hud-stock.is-loot {
   color: #ffd24a;
 }
@@ -1709,7 +1698,38 @@ body,
 }
 
 .hud-loot {
+  bottom: 96px;
   color: #ffd24a;
+  background: rgba(12, 10, 7, 0.94);
+  border: 1px solid #c9a45c;
+  box-shadow: 0 0 0 1px #0a0806, 0 8px 20px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 2px #000, 0 0 10px rgba(0, 0, 0, 0.85);
+  font-weight: 650;
+}
+
+.hud-tutorial {
+  margin: 0;
+  color: var(--hud-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  pointer-events: none;
+  text-shadow: 0 1px 2px #0a0806;
+}
+
+.hud-dungeon {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel);
+  pointer-events: auto;
+}
+
+.hud-dungeon strong {
+  color: var(--hud-brass);
+  font-size: 13px;
 }
 
 .sheet-unequip {

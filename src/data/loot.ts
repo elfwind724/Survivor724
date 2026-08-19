@@ -1,3 +1,4 @@
+import { isCombatAffix } from '@/data/dungeon'
 import { EQUIPMENT } from '@/data/equipment'
 import { itemBase, itemLabel } from '@/data/items'
 import { WEAPONS } from '@/data/weapons'
@@ -153,6 +154,20 @@ export function ejectWarehouseGear(world: WorldState): number {
   }
   stock.items = keep
   return moved
+}
+
+export function primaryAffixes(affixes: AffixRoll[]): AffixRoll[] {
+  return affixes.filter((affix) => isCombatAffix(affix.id))
+}
+
+export function secondaryAffixes(affixes: AffixRoll[]): AffixRoll[] {
+  return affixes.filter((affix) => !isCombatAffix(affix.id))
+}
+
+export function nearbyLootName(world: WorldState, x: number, z: number, maxDist = 8): string {
+  const near = nearestGroundLoot(world, x, z, maxDist)
+  if (!near) return ''
+  return gearLabel(world, near.gearId)
 }
 
 export function nearestGroundLoot(world: WorldState, x: number, z: number, maxDist = 8): GroundLoot | undefined {

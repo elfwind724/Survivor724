@@ -159,7 +159,11 @@ export function weaponForTools(tools: string[]): WeaponDefinition {
 }
 
 export const WEAPON_SWAP_COOLDOWN = 0.4
-export const INFINITE_AMMO = true
+export const INFINITE_AMMO = false
+
+export function infiniteAmmo(world?: WorldState): boolean {
+  return INFINITE_AMMO || world?.debugInfiniteAmmo === true
+}
 
 export function magazineSize(weaponId: string): number {
   const id = itemBase(weaponId)

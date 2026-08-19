@@ -202,6 +202,8 @@ export function createInitialWorld(): WorldState {
     nightReport: null,
     gameOver: false,
     paused: false,
+    worldSeed: 'dawn',
+    dungeonRun: null,
   }
 
   seedBaseWalls(world)

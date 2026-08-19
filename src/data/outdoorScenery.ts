@@ -72,6 +72,91 @@ export function seedOutdoorScenery(): DecorationState[] {
   add('natureKit/pebble-round', -54, 32, 0.4, 1)
   add('natureKit/pine', 64, -20, 0.7, 0.85)
   add('natureKit/tree', 46, -30, 1.4, 0.85)
+  add('survival/bonfire', 40, 55, 0.2, 1.15)
+  add('survival/torch', 38.6, 56.4, 0.8, 1)
+  add('survival/torch', 41.4, 53.8, 2.4, 1)
+  add('fort/mine', 42, 58, 0.3, 1)
+
+  // 森林狩猎区 ~55,-20（x 保持在基地东缘外）
+  add('natureClump/pine-trees', 52, -10, 1.6, 1.12)
+  add('natureClump/pine-trees', 80, -24, 0.4, 1.12)
+  add('natureClump/trees', 60, -40, 2.2, 1.12)
+  add('natureClump/bushes', 46, -8, 0.5, 1.35)
+  add('natureClump/birch-trees', 76, -6, 1.1, 1.12)
+  const huntPines: Array<[number, number, number]> = [
+    [46, -24, 0.4], [56, -8, 1.7], [60, -34, 2.3], [68, -24, 0.8],
+    [74, -14, 1.5], [82, -26, 2.6], [52, -36, 1.9], [44, -10, 2.8],
+  ]
+  for (const [x, z, yaw] of huntPines) add('nature/pine-2', x, z, yaw, 1)
+  add('nature/pine-3', 88, -8, 0.3, 1)
+  add('nature/pine-4', 58, -16, 0.6, 1)
+  add('nature/pine-5', 70, -40, 2.1, 1)
+  add('nature/tree-2', 48, -8, 0.9, 1)
+  add('nature/tree-3', 72, -42, 1.4, 1)
+  add('nature/tree-4', 80, -34, 2.5, 1)
+  add('natureKit/pine-2', 56, -26, 0.5, 0.85)
+  add('natureKit/pine-3', 70, -10, 1.8, 0.85)
+  add('natureKit/tree-2', 42, -28, 0.2, 0.85)
+  add('nature/bush', 50, -20, 1.1, 1)
+  add('nature/bush', 64, -32, 2.4, 1)
+  add('nature/bush', 76, -18, 0.7, 1)
+  add('natureKit/bush', 58, -12, 1.3, 1)
+  add('natureKit/bush', 48, -34, 0.4, 1)
+  add('natureKit/plant-big', 54, -18, 2.0, 1)
+  add('natureKit/bush-with-flowers', 62, -6, 0.8, 1)
+  add('natureKit/fern', 46, -14, 1.6, 1)
+  add('natureKit/tall-grass', 52, -6, 0.3, 1)
+  add('natureKit/tall-grass', 68, -28, 1.9, 1)
+
+  // 河岸 ~-55,32（x 保持在基地西缘外）
+  add('natureClump/rocks', -48, 44, 1.2, 1.35)
+  add('natureClump/rocks', -70, 22, 0.6, 1.35)
+  add('natureClump/grass', -58, 40, 2.0, 1.35)
+  const bankRocks: Array<[number, number, number]> = [
+    [-56, 22, 0.5], [-48, 30, 1.8], [-66, 24, 2.4], [-52, 40, 0.9],
+    [-72, 36, 1.3], [-60, 42, 2.7], [-44, 28, 0.2],
+  ]
+  for (const [x, z, yaw] of bankRocks) add('nature/rock-medium-2', x, z, yaw, 1)
+  add('nature/rock-medium-3', -68, 32, 1.1, 1)
+  add('natureKit/rock-medium', -54, 26, 0.6, 1)
+  add('natureKit/rock-medium-2', -62, 38, 2.2, 1)
+  add('nature/rock-path-round-small', -58, 34, 0.4, 1)
+  add('nature/rock-path-round-thin', -50, 28, 1.6, 1)
+  add('fort/rock', -62, 32, 0.8, 1.8)
+  add('fort/rock-2', -54, 38, 2.1, 1.6)
+  add('nature/grass', -56, 30, 0.3, 1)
+  add('nature/grass', -62, 26, 1.4, 1)
+  add('nature/tall-grass', -52, 24, 2.0, 1)
+  add('nature/tall-grass', -66, 40, 0.7, 1)
+  add('natureKit/grass', -58, 38, 1.2, 1)
+  add('natureKit/grass-wispy', -50, 42, 2.5, 1)
+  add('natureKit/fern', -64, 28, 0.5, 1)
+  add('nature/pebble-round', -56, 34, 1.8, 1)
+  add('natureKit/pebble-round-2', -60, 28, 0.9, 1)
+  add('nature/clover', -46, 26, 1.3, 1)
+  add('natureKit/plant', -70, 34, 0.4, 1)
+
+  // 废墟/山洞入口 ~40,55
+  add('fort/mine', 40, 55, 0.4, 2.2)
+  add('fort/hut', 34, 50, 1.8, 1.8)
+  add('fort/shack', 46, 50, 1.2, 1.8)
+  add('fort/hut-2', 44, 60, 2.4, 1.6)
+  add('natureClump/dead-trees', 40, 48, 0.7, 1.12)
+  add('nature/dead-tree', 36, 52, 0.3, 1)
+  add('nature/dead-tree', 48, 58, 1.6, 1)
+  add('nature/dead-tree-2', 32, 60, 2.2, 1)
+  add('nature/dead-tree-3', 44, 48, 0.9, 1)
+  add('nature/dead-tree-4', 52, 54, 1.4, 1)
+  add('natureKit/dead-tree', 42, 52, 2.6, 0.85)
+  add('natureKit/twisted-tree', 50, 62, 0.5, 0.85)
+  add('nature/rock-medium', 38, 56, 0.8, 1)
+  add('nature/rock-medium-3', 46, 54, 2.0, 1)
+  add('natureKit/rock-medium-3', 34, 54, 1.3, 1)
+  add('fort/rock-3', 48, 52, 0.6, 1.8)
+  add('fort/rocks', 36, 58, 2.3, 1.6)
+  add('fort/gold-rocks', 42, 46, 1.1, 1.5)
+  add('fort/logs', 44, 56, 1.7, 1.8)
+  add('fort/trees-cut', 52, 48, 0.2, 1.7)
   return items
 }
 

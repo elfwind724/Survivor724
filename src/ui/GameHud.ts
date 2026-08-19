@@ -1,10 +1,12 @@
 import { activityCaption } from '@/survivors/Activity'
 import { bagFill, HUD_STOCK_IDS } from '@/inventory/Cargo'
 import { countItem, usedSlots } from '@/inventory/Inventory'
+import { PICK_LABEL, TUTORIAL_LINES, type DungeonPickId } from '@/data/dungeon'
 import { itemLabel } from '@/data/items'
-import { gearLabel, isGearId, nearestGroundLoot } from '@/data/loot'
-import { assignmentLabel, postLabel } from '@/jobs/Roster'
-import { equippedWeapon, INFINITE_AMMO, magazineSize, readMag } from '@/data/weapons'
+import { gearLabel, isGearId, nearbyLootName } from '@/data/loot'
+import { isInDungeon, nearDungeonEntrance } from '@/dungeon/Dungeon'
+import { assignmentLabel } from '@/jobs/Roster'
+import { equippedWeapon, magazineSize, readMag } from '@/data/weapons'
 import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
 import type { ItemRarity, SurvivorState, WorldState } from '@/simulation/types'
 import { clampVital } from '@/survivors/Vitals'
@@ -16,7 +18,18 @@ export interface HudPick {
   kind: 'select' | 'possess'
 }
 
-export type HudCommand = 'reset-view' | 'toggle-interiors' | 'restart' | 'ack-night' | 'open-sheet' | 'open-bag' | 'close-bag'
+export type HudCommand =
+  | 'reset-view'
+  | 'toggle-interiors'
+  | 'restart'
+  | 'ack-night'
+  | 'open-sheet'
+  | 'open-bag'
+  | 'close-bag'
+  | 'save'
+  | 'load'
+  | 'dungeon-advance'
+  | 'dungeon-evacuate'
 
 interface HudStock {
   id: string
@@ -101,6 +114,15 @@ export interface HudModel {
     loot: string
     lost: boolean
   } | null
+  tutorial: string
+  dungeon: {
+    room: number
+    total: number
+    picks: Array<{ id: DungeonPickId; label: string }>
+    canAdvance: boolean
+    canEvacuate: boolean
+  } | null
+  dungeonHint: string
 }
 
 const PROFESSION_LABEL: Record<string, string> = {
@@ -123,7 +145,7 @@ export function buildHudModel(world: WorldState, notice = '', pack?: { open: boo
     caption: hudTimeCaption(world),
     timeScale: world.time.timeScale,
     notice,
-    warning: duskWarningText(duskWarningLevel(world)),
+    warning: dungeonWarning(world) || duskWarningText(duskWarningLevel(world)),
     sites: world.structures.filter((structure) => structure.stage !== 'complete').length,
     interiors: world.showInteriors,
     stocks: HUD_STOCK_IDS.map((id) => ({
@@ -141,6 +163,7 @@ export function buildHudModel(world: WorldState, notice = '', pack?: { open: boo
         }))
       : [],
     lootHint: lootHintFor(world, hero),
+    dungeonHint: dungeonHintFor(world, hero),
     warehouseUsed: warehouse ? usedSlots(warehouse) : 0,
     warehouseCap: warehouse?.capacity ?? 0,
     bag: {
@@ -157,6 +180,8 @@ export function buildHudModel(world: WorldState, notice = '', pack?: { open: boo
     hotbar: hotbarModel(world, pack?.cursor ?? null),
     pack: packModel(world, pack?.open === true, pack?.cursor ?? null),
     report: reportModel(world),
+    tutorial: tutorialLine(world),
+    dungeon: dungeonModel(world),
   }
 }
 
@@ -171,7 +196,10 @@ export function hudModelKey(model: HudModel): string {
   const hotbar = model.hotbar.map((slot) => slot ? `${slot.itemId}:${slot.count}:${slot.equipped ? 1 : 0}:${slot.picked ? 1 : 0}` : '-').join(',')
   const pack = `${model.pack.open ? 1 : 0}:${model.pack.pick}:${model.pack.slots.map((slot) => slot ? `${slot.itemId}:${slot.count}` : '-').join(',')}`
   const report = model.report ? `${model.report.lost ? 'L' : 'W'}:${model.report.stats}:${model.report.loot}` : '-'
-  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.lootHint}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${hotbar}:${pack}:${report}`
+  const dungeon = model.dungeon
+    ? `${model.dungeon.room}/${model.dungeon.total}:${model.dungeon.picks.map((pick) => pick.id).join(',')}:${model.dungeon.canAdvance ? 1 : 0}:${model.dungeon.canEvacuate ? 1 : 0}`
+    : '-'
+  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.lootHint}:${model.dungeonHint}:${model.tutorial}:${dungeon}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${hotbar}:${pack}:${report}`
 }
 
 export function renderHudHtml(model: HudModel): string {
@@ -201,8 +229,11 @@ export function renderHudHtml(model: HudModel): string {
         ${scale}${sites}${model.warning ? `<span class="hud-chip hud-chip-warn">${model.warning}</span>` : ''}
         <button type="button" class="hud-reset" data-action="reset-view">复位镜头</button>
         <button type="button" class="hud-reset" data-action="toggle-interiors">${model.interiors ? '显示整栋' : '显示内部'}</button>
-        <button type="button" class="hud-reset" data-action="open-sheet">C 技能</button>
+        <button type="button" class="hud-reset" data-action="open-sheet">C 装备</button>
         <button type="button" class="hud-reset" data-action="open-bag">N 背包</button>
+        <button type="button" class="hud-reset" data-action="save">保存</button>
+        <button type="button" class="hud-reset" data-action="load">读取</button>
+        ${model.dungeon ? `<span class="hud-chip">房间 ${model.dungeon.room}/${model.dungeon.total}</span>` : ''}
       </div>
       <div class="hud-stocks">
         <strong>仓库 ${model.warehouseUsed}/${model.warehouseCap}</strong>
@@ -221,6 +252,9 @@ export function renderHudHtml(model: HudModel): string {
     ${renderHotbar(model.hotbar)}
     ${toast}
     ${loot}
+    ${model.dungeonHint ? `<p class="hud-toast hud-loot">${escapeHtml(model.dungeonHint)}</p>` : ''}
+    ${renderDungeon(model)}
+    <p class="hud-tutorial">${escapeHtml(model.tutorial)}</p>
     ${renderReport(model)}
   `
 }
@@ -237,6 +271,7 @@ export class GameHud {
     private readonly onPick: (pick: HudPick) => void,
     private readonly onCommand: (command: HudCommand) => void,
     private readonly onPack: (click: PackClick) => void = () => undefined,
+    private readonly onDungeonPick: (pickId: DungeonPickId) => void = () => undefined,
   ) {
     this.root.classList.add('game-hud')
     this.root.addEventListener('pointerdown', this.onPointerDown)
@@ -276,9 +311,27 @@ export class GameHud {
     if (!(target instanceof Element)) return
     const command = target.closest<HTMLButtonElement>('[data-action]')
     const action = command?.dataset.action
-    if (action === 'reset-view' || action === 'toggle-interiors' || action === 'restart' || action === 'ack-night' || action === 'open-sheet' || action === 'open-bag' || action === 'close-bag') {
+    if (
+      action === 'reset-view'
+      || action === 'toggle-interiors'
+      || action === 'restart'
+      || action === 'ack-night'
+      || action === 'open-sheet'
+      || action === 'open-bag'
+      || action === 'close-bag'
+      || action === 'save'
+      || action === 'load'
+      || action === 'dungeon-advance'
+      || action === 'dungeon-evacuate'
+    ) {
       event.stopPropagation()
       this.onCommand(action)
+      return
+    }
+    const pick = target.closest<HTMLButtonElement>('[data-dungeon-pick]')
+    if (pick?.dataset.dungeonPick) {
+      event.stopPropagation()
+      this.onDungeonPick(pick.dataset.dungeonPick as DungeonPickId)
       return
     }
     const hot = target.closest<HTMLButtonElement>('[data-hot-index]')
@@ -356,7 +409,7 @@ function renderCard(card: HudCard): string {
     })
     .join('')
   const ammo = card.ammo !== null
-    ? `<em class="hud-ammo">${INFINITE_AMMO ? '∞' : `${card.ammo}/${card.ammoMax}`}</em>`
+    ? `<em class="hud-ammo">${card.ammo}/${card.ammoMax}</em>`
     : ''
   return `<button type="button" class="hud-card ${flags}" data-survivor="${card.id}">
     <span class="hud-face" aria-hidden="true">${card.portrait}</span>
@@ -516,13 +569,13 @@ function cooldownRatio(survivor: SurvivorState): number {
 
 function renderWeaponHud(weapon: HudModel['weapon']): string {
   if (!weapon) return ''
-  const empty = !INFINITE_AMMO && weapon.ammo <= 0 ? ' is-empty' : ''
+  const empty = weapon.ammo <= 0 ? ' is-empty' : ''
   const cooling = weapon.cooldown > 0.02 ? ' is-cd' : ''
   return `<div class="hud-weapon${empty}${cooling}">
     <span class="hud-cd" style="--t:${weapon.cooldown.toFixed(3)}" aria-hidden="true"></span>
     <div>
       <strong>${escapeHtml(weapon.name)}</strong>
-      <em>${INFINITE_AMMO ? '∞' : `${weapon.ammo}/${weapon.ammoMax}`}</em>
+      <em>${weapon.ammo}/${weapon.ammoMax}</em>
     </div>
   </div>`
 }
@@ -530,13 +583,63 @@ function renderWeaponHud(weapon: HudModel['weapon']): string {
 function lootHintFor(world: WorldState, hero: SurvivorState | undefined): string {
   if (world.groundLoot.length <= 0) return ''
   if (!hero) return `地上有 ${world.groundLoot.length} 件装备，走近发光盒捡起`
-  const near = nearestGroundLoot(world, hero.position.x, hero.position.z, 10)
-  if (!near) return `地上还有 ${world.groundLoot.length} 件装备，去发光盒旁捡`
-  const name = gearLabel(world, near.gearId)
+  const name = nearbyLootName(world, hero.position.x, hero.position.z, 10)
+  if (!name) return `地上还有 ${world.groundLoot.length} 件装备，去发光盒旁捡`
   const bag = world.inventories[hero.inventoryId]
   const full = bag ? usedSlots(bag) >= bag.capacity : false
   if (full) return `地上 ${name} · 背包满了，先按 G 卸资源再捡`
   return `地上 ${name}，走近发光盒捡起`
+}
+
+function dungeonHintFor(world: WorldState, hero: SurvivorState | undefined): string {
+  if (!hero || isInDungeon(world)) return ''
+  if (!nearDungeonEntrance(world, hero)) return ''
+  return '山洞入口 · 按 E 进本'
+}
+
+function dungeonWarning(world: WorldState): string {
+  if (!isInDungeon(world)) return ''
+  if (world.time.phase === 'dusk' || world.time.phase === 'night') return '天黑了，赶紧撤离'
+  return ''
+}
+
+function tutorialLine(world: WorldState): string {
+  if (TUTORIAL_LINES.length <= 0) return ''
+  const index = Math.floor(world.time.daySeconds / 12) % TUTORIAL_LINES.length
+  return TUTORIAL_LINES[index] ?? TUTORIAL_LINES[0] ?? ''
+}
+
+function dungeonModel(world: WorldState): HudModel['dungeon'] {
+  const run = world.dungeonRun
+  if (!run || run.evacuated) return null
+  const last = run.nodes.length - 1
+  const atExit = run.index >= last || run.nodes[run.index]?.kind === 'exit'
+  return {
+    room: run.index + 1,
+    total: run.nodes.length,
+    picks: (run.picks ?? []).map((id) => ({ id, label: PICK_LABEL[id] })),
+    canAdvance: run.roomCleared && !atExit,
+    canEvacuate: true,
+  }
+}
+
+function renderDungeon(model: HudModel): string {
+  if (!model.dungeon) return ''
+  const picks = model.dungeon.picks
+    .map((pick) => `<button type="button" class="hud-reset" data-dungeon-pick="${pick.id}">${escapeHtml(pick.label)}</button>`)
+    .join('')
+  const advance = model.dungeon.canAdvance
+    ? '<button type="button" class="hud-reset" data-action="dungeon-advance">下一间</button>'
+    : ''
+  const leave = model.dungeon.canEvacuate
+    ? '<button type="button" class="hud-reset" data-action="dungeon-evacuate">撤离</button>'
+    : ''
+  return `<div class="hud-dungeon">
+    <strong>房间 ${model.dungeon.room}/${model.dungeon.total}</strong>
+    ${picks}
+    ${advance}
+    ${leave}
+  </div>`
 }
 
 function statusLabel(world: WorldState, survivor: SurvivorState): string {

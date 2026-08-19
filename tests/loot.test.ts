@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createEnemy, tryShoot, stepProjectiles } from '@/combat/Combat'
-import { affixText, maybeDropGear, pickupGroundLoot, previewFire, procLabel, rollGear, spawnGroundLoot, weaponScore, RARITY_COLOR, RARITY_LABEL } from '@/data/loot'
+import { affixText, maybeDropGear, nearbyLootName, pickupGroundLoot, previewFire, primaryAffixes, procLabel, rollGear, secondaryAffixes, spawnGroundLoot, weaponScore, RARITY_COLOR, RARITY_LABEL } from '@/data/loot'
 import { fireProfile } from '@/data/weapons'
 import { addItem, countItem, usedSlots } from '@/inventory/Inventory'
 import { createInitialWorld } from '@/simulation/WorldState'
@@ -126,6 +126,27 @@ describe('diablo-style loot', () => {
     expect(html).toContain('攻速')
     expect(html).toContain('暴击')
     expect(html).toContain(strong.name)
+  })
+
+  it('splits combat affixes from secondary ones and names nearby drops', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    const piece = rollGear(world, 'affix-split-seed', 0.4, 'weapon')
+    piece.affixes = [
+      { id: 'min_dmg', label: '最小攻击', value: 4 },
+      { id: 'knockback', label: '击退', value: 1 },
+      { id: 'str', label: '力量', value: 2 },
+      { id: 'crit', label: '暴击几率', value: 8 },
+    ]
+    expect(primaryAffixes(piece.affixes).map((affix) => affix.id)).toEqual(['min_dmg', 'crit'])
+    expect(secondaryAffixes(piece.affixes).map((affix) => affix.id)).toEqual(['knockback', 'str'])
+    spawnGroundLoot(world, piece, hunter.position.x, hunter.position.z)
+    expect(nearbyLootName(world, hunter.position.x, hunter.position.z)).toContain(piece.name)
+    hunter.equipment.weapon = piece.id
+    const html = inspectSheetHtml(world, 'hunter', 'stats')
+    expect(html).toContain('最小攻击')
+    expect(html).toContain('次')
   })
 
   it('kicks warehouse guns back onto the ground on the next sim step', () => {

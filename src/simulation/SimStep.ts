@@ -1,5 +1,6 @@
 import { autoCombat, butcherWildlife, stepAilments, stepEnemies, stepProjectiles, stepRevive, tickCooldowns } from '@/combat/Combat'
 import { ejectWarehouseGear, pickupGroundLoot } from '@/data/loot'
+import { stepDungeonRun } from '@/dungeon/Dungeon'
 import { depositIfNearWarehouse } from '@/inventory/Cargo'
 import { stepWildlife } from '@/world/Wildlife'
 import { stepNightCycle, stepNightDefender } from '@/combat/Night'
@@ -41,6 +42,7 @@ export function stepWorld(world: WorldState, dt: number, intent: ControlIntent |
   stepProjectiles(world, dt)
   stepAilments(world, dt)
   stepEnemies(world, dt)
+  stepDungeonRun(world)
   stepWildlife(world, dt)
   stepRevive(world, dt)
   stepVitals(world, dt)

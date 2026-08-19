@@ -3,8 +3,18 @@ import { demolishTarget, findStructure, interactGate, markDemolishAt, persistCre
 import { decorationNear, removeDecoration, snapDecor } from '@/base/decorations'
 import { buildProgress, durabilityPercent, facilityPreviewHeight, structureLabel } from '@/data/facilities'
 import { canUpgrade, facilityCap, hallLevel, markUpgrade, structureLevel, upgradeCost, upgradeProgress } from '@/base/upgrade'
+import { PICK_LABEL, type DungeonPickId } from '@/data/dungeon'
 import { itemLabel } from '@/data/items'
 import { rebuildNightPosts } from '@/combat/Night'
+import {
+  advanceDungeon,
+  chooseDungeonPick,
+  enterDungeon,
+  evacuateDungeon,
+  isInDungeon,
+  nearDungeonEntrance,
+} from '@/dungeon/Dungeon'
+import { loadFromBrowser, saveToBrowser } from '@/save/SaveSchema'
 import { cellCenter } from '@/navigation/NavGrid'
 import { reloadWeapon, tryShoot } from '@/combat/Combat'
 import { depositIfNearWarehouse } from '@/inventory/Cargo'
@@ -101,8 +111,8 @@ export class GameApp {
       }
       if (command === 'open-sheet') {
         const id = this.world.player.selectedId ?? this.world.player.heroId
-        this.sheet.open(id)
-        this.notice = '技能面板：点头顶卡片或按 C 可换人看'
+        this.sheet.open(id, 'gear')
+        this.notice = '装备对比：绿比现在强，红比现在弱'
       }
       if (command === 'open-bag') {
         this.hud.toggleBag()
@@ -115,8 +125,14 @@ export class GameApp {
         this.packCursor = null
         this.notice = '已关闭背包'
       }
+      if (command === 'save') this.saveRun()
+      if (command === 'load') this.loadRun()
+      if (command === 'dungeon-advance') this.advanceRun()
+      if (command === 'dungeon-evacuate') this.leaveDungeon()
     }, (click) => {
       this.applyPackClick(click)
+    }, (pickId) => {
+      this.pickDungeon(pickId)
     })
     this.sheet = new CharacterSheet(sheetRoot)
     this.minimap = new Minimap(minimapCanvas)
@@ -314,10 +330,10 @@ export class GameApp {
       const id = this.world.player.selectedId ?? this.world.player.heroId
       if (this.sheet.isOpen()) {
         this.sheet.close()
-        this.notice = '已关闭技能面板'
+        this.notice = '已关闭人物面板'
       } else {
-        this.sheet.open(id)
-        this.notice = '技能面板 · 点卡片换人看'
+        this.sheet.open(id, 'gear')
+        this.notice = '装备对比：点武器格看哪把更强'
       }
       return
     }
@@ -378,8 +394,28 @@ export class GameApp {
         this.notice = '先选中或接管一个人，再到门边按 E'
         return
       }
+      if (nearDungeonEntrance(this.world, actor) && enterDungeon(this.world, actor)) {
+        this.renderer.recenter()
+        this.notice = '进入山洞。清完房间再选奖励，天黑前撤离'
+        return
+      }
+      if (isInDungeon(this.world) && evacuateDungeon(this.world, actor)) {
+        this.renderer.recenter()
+        this.notice = '已撤离山洞，东西在背包里'
+        return
+      }
       const gate = interactGate(this.world, actor.position)
       this.notice = gate ? (gate.open ? '门开了' : '门关上了') : '旁边没有门'
+    }
+    if (event.code === 'F5') {
+      event.preventDefault()
+      this.saveRun()
+      return
+    }
+    if (event.code === 'F9') {
+      event.preventDefault()
+      this.loadRun()
+      return
     }
     if (event.code.startsWith('Digit')) {
       const index = Number(event.code.slice(5)) - 1
@@ -852,6 +888,66 @@ export class GameApp {
     this.wallAnchor = null
     this.renderer.resetView()
     this.notice = '新的据点。白天干活建设，夜里守住才能活下去'
+  }
+
+  private saveRun(): void {
+    this.notice = saveToBrowser(this.world) ? '已保存到本地' : '无法保存'
+  }
+
+  private loadRun(): void {
+    const loaded = loadFromBrowser()
+    if (!loaded) {
+      this.notice = '没有存档'
+      return
+    }
+    this.world = loaded
+    this.towerPostId = null
+    this.towerPanel.innerHTML = ''
+    this.wallAnchor = null
+    this.packCursor = null
+    this.renderer.resetView()
+    this.notice = '已读取存档'
+  }
+
+  private pickDungeon(pickId: DungeonPickId): void {
+    const actor = this.focusActor()
+    if (!actor) {
+      this.notice = '先选中或接管一个人'
+      return
+    }
+    this.notice = chooseDungeonPick(this.world, actor, pickId)
+      ? `选了${PICK_LABEL[pickId]}`
+      : '还不能选奖励，先清完这间'
+  }
+
+  private advanceRun(): void {
+    const actor = this.focusActor()
+    if (!actor) {
+      this.notice = '先选中或接管一个人'
+      return
+    }
+    if (!advanceDungeon(this.world, actor)) {
+      this.notice = '还不能前进'
+      return
+    }
+    this.renderer.recenter()
+    this.notice = this.world.dungeonRun?.nodes[this.world.dungeonRun.index]?.kind === 'exit'
+      ? '到了出口，清完或选完奖励后撤离'
+      : `进入第 ${(this.world.dungeonRun?.index ?? 0) + 1} 间`
+  }
+
+  private leaveDungeon(): void {
+    const actor = this.focusActor()
+    if (!actor) {
+      this.notice = '先选中或接管一个人'
+      return
+    }
+    if (!evacuateDungeon(this.world, actor)) {
+      this.notice = '现在不能撤离'
+      return
+    }
+    this.renderer.recenter()
+    this.notice = '已撤离山洞，东西在背包里'
   }
 
   private refreshHud(): void {

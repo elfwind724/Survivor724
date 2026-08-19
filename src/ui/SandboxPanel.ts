@@ -51,7 +51,7 @@ export class SandboxPanel {
 
   render(world: WorldState): void {
     const snap = sandboxSnapshot(world)
-    const key = `${this.open}:${snap.phase}:${snap.enemies}:${snap.kills}:${snap.wallHp}:${snap.paused}:${world.time.timeScale}:${this.draft.wanderers}:${this.draft.runners}:${this.draft.approach}:${this.draft.dayIndex}`
+    const key = `${this.open}:${snap.phase}:${snap.enemies}:${snap.kills}:${snap.wallHp}:${snap.paused}:${world.time.timeScale}:${world.debugInfiniteAmmo ? 1 : 0}:${this.draft.wanderers}:${this.draft.runners}:${this.draft.approach}:${this.draft.dayIndex}`
     if (key === this.lastKey) return
     this.lastKey = key
     this.root.innerHTML = this.open ? this.panelHtml(world) : this.toggleHtml()
@@ -103,6 +103,7 @@ export class SandboxPanel {
           <button type="button" data-act="watch">全员上塔</button>
           <button type="button" data-act="heal">全员满血</button>
           <button type="button" data-act="ammo">补弹药</button>
+          <button type="button" data-act="infinite">${world.debugInfiniteAmmo ? '关闭无限弹药' : '无限弹药'}</button>
           <button type="button" data-act="repair">修好围墙</button>
         </div>
         <div class="sandbox-row">
@@ -213,6 +214,10 @@ export class SandboxPanel {
     if (act === 'ammo') {
       restockSandboxAmmo(world)
       this.onChange('仓库和弹匣都补过了')
+    }
+    if (act === 'infinite') {
+      world.debugInfiniteAmmo = world.debugInfiniteAmmo !== true
+      this.onChange(world.debugInfiniteAmmo ? '已开启无限弹药' : '已关闭无限弹药')
     }
     if (act === 'repair') {
       const count = repairFortifications(world)

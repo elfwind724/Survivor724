@@ -1,3 +1,5 @@
+import type { DungeonNodeDef, DungeonPickId } from '@/data/dungeon'
+
 export interface Vec3 {
   x: number
   y: number
@@ -354,6 +356,16 @@ export interface GroundLoot {
   z: number
 }
 
+export interface DungeonRun {
+  dayIndex: number
+  seed: string
+  nodes: DungeonNodeDef[]
+  index: number
+  roomCleared: boolean
+  picks: DungeonPickId[] | null
+  evacuated: boolean
+}
+
 export interface WorldState {
   time: TimeState
   survivors: SurvivorState[]
@@ -386,6 +398,9 @@ export interface WorldState {
   nightReport: NightReport | null
   gameOver: boolean
   paused: boolean
+  worldSeed: string
+  dungeonRun: DungeonRun | null
+  debugInfiniteAmmo?: boolean
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

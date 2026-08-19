@@ -11,12 +11,12 @@ import {
   skillXpToNext,
 } from '@/data/skills'
 import { itemLabel } from '@/data/items'
-import { affixText, compareFire, findGear, previewFire, procLabel, RARITY_LABEL, weaponScore } from '@/data/loot'
+import { affixText, compareFire, findGear, previewFire, primaryAffixes, procLabel, RARITY_LABEL, secondaryAffixes, weaponScore } from '@/data/loot'
 import { fireProfile, INFINITE_AMMO, magazineSize } from '@/data/weapons'
 import { availableForSlot, equipItem, unequipSlot } from '@/survivors/Equipment'
 import { xpToNext } from '@/survivors/Progress'
 import { findSurvivor } from '@/simulation/EntityRegistry'
-import type { EquipSlot, SkillId, SurvivorState, WorldState } from '@/simulation/types'
+import type { AffixRoll, EquipSlot, SkillId, SurvivorState, WeaponProc, WorldState } from '@/simulation/types'
 import { assignmentLabel } from '@/jobs/Roster'
 import { survivorPortrait } from './GameHud'
 
@@ -389,8 +389,13 @@ function renderWeaponPicker(world: WorldState, survivor: SurvivorState, compare:
         : scoreDelta(compareFire(current, row.fire).deltaPct)
       const dir = worn === row.item.id ? '' : deltaClass(compareFire(current, row.fire).deltaPct)
       const procs = piece?.procs.map((proc) => procLabel(proc)).join(' ') ?? ''
-      const affix = piece?.affixes.slice(0, 3).map((entry) => affixText(entry)).join(' · ') ?? ''
-      const extra = procs || affix || (row.fire.pellets > 1 ? `${row.fire.pellets}弹` : '单发')
+      const affix = piece
+        ? [...primaryAffixes(piece.affixes), ...secondaryAffixes(piece.affixes)]
+          .slice(0, 3)
+          .map((entry) => affixText(entry))
+          .join(' · ')
+        : ''
+      const extra = [procs, affix].filter(Boolean).join(' · ') || (row.fire.pellets > 1 ? `${row.fire.pellets}弹` : '单发')
       return `<button type="button" class="sheet-item sheet-gun${on}${picking}${rare}" data-preview="${row.item.id}">
         <strong>${escapeHtml(row.item.label)}</strong>
         <em class="sheet-delta${dir}">${delta}</em>
@@ -434,9 +439,7 @@ function renderCompareCard(
       return `<li><span>${label}</span><b>${left}</b><em class="${dir}">${right}</em></li>`
     })
     .join('')
-  const affixes = piece
-    ? `<ul class="sheet-affix">${piece.affixes.map((affix) => `<li>${affixText(affix)}</li>`).join('')}${piece.procs.map((proc) => `<li class="is-proc">${procLabel(proc)}</li>`).join('')}</ul>`
-    : ''
+  const affixes = piece ? renderAffixList(piece.affixes, piece.procs) : ''
   const verdict = cmp.deltaPct > 2 ? `比现在强 ${cmp.deltaPct}%` : cmp.deltaPct < -2 ? `比现在弱 ${Math.abs(cmp.deltaPct)}%` : '和现在差不多'
   const verdictClass = cmp.deltaPct > 2 ? 'is-up' : cmp.deltaPct < -2 ? 'is-down' : ''
   return `<article class="sheet-compare">
@@ -487,9 +490,7 @@ function renderFireCard(
   const piece = world && survivor ? findGear(world, survivor.equipment.weapon) : undefined
   const name = piece ? piece.name : plus > 0 ? `${fire.weapon.label} +${plus}` : fire.weapon.label
   const rare = piece ? ` rarity-${piece.rarity}` : ''
-  const affixes = piece
-    ? `<ul class="sheet-affix">${piece.affixes.map((affix) => `<li>${affixText(affix)}</li>`).join('')}${piece.procs.map((proc) => `<li class="is-proc">${procLabel(proc)}</li>`).join('')}</ul>`
-    : ''
+  const affixes = piece ? renderAffixList(piece.affixes, piece.procs) : ''
   return `<div class="sheet-fire">
     <strong class="${rare}">${escapeHtml(name)}${piece ? ` · ${RARITY_LABEL[piece.rarity]}` : ''}</strong>
     <span>弹药 ${INFINITE_AMMO ? '无限' : `${ammo}/${magazineSize(fire.weapon.id)}`} · ${fire.pellets > 1 ? `${fire.pellets}弹` : '单发'}</span>
@@ -504,6 +505,14 @@ function renderFireCard(
     </ul>
     ${affixes}
   </div>`
+}
+
+function renderAffixList(affixes: AffixRoll[], procs: WeaponProc[]): string {
+  const mains = primaryAffixes(affixes).map((affix) => `<li>${affixText(affix)}</li>`).join('')
+  const minors = secondaryAffixes(affixes).map((affix) => `<li class="is-minor">${affixText(affix)} · 次</li>`).join('')
+  const procItems = procs.map((proc) => `<li class="is-proc">${procLabel(proc)}</li>`).join('')
+  if (!mains && !minors && !procItems) return ''
+  return `<ul class="sheet-affix">${mains}${minors}${procItems}</ul>`
 }
 
 function attrShort(key: string): string {
