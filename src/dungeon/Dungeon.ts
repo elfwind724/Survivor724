@@ -5,6 +5,7 @@ import {
   DUNGEON_ENTRANCE,
   ELITE_LUCK,
   EXIT_LUCK,
+  dungeonPropOffsets,
   generateDungeonLayout,
   rollRoomPicks,
   type DungeonPickId,
@@ -68,6 +69,18 @@ export function dungeonRoomCenter(_run: DungeonRun, index: number): Vec3 {
     y: 0,
     z: (rect.minZ + rect.maxZ) / 2,
   }
+}
+
+export function dungeonRoomDressing(run: DungeonRun, index: number): Array<{ assetId: string; x: number; z: number; yaw: number; scale: number }> {
+  const center = dungeonRoomCenter(run, index)
+  const kind = run.nodes[index]?.kind ?? 'combat'
+  return dungeonPropOffsets(kind, `${run.seed}:${index}`).map((prop) => ({
+    assetId: prop.assetId,
+    x: center.x + prop.ox,
+    z: center.z + prop.oz,
+    yaw: prop.yaw,
+    scale: prop.scale,
+  }))
 }
 
 export function dungeonHallRect(from: number, to: number): { minX: number; maxX: number; minZ: number; maxZ: number } | null {

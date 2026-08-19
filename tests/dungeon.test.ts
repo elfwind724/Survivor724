@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createEnemy, tryShoot } from '@/combat/Combat'
-import { generateDungeonLayout, isCombatAffix, rollRoomPicks } from '@/data/dungeon'
+import { dungeonPropOffsets, generateDungeonLayout, isCombatAffix, rollRoomPicks } from '@/data/dungeon'
 import { INFINITE_AMMO } from '@/data/weapons'
 import { rollGear } from '@/data/loot'
 import {
@@ -42,6 +42,19 @@ describe('dungeon layout', () => {
       expect(at.z).toBeGreaterThan(-80)
       expect(at.z).toBeLessThan(80)
     }
+  })
+
+  it('dresses rooms with wall-side props so the fight floor stays open', () => {
+    for (const kind of ROOM_KINDS) {
+      const props = dungeonPropOffsets(kind, `dress:${kind}`)
+      expect(props.length).toBeGreaterThanOrEqual(6)
+      expect(props.some((prop) => prop.assetId.includes('torch'))).toBe(true)
+      expect(props.every((prop) => Math.abs(prop.ox) >= 2.4 || Math.abs(prop.oz) >= 2.4)).toBe(true)
+    }
+    expect(dungeonPropOffsets('reward', 'a')).toEqual(dungeonPropOffsets('reward', 'a'))
+    expect(dungeonPropOffsets('combat', 'a').map((prop) => prop.assetId)).not.toEqual(
+      dungeonPropOffsets('reward', 'a').map((prop) => prop.assetId),
+    )
   })
 
   it('returns the same rooms for the same dayIndex and worldSeed', () => {

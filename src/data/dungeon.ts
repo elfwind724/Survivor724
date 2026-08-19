@@ -32,6 +32,29 @@ export const PICK_LABEL: Record<DungeonPickId, string> = {
   shrine: '神龛',
 }
 
+export const DUNGEON_DRESS_ASSETS = [
+  'survival/torch',
+  'survival/wooden-torch',
+  'survival/wood-log',
+  'survival/backpack',
+  'survival/first-aid-kit',
+  'survival/bonfire',
+  'survival/tent',
+  'survival/bear-trap',
+  'survival/propane-tank',
+  'survival/shovel',
+  'fort/rock',
+  'fort/logs',
+] as const
+
+export interface DungeonPropOffset {
+  assetId: string
+  ox: number
+  oz: number
+  yaw: number
+  scale: number
+}
+
 const PICK_IDS: DungeonPickId[] = ['ammo', 'bandage', 'gear_chest', 'shrine']
 
 const MID_KINDS: Array<{ kind: Exclude<DungeonNodeKind, 'exit'>; weight: number }> = [
@@ -75,6 +98,48 @@ export function rollRoomPicks(seed: string): DungeonPickId[] {
 
 export function isCombatAffix(id: string): boolean {
   return (COMBAT_AFFIX_IDS as readonly string[]).includes(id)
+}
+
+export function dungeonPropOffsets(kind: DungeonNodeKind, seed: string): DungeonPropOffset[] {
+  const corner = 3.2
+  const torches: DungeonPropOffset[] = [
+    { assetId: 'survival/torch', ox: -corner, oz: -corner, yaw: 0.4, scale: 1 },
+    { assetId: 'survival/torch', ox: corner, oz: -corner, yaw: 1.2, scale: 1 },
+    { assetId: 'survival/wooden-torch', ox: -corner, oz: corner, yaw: 2.2, scale: 1 },
+    { assetId: 'survival/wooden-torch', ox: corner, oz: corner, yaw: 3.1, scale: 1 },
+  ]
+  const extra: Record<DungeonNodeKind, DungeonPropOffset[]> = {
+    combat: [
+      { assetId: 'survival/wood-log', ox: -2.8, oz: 0.6, yaw: 0.3, scale: 1 },
+      { assetId: 'survival/propane-tank', ox: 2.9, oz: -0.8, yaw: 1.1, scale: 1 },
+      { assetId: 'fort/rock', ox: 0.4, oz: -3.0, yaw: 0.7, scale: 0.7 },
+    ],
+    elite: [
+      { assetId: 'survival/bear-trap', ox: -2.6, oz: 2.4, yaw: 0.2, scale: 1 },
+      { assetId: 'fort/logs', ox: 2.8, oz: 0.2, yaw: 1.6, scale: 0.55 },
+      { assetId: 'survival/propane-tank', ox: -0.5, oz: -3.0, yaw: 0.9, scale: 1 },
+    ],
+    reward: [
+      { assetId: 'survival/backpack', ox: -2.7, oz: 2.2, yaw: 0.5, scale: 1 },
+      { assetId: 'survival/first-aid-kit', ox: 2.8, oz: 1.6, yaw: 2.0, scale: 1 },
+      { assetId: 'survival/wood-log', ox: 0.2, oz: -2.9, yaw: 0.8, scale: 1 },
+    ],
+    event: [
+      { assetId: 'survival/bonfire', ox: 0, oz: 2.8, yaw: 0.1, scale: 0.9 },
+      { assetId: 'survival/tent', ox: -2.8, oz: -1.6, yaw: 1.4, scale: 0.7 },
+      { assetId: 'survival/backpack', ox: 2.9, oz: -1.2, yaw: 0.6, scale: 1 },
+    ],
+    exit: [
+      { assetId: 'survival/shovel', ox: -2.8, oz: 2.4, yaw: 0.3, scale: 1 },
+      { assetId: 'fort/logs', ox: 2.6, oz: -2.2, yaw: 1.1, scale: 0.5 },
+      { assetId: 'survival/wood-log', ox: -0.4, oz: -3.0, yaw: 2.4, scale: 1 },
+    ],
+  }
+  const spin = (hash01(`${seed}:yaw`) - 0.5) * 0.4
+  return [...torches, ...(extra[kind] ?? extra.combat)].map((prop, index) => ({
+    ...prop,
+    yaw: prop.yaw + spin + hash01(`${seed}:${index}`) * 0.2,
+  }))
 }
 
 function luckOf(kind: DungeonNodeKind): number {

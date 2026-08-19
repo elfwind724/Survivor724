@@ -12,9 +12,11 @@ import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, SurvivorState, WildlifeState, WorldState } from '@/simulation/types'
 import { wildlifeAsset, wildlifeHeight } from '@/world/Wildlife'
 import { RARITY_COLOR } from '@/data/loot'
+import { DUNGEON_DRESS_ASSETS } from '@/data/dungeon'
 import {
   dungeonBlockedWorldCells,
   dungeonHallRect,
+  dungeonRoomDressing,
   dungeonRoomRect,
   isInDungeon,
 } from '@/dungeon/Dungeon'
@@ -777,7 +779,9 @@ export class DebugRenderer {
 
   private syncDungeon(world: WorldState): void {
     const run = world.dungeonRun
-    const key = !run || run.evacuated ? '' : `${run.seed}:${run.nodes.length}:${run.index}:${run.roomCleared ? 1 : 0}`
+    if (run && !run.evacuated) this.library.enqueue(DUNGEON_DRESS_ASSETS)
+    const dressed = DUNGEON_DRESS_ASSETS.filter((id) => this.library.has(id)).length
+    const key = !run || run.evacuated ? '' : `${run.seed}:${run.nodes.length}:${run.index}:${run.roomCleared ? 1 : 0}:${dressed}`
     if (key === this.dungeonKey) return
     this.dungeonKey = key
     if (this.dungeonRoot) {
@@ -821,6 +825,15 @@ export class DebugRenderer {
       wall.position.set(cell.x + 0.5, 1.7, cell.z + 0.5)
       wall.castShadow = true
       root.add(wall)
+    }
+    for (let i = 0; i < run.nodes.length; i += 1) {
+      for (const prop of dungeonRoomDressing(run, i)) {
+        const kit = this.spawnKit(prop.assetId, prop.scale)
+        if (!kit) continue
+        kit.position.set(prop.x, 0, prop.z)
+        kit.rotation.y = prop.yaw
+        root.add(kit)
+      }
     }
     this.scene.add(root)
     this.dungeonRoot = root
@@ -1067,6 +1080,7 @@ export class DebugRenderer {
       'animals/bull',
       'animals/horse',
       'animals/alpaca',
+      ...DUNGEON_DRESS_ASSETS,
       'animals/donkey',
     ]
     return ids
