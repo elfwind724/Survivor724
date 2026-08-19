@@ -9,8 +9,9 @@ export interface DungeonNodeDef {
 
 export const DUNGEON_ROOM_COUNT_MIN = 8
 export const DUNGEON_ROOM_COUNT_MAX = 12
-export const DUNGEON_ENTRANCE = { x: 40, z: 55 } // 主世界废墟附近
-export const DUNGEON_ROOM_SPACING = 18
+export const DUNGEON_ENTRANCE = { x: 40, z: 55 }
+export const DUNGEON_CAVE = { originX: 34, originZ: 50, room: 9, hall: 3, cols: 4 }
+export const DUNGEON_ROOM_SPACING = DUNGEON_CAVE.room + DUNGEON_CAVE.hall
 export const ELITE_LUCK = 0.08
 export const EXIT_LUCK = 0.15
 

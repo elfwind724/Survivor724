@@ -9,6 +9,7 @@ import { rebuildNightPosts } from '@/combat/Night'
 import {
   advanceDungeon,
   chooseDungeonPick,
+  dungeonRoomCenter,
   enterDungeon,
   evacuateDungeon,
   isInDungeon,
@@ -930,10 +931,9 @@ export class GameApp {
       this.notice = '还不能前进'
       return
     }
-    this.renderer.recenter()
-    this.notice = this.world.dungeonRun?.nodes[this.world.dungeonRun.index]?.kind === 'exit'
-      ? '到了出口，清完或选完奖励后撤离'
-      : `进入第 ${(this.world.dungeonRun?.index ?? 0) + 1} 间`
+    const run = this.world.dungeonRun
+    if (run) beginTravel(this.world, actor, dungeonRoomCenter(run, run.index + 1))
+    this.notice = '走廊开了，走进下一间'
   }
 
   private leaveDungeon(): void {

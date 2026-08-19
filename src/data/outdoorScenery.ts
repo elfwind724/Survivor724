@@ -157,6 +157,28 @@ export function seedOutdoorScenery(): DecorationState[] {
   add('fort/gold-rocks', 42, 46, 1.1, 1.5)
   add('fort/logs', 44, 56, 1.7, 1.8)
   add('fort/trees-cut', 52, 48, 0.2, 1.7)
+
+  const path = (x0: number, z0: number, x1: number, z1: number): void => {
+    const dist = Math.hypot(x1 - x0, z1 - z0)
+    const steps = Math.max(2, Math.round(dist / 5))
+    for (let i = 0; i <= steps; i += 1) {
+      const t = i / steps
+      add(
+        i % 2 === 0 ? 'nature/rock-path-round-wide' : 'nature/rock-path-square-wide',
+        x0 + (x1 - x0) * t,
+        z0 + (z1 - z0) * t,
+        t * 2.1,
+        1,
+      )
+    }
+  }
+  path(26, 2, 48, -14)
+  path(48, -14, 62, -22)
+  path(-26, 6, -48, 24)
+  path(-48, 24, -56, 32)
+  path(6, 26, 24, 42)
+  path(24, 42, 38, 52)
+
   return items
 }
 

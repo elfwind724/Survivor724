@@ -7,6 +7,7 @@ import {
   advanceDungeon,
   chooseDungeonPick,
   dungeonEntrancePos,
+  dungeonRoomCenter,
   enterDungeon,
   evacuateDungeon,
   isInDungeon,
@@ -30,6 +31,17 @@ describe('dungeon layout', () => {
     expect(layout.at(-1)?.kind).toBe('exit')
     expect(layout.slice(0, -1).every((room) => room.kind !== 'exit')).toBe(true)
     expect(layout.every((room) => ROOM_KINDS.includes(room.kind))).toBe(true)
+  })
+
+  it('keeps every cave room inside the playable map', () => {
+    const layout = generateDungeonLayout(1, 'dawn')
+    for (let i = 0; i < layout.length; i += 1) {
+      const at = dungeonRoomCenter({ nodes: layout, index: i } as never, i)
+      expect(at.x).toBeGreaterThan(-80)
+      expect(at.x).toBeLessThan(80)
+      expect(at.z).toBeGreaterThan(-80)
+      expect(at.z).toBeLessThan(80)
+    }
   })
 
   it('returns the same rooms for the same dayIndex and worldSeed', () => {
@@ -122,6 +134,10 @@ describe('dungeon run', () => {
     expect(world.dungeonRun?.roomCleared).toBe(true)
     expect(world.dungeonRun?.picks).toHaveLength(3)
     expect(advanceDungeon(world, hunter)).toBe(true)
+    const run = world.dungeonRun
+    if (!run) throw new Error('missing run')
+    hunter.position = dungeonRoomCenter(run, 1)
+    stepWorld(world, 1 / 30)
     expect(world.dungeonRun?.index).toBe(1)
   })
 

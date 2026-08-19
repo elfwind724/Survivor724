@@ -637,7 +637,7 @@ function renderDungeon(model: HudModel): string {
     .map((pick) => `<button type="button" class="hud-reset" data-dungeon-pick="${pick.id}">${escapeHtml(pick.label)}</button>`)
     .join('')
   const advance = model.dungeon.canAdvance
-    ? '<button type="button" class="hud-reset" data-action="dungeon-advance">下一间</button>'
+    ? '<button type="button" class="hud-reset" data-action="dungeon-advance">走向下一间</button>'
     : ''
   const leave = model.dungeon.canEvacuate
     ? '<button type="button" class="hud-reset" data-action="dungeon-evacuate">撤离</button>'

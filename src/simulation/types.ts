@@ -364,6 +364,7 @@ export interface DungeonRun {
   roomCleared: boolean
   picks: DungeonPickId[] | null
   evacuated: boolean
+  spawnedRooms: number[]
 }
 
 export interface WorldState {

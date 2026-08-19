@@ -24,6 +24,7 @@ export function deserializeWorld(raw: unknown): WorldState {
   const world = structuredClone(file.world)
   if (typeof world.worldSeed !== 'string' || world.worldSeed.length === 0) world.worldSeed = 'dawn'
   if (world.dungeonRun === undefined) world.dungeonRun = null
+  if (world.dungeonRun && !Array.isArray(world.dungeonRun.spawnedRooms)) world.dungeonRun.spawnedRooms = []
   if (world.raidEntered !== true) world.raidEntered = false
   if (world.raidBestRarity === undefined) world.raidBestRarity = null
   return world

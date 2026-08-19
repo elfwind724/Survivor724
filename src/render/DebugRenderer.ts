@@ -12,6 +12,12 @@ import { BASE } from '@/simulation/baseLayout'
 import type { GridCell, StructureState, SurvivorState, WildlifeState, WorldState } from '@/simulation/types'
 import { wildlifeAsset, wildlifeHeight } from '@/world/Wildlife'
 import { RARITY_COLOR } from '@/data/loot'
+import {
+  dungeonBlockedWorldCells,
+  dungeonHallRect,
+  dungeonRoomRect,
+  isInDungeon,
+} from '@/dungeon/Dungeon'
 import { AssetLibrary } from './AssetLibrary'
 import { pickArmedPose, pickCharacterClip, type CharacterPose } from './CharacterClips'
 import { barrelTipWorld, findHoldBone, prepareHeldGun, snapHeldGun } from './HeldWeapon'
@@ -64,6 +70,8 @@ export class DebugRenderer {
   private readonly clock = new THREE.Clock()
   private readonly fireLights = new Map<string, THREE.PointLight>()
   private readonly impacts = new Map<string, Marker>()
+  private dungeonRoot: THREE.Group | null = null
+  private dungeonKey = ''
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
@@ -298,6 +306,7 @@ export class DebugRenderer {
     this.syncDressing(world)
     this.syncScenery(world)
     this.syncLighting(world)
+    this.syncDungeon(world)
     this.syncFireLights(world)
     this.syncZones(world)
     this.syncStructures(world)
@@ -763,7 +772,69 @@ export class DebugRenderer {
     this.extras.push(stream)
   }
 
+  private syncDungeon(world: WorldState): void {
+    const run = world.dungeonRun
+    const key = !run || run.evacuated ? '' : `${run.seed}:${run.nodes.length}:${run.index}:${run.roomCleared ? 1 : 0}`
+    if (key === this.dungeonKey) return
+    this.dungeonKey = key
+    if (this.dungeonRoot) {
+      this.disposeObject(this.dungeonRoot)
+      this.dungeonRoot = null
+    }
+    if (!run || run.evacuated) return
+    const root = new THREE.Group()
+    const wallMat = new THREE.MeshLambertMaterial({ color: 0x3a342c })
+    const hallMat = new THREE.MeshLambertMaterial({ color: 0x241e18 })
+    const kindColor: Record<string, number> = {
+      combat: 0x3a2a22,
+      elite: 0x4a2a1c,
+      reward: 0x3a3420,
+      event: 0x2a2e32,
+      exit: 0x2a3228,
+    }
+    for (let i = 0; i < run.nodes.length; i += 1) {
+      const rect = dungeonRoomRect(i)
+      const floor = new THREE.Mesh(
+        new THREE.BoxGeometry(rect.maxX - rect.minX, 0.14, rect.maxZ - rect.minZ),
+        new THREE.MeshLambertMaterial({ color: kindColor[run.nodes[i]?.kind ?? 'combat'] ?? 0x2a241c }),
+      )
+      floor.position.set((rect.minX + rect.maxX) / 2, -0.05, (rect.minZ + rect.maxZ) / 2)
+      floor.receiveShadow = true
+      root.add(floor)
+    }
+    for (let i = 0; i < run.nodes.length - 1; i += 1) {
+      if (i >= run.index && !run.roomCleared) continue
+      const hall = dungeonHallRect(i, i + 1)
+      if (!hall) continue
+      const slab = new THREE.Mesh(
+        new THREE.BoxGeometry(Math.max(0.4, hall.maxX - hall.minX), 0.1, Math.max(0.4, hall.maxZ - hall.minZ)),
+        hallMat,
+      )
+      slab.position.set((hall.minX + hall.maxX) / 2, -0.04, (hall.minZ + hall.maxZ) / 2)
+      root.add(slab)
+    }
+    for (const cell of dungeonBlockedWorldCells(run)) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(1.02, 3.4, 1.02), wallMat)
+      wall.position.set(cell.x + 0.5, 1.7, cell.z + 0.5)
+      wall.castShadow = true
+      root.add(wall)
+    }
+    this.scene.add(root)
+    this.dungeonRoot = root
+  }
+
   private syncLighting(world: WorldState): void {
+    if (isInDungeon(world)) {
+      this.scene.background = new THREE.Color(0x16120e)
+      if (this.scene.fog instanceof THREE.Fog) {
+        this.scene.fog.color.set(0x16120e)
+        this.scene.fog.near = 8
+        this.scene.fog.far = 42
+      }
+      this.hemi.intensity = 0.45
+      this.sun.intensity = 0.12
+      return
+    }
     if (world.time.phase === 'night') {
       this.scene.background = new THREE.Color(0x1a2430)
       if (this.scene.fog instanceof THREE.Fog) {

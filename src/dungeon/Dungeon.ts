@@ -1,8 +1,8 @@
 import { createEnemy } from '@/combat/Combat'
 import {
   COMBAT_AFFIX_IDS,
+  DUNGEON_CAVE,
   DUNGEON_ENTRANCE,
-  DUNGEON_ROOM_SPACING,
   ELITE_LUCK,
   EXIT_LUCK,
   generateDungeonLayout,
@@ -13,12 +13,16 @@ import { itemBase } from '@/data/items'
 import { findGear, giveGear, isGearId, rollGear, spawnGroundLoot } from '@/data/loot'
 import { addItem, inventoryOf, usedSlots } from '@/inventory/Inventory'
 import { ensureHotbar } from '@/inventory/Pack'
+import { cellIndex, inBounds, worldToCell } from '@/navigation/NavGrid'
 import { findContainer, findSurvivor } from '@/simulation/EntityRegistry'
 import { cloneVec3, distanceXZ, type AffixRoll, type DungeonRun, type ItemRarity, type SurvivorState, type Vec3, type WorldState } from '@/simulation/types'
 
-const ROOM_RADIUS = DUNGEON_ROOM_SPACING * 0.42
-const ENTRANCE_RANGE = 2.2
+const ENTRANCE_RANGE = 2.8
 const DUNGEON_ENEMY_PREFIX = 'dng-'
+const ROOM = DUNGEON_CAVE.room
+const HALL = DUNGEON_CAVE.hall
+const COLS = DUNGEON_CAVE.cols
+const STEP = ROOM + HALL
 
 const COMBAT_AFFIX_META: Record<(typeof COMBAT_AFFIX_IDS)[number], { label: string; min: number; max: number }> = {
   min_dmg: { label: '最小攻击', min: 2, max: 8 },
@@ -28,17 +32,89 @@ const COMBAT_AFFIX_META: Record<(typeof COMBAT_AFFIX_IDS)[number], { label: stri
   crit_dmg: { label: '暴击伤害', min: 20, max: 80 },
 }
 
+export function applyDungeonNav(world: WorldState): void {
+  const run = world.dungeonRun
+  if (!isInDungeon(world) || !run) return
+  const nav = world.nav
+  for (const point of dungeonBlockedWorldCells(run)) {
+    const cell = worldToCell(nav, { x: point.x + 0.5, y: 0, z: point.z + 0.5 })
+    if (!inBounds(nav, cell)) continue
+    nav.blocked[cellIndex(nav, cell)] = 1
+  }
+}
+
 export function dungeonEntrancePos(): Vec3 {
   return { x: DUNGEON_ENTRANCE.x, y: 0, z: DUNGEON_ENTRANCE.z }
 }
 
-export function dungeonRoomCenter(run: DungeonRun, index: number): Vec3 {
-  const entrance = dungeonEntrancePos()
+export function dungeonRoomSlot(index: number): { col: number; row: number } {
+  const row = Math.floor(index / COLS)
+  const colInRow = index % COLS
+  const col = row % 2 === 1 ? COLS - 1 - colInRow : colInRow
+  return { col, row }
+}
+
+export function dungeonRoomRect(index: number): { minX: number; maxX: number; minZ: number; maxZ: number } {
+  const { col, row } = dungeonRoomSlot(index)
+  const minX = DUNGEON_CAVE.originX + col * STEP
+  const minZ = DUNGEON_CAVE.originZ + row * STEP
+  return { minX, maxX: minX + ROOM, minZ, maxZ: minZ + ROOM }
+}
+
+export function dungeonRoomCenter(_run: DungeonRun, index: number): Vec3 {
+  const rect = dungeonRoomRect(index)
   return {
-    x: entrance.x + (index + 1) * DUNGEON_ROOM_SPACING,
+    x: (rect.minX + rect.maxX) / 2,
     y: 0,
-    z: entrance.z,
+    z: (rect.minZ + rect.maxZ) / 2,
   }
+}
+
+export function dungeonHallRect(from: number, to: number): { minX: number; maxX: number; minZ: number; maxZ: number } | null {
+  const a = dungeonRoomRect(from)
+  const b = dungeonRoomRect(to)
+  const midZ = (Math.min(a.minZ, b.minZ) + Math.max(a.maxZ, b.maxZ)) / 2
+  const midX = (Math.min(a.minX, b.minX) + Math.max(a.maxX, b.maxX)) / 2
+  const gap = 1.6
+  if (Math.abs(a.minZ - b.minZ) < 0.1) {
+    const west = Math.min(a.maxX, b.maxX)
+    const east = Math.max(a.minX, b.minX)
+    return { minX: west, maxX: east, minZ: midZ - gap, maxZ: midZ + gap }
+  }
+  if (Math.abs(a.minX - b.minX) < 0.1) {
+    const south = Math.min(a.maxZ, b.maxZ)
+    const north = Math.max(a.minZ, b.minZ)
+    return { minX: midX - gap, maxX: midX + gap, minZ: south, maxZ: north }
+  }
+  return null
+}
+
+export function dungeonBlockedWorldCells(run: DungeonRun): Array<{ x: number; z: number }> {
+  const seen = new Set<string>()
+  const rows = Math.ceil(run.nodes.length / COLS)
+  const minX = Math.floor(DUNGEON_CAVE.originX - 1)
+  const minZ = Math.floor(DUNGEON_CAVE.originZ - 1)
+  const maxX = Math.ceil(DUNGEON_CAVE.originX + COLS * STEP - HALL + 1)
+  const maxZ = Math.ceil(DUNGEON_CAVE.originZ + rows * STEP - HALL + 1)
+  for (let x = minX; x <= maxX; x += 1) {
+    for (let z = minZ; z <= maxZ; z += 1) seen.add(`${x},${z}`)
+  }
+  const carve = (rect: { minX: number; maxX: number; minZ: number; maxZ: number }): void => {
+    for (let x = Math.floor(rect.minX); x < rect.maxX; x += 1) {
+      for (let z = Math.floor(rect.minZ); z < rect.maxZ; z += 1) seen.delete(`${x},${z}`)
+    }
+  }
+  for (let i = 0; i < run.nodes.length; i += 1) carve(dungeonRoomRect(i))
+  const last = run.nodes.length - 1
+  for (let i = 0; i < last; i += 1) {
+    if (i >= run.index && !run.roomCleared) continue
+    const hall = dungeonHallRect(i, i + 1)
+    if (hall) carve(hall)
+  }
+  return [...seen].map((key) => {
+    const [x, z] = key.split(',').map(Number)
+    return { x: x ?? 0, z: z ?? 0 }
+  })
 }
 
 export function isInDungeon(world: WorldState): boolean {
@@ -64,10 +140,12 @@ export function enterDungeon(world: WorldState, survivor: SurvivorState): boolea
     roomCleared: false,
     picks: null,
     evacuated: false,
+    spawnedRooms: [],
   }
   world.raidEntered = true
   placeInRoom(world, survivor, 0)
   spawnRoom(world, world.dungeonRun)
+  world.navDirty = true
   return true
 }
 
@@ -92,12 +170,7 @@ export function advanceDungeon(world: WorldState, survivor: SurvivorState): bool
   if (!run.roomCleared) markRoomCleared(world, run)
   const last = run.nodes.length - 1
   if (run.index >= last) return false
-  clearDungeonEnemies(world)
-  run.index += 1
-  run.picks = null
-  run.roomCleared = false
-  placeInRoom(world, survivor, run.index)
-  spawnRoom(world, run)
+  world.navDirty = true
   return true
 }
 
@@ -115,6 +188,7 @@ export function evacuateDungeon(world: WorldState, survivor?: SurvivorState): bo
   run.picks = null
   run.roomCleared = true
   recordRaidLoot(world, actor)
+  world.navDirty = true
   return true
 }
 
@@ -153,9 +227,30 @@ function bestCarriedRarity(world: WorldState, survivor: SurvivorState): ItemRari
 
 export function stepDungeonRun(world: WorldState): void {
   const run = world.dungeonRun
-  if (!run || run.evacuated || run.roomCleared) return
+  if (!run || run.evacuated) return
+  const actor = dungeonActor(world)
+  if (actor) {
+    const inside = roomIndexAt(actor.position, run.nodes.length)
+    if (inside === run.index + 1 && run.roomCleared) {
+      run.index = inside
+      run.picks = null
+      run.roomCleared = false
+      spawnRoom(world, run)
+      world.navDirty = true
+    }
+  }
+  if (run.roomCleared) return
   if (roomHasEnemies(world, run)) return
   markRoomCleared(world, run)
+  world.navDirty = true
+}
+
+export function roomIndexAt(point: Vec3, roomCount: number): number {
+  for (let i = 0; i < roomCount; i += 1) {
+    const rect = dungeonRoomRect(i)
+    if (point.x >= rect.minX && point.x <= rect.maxX && point.z >= rect.minZ && point.z <= rect.maxZ) return i
+  }
+  return -1
 }
 
 function dungeonActor(world: WorldState): SurvivorState | undefined {
@@ -174,6 +269,8 @@ function placeInRoom(world: WorldState, survivor: SurvivorState, index: number):
 }
 
 function spawnRoom(world: WorldState, run: DungeonRun): void {
+  if (run.spawnedRooms.includes(run.index)) return
+  run.spawnedRooms.push(run.index)
   const node = run.nodes[run.index]
   if (!node || node.kind === 'exit' || node.kind === 'event' || node.kind === 'reward') {
     markRoomCleared(world, run)
@@ -186,7 +283,7 @@ function spawnRoom(world: WorldState, run: DungeonRun): void {
     const ring = Math.floor(i / 2) + 1
     world.enemies.push(createEnemy(
       'wanderer',
-      { x: center.x + side * (1.6 + ring * 0.4), y: 0, z: center.z + 1.4 + ring * 0.3 },
+      { x: center.x + side * (1.8 + ring * 0.5), y: 0, z: center.z + side * (1.2 + ring * 0.4) },
       `${DUNGEON_ENEMY_PREFIX}${run.seed}-${run.index}-${i}`,
     ))
   }
@@ -200,11 +297,11 @@ function markRoomCleared(world: WorldState, run: DungeonRun): void {
 }
 
 function roomHasEnemies(world: WorldState, run: DungeonRun): boolean {
-  const center = dungeonRoomCenter(run, run.index)
+  const rect = dungeonRoomRect(run.index)
   return world.enemies.some((enemy) => {
     if (enemy.health <= 0) return false
     if (!enemy.id.startsWith(DUNGEON_ENEMY_PREFIX)) return false
-    return distanceXZ(enemy.position, center) < ROOM_RADIUS
+    return enemy.position.x >= rect.minX && enemy.position.x <= rect.maxX && enemy.position.z >= rect.minZ && enemy.position.z <= rect.maxZ
   })
 }
 

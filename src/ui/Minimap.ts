@@ -47,6 +47,20 @@ export class Minimap {
       ctx.fill()
     }
 
+    ctx.fillStyle = '#c47a3a'
+    ctx.beginPath()
+    ctx.arc(toX(40), toY(55), 4, 0, Math.PI * 2)
+    ctx.fill()
+    if (world.dungeonRun && !world.dungeonRun.evacuated) {
+      ctx.fillStyle = '#5a4030'
+      const run = world.dungeonRun
+      for (let i = 0; i < run.nodes.length; i += 1) {
+        const col = i % 4
+        const row = Math.floor(i / 4)
+        ctx.fillRect(toX(34 + col * 12) - 2, toY(50 + row * 12) - 2, 8, 8)
+      }
+    }
+
     for (const survivor of world.survivors) {
       ctx.fillStyle = '#f2efe6'
       ctx.fillRect(toX(survivor.position.x) - 2, toY(survivor.position.z) - 2, 4, 4)
