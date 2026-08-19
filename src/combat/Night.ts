@@ -11,6 +11,7 @@ import { distanceXZ, type NightLoot, type NightPost, type NightReport, type Stru
 import { equipItem } from '@/survivors/Equipment'
 import { beginTravel, followTravel } from '@/navigation/Travel'
 import { isHero } from '@/controls/PlayerControl'
+import { insideBase } from '@/survivors/Living'
 import { stepFollowHero } from '@/jobs/Follow'
 import { autoCombat, createEnemy, nearestLivingEnemy } from './Combat'
 
@@ -169,6 +170,13 @@ function makeReport(world: WorldState, outcome: 'won' | 'lost', reason: string):
     loot: [],
     reason,
   }
+}
+
+export function readyForNightPost(world: WorldState, survivor: SurvivorState): boolean {
+  if (world.time.phase !== 'night' || survivor.downed) return false
+  if (survivor.dayAssignment === 'follow') return true
+  if (!insideBase(survivor.position)) return false
+  return survivor.workerState !== 'ReturnToBase' && survivor.workerState !== 'DepositItems'
 }
 
 export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt: number): void {

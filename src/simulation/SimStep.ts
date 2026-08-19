@@ -3,7 +3,7 @@ import { ejectWarehouseGear, pickupGroundLoot } from '@/data/loot'
 import { applyDungeonNav, stepDungeonRun } from '@/dungeon/Dungeon'
 import { depositIfNearWarehouse } from '@/inventory/Cargo'
 import { stepWildlife } from '@/world/Wildlife'
-import { stepNightCycle, stepNightDefender } from '@/combat/Night'
+import { readyForNightPost, stepNightCycle, stepNightDefender } from '@/combat/Night'
 import { type ControlIntent, stepPlayerControl } from '@/controls/PlayerControl'
 import { stepDayWorker } from '@/jobs/DayWorker'
 import { planJobs } from '@/jobs/JobPlanner'
@@ -36,10 +36,9 @@ export function stepWorld(world: WorldState, dt: number, intent: ControlIntent |
   }
   const hero = world.survivors.find((entry) => entry.id === world.player.heroId)
   if (hero && hero.id !== world.player.controlledId) pickupGroundLoot(world, hero)
-  const nightWatch = world.time.phase === 'night'
   for (const survivor of world.survivors) {
     if (survivor.id === world.player.controlledId) continue
-    if (nightWatch) stepNightDefender(world, survivor, dt)
+    if (readyForNightPost(world, survivor)) stepNightDefender(world, survivor, dt)
     else stepDayWorker(world, survivor, dt)
   }
   stepProjectiles(world, dt)

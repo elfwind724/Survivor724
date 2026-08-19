@@ -18,7 +18,7 @@ import { addItem, canAdd, countItem, inventoryOf, removeItem, usedSlots } from '
 import type { InventoryState } from '@/simulation/types'
 import { beginTravel, followTravel } from '@/navigation/Travel'
 import { findContainer, findJob, findNode } from '@/simulation/EntityRegistry'
-import { diningSpot, drinkOne, eatOne, EAT_SECONDS, hungerThreshold, shouldEat } from '@/survivors/Living'
+import { diningSpot, drinkOne, eatOne, EAT_SECONDS, hungerThreshold, insideBase, shouldEat } from '@/survivors/Living'
 import { distanceXZ, type DayPhase, type SurvivorState, type WorldState } from '@/simulation/types'
 
 export function isWorkPhase(phase: DayPhase): boolean {
@@ -61,8 +61,14 @@ export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: nu
   }
   const job = currentJob(world, survivor)
   const definition = job ? jobDefinition(job.definitionId) : undefined
-  if (isReturnPhase(world.time.phase) && isInterruptible(survivor.workerState, definition?.category ?? 'field')) {
-    beginReturn(world, survivor)
+  if (isReturnPhase(world.time.phase)) {
+    const returning = survivor.workerState === 'ReturnToBase'
+      || survivor.workerState === 'DepositItems'
+      || survivor.workerState === 'ReturnEquipment'
+    if (!insideBase(survivor.position) && !returning) beginReturn(world, survivor)
+    else if (insideBase(survivor.position) && isInterruptible(survivor.workerState, definition?.category ?? 'field')) {
+      beginReturn(world, survivor)
+    }
   }
 
   switch (survivor.workerState) {

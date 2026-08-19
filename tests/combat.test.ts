@@ -7,8 +7,9 @@ import { countItem } from '@/inventory/Inventory'
 import { hordeCounts } from '@/data/enemies'
 import { assignWatch } from '@/jobs/Roster'
 import { TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
-import { fireProfile, magazineSize, muzzleOrigin, readMag } from '@/data/weapons'
-import { duskWarningLevel } from '@/simulation/TimeSystem'
+import { equippedWeapon, fireProfile, magazineSize, muzzleOrigin, readMag } from '@/data/weapons'
+import { DAY_END, DUSK_END, duskWarningLevel } from '@/simulation/TimeSystem'
+import { distanceXZ } from '@/simulation/types'
 import { cellCenter, worldToCell } from '@/navigation/NavGrid'
 import { stepWorld } from '@/simulation/SimStep'
 import { possessSurvivor } from '@/controls/PlayerControl'
@@ -281,6 +282,50 @@ describe('combat and night', () => {
     stepWorld(world, 1 / 30)
     expect(world.projectiles.length).toBeGreaterThan(0)
     expect(hunter.facingYaw).toBeCloseTo(0, 1)
+    expect(world.projectiles[0]?.weaponId).toBe(equippedWeapon(hunter)?.id)
+  })
+
+  it('sends field workers walking home at dusk instead of teleporting them', () => {
+    const world = createInitialWorld()
+    const fisher = findSurvivor(world, 'fisher')
+    const warehouse = world.containers.find((entry) => entry.kind === 'warehouse')
+    if (!fisher || !warehouse) throw new Error('missing fisher')
+    fisher.position = { x: -55, y: 0, z: 32 }
+    fisher.workerState = 'Work'
+    fisher.destination = null
+    fisher.path = []
+    world.lastPhase = 'day'
+    world.time.daySeconds = DAY_END
+    world.time.phase = 'dusk'
+    const start = { x: fisher.position.x, z: fisher.position.z }
+    const homeDist = distanceXZ(fisher.position, warehouse.position)
+    for (let i = 0; i < 30; i += 1) stepWorld(world, 1 / 30)
+    expect(fisher.workerState).toBe('ReturnToBase')
+    expect(fisher.position.y).toBe(0)
+    const moved = Math.hypot(fisher.position.x - start.x, fisher.position.z - start.z)
+    expect(moved).toBeGreaterThan(0.4)
+    expect(moved).toBeLessThan(fisher.moveSpeed * 1.2 + 0.5)
+    expect(distanceXZ(fisher.position, warehouse.position)).toBeGreaterThan(homeDist - moved - 1)
+    expect(distanceXZ(fisher.position, warehouse.position)).toBeGreaterThan(20)
+  })
+
+  it('keeps late field workers on the road at night instead of snapping them onto a tower', () => {
+    const world = createInitialWorld()
+    const fisher = findSurvivor(world, 'fisher')
+    if (!fisher) throw new Error('missing fisher')
+    fisher.position = { x: -55, y: 0, z: 32 }
+    fisher.workerState = 'Work'
+    fisher.destination = null
+    fisher.path = []
+    fisher.nightPostId = null
+    world.lastPhase = 'dusk'
+    world.time.daySeconds = DUSK_END
+    world.time.phase = 'dusk'
+    stepWorld(world, 1 / 30)
+    expect(world.time.phase).toBe('night')
+    expect(fisher.position.y).toBe(0)
+    expect(fisher.workerState).toBe('ReturnToBase')
+    expect(Math.abs(fisher.position.x + 55)).toBeLessThan(3)
   })
 
   it('keeps auto-aim on the enemy while the player walks sideways', () => {
