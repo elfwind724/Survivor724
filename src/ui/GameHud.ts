@@ -6,7 +6,7 @@ import { itemLabel } from '@/data/items'
 import { gearLabel, isGearId, nearbyLootName } from '@/data/loot'
 import { isInDungeon, nearDungeonEntrance } from '@/dungeon/Dungeon'
 import { assignmentLabel } from '@/jobs/Roster'
-import { equippedWeapon, magazineSize, readMag } from '@/data/weapons'
+import { equippedWeapon, INFINITE_AMMO, magazineSize, readMag } from '@/data/weapons'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { duskStatus, duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel, secondsUntilDusk } from '@/simulation/TimeSystem'
 import { insideBase } from '@/survivors/Living'
@@ -429,7 +429,7 @@ function renderInspect(model: HudModel): string {
     })
     .join('')
   const gun = card.weapon
-    ? `<p class="hud-inspect-gun">${escapeHtml(card.weapon)} <em>${card.ammo ?? 0}/${card.ammoMax}</em></p>`
+    ? `<p class="hud-inspect-gun">${escapeHtml(card.weapon)} <em>${INFINITE_AMMO ? '∞' : `${card.ammo ?? 0}/${card.ammoMax}`}</em></p>`
     : ''
   return `<aside class="hud-inspect${card.downed ? ' is-downed' : ''}">
     <header>
@@ -608,13 +608,13 @@ function cooldownRatio(survivor: SurvivorState): number {
 
 function renderWeaponHud(weapon: HudModel['weapon']): string {
   if (!weapon) return ''
-  const empty = weapon.ammo <= 0 ? ' is-empty' : ''
+  const empty = !INFINITE_AMMO && weapon.ammo <= 0 ? ' is-empty' : ''
   const cooling = weapon.cooldown > 0.02 ? ' is-cd' : ''
   return `<div class="hud-weapon${empty}${cooling}">
     <span class="hud-cd" style="--t:${weapon.cooldown.toFixed(3)}" aria-hidden="true"></span>
     <div>
       <strong>${escapeHtml(weapon.name)}</strong>
-      <em>${weapon.ammo}/${weapon.ammoMax}</em>
+      <em>${INFINITE_AMMO ? '∞' : `${weapon.ammo}/${weapon.ammoMax}`}</em>
     </div>
   </div>`
 }

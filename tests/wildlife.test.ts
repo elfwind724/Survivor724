@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { butcherWildlife, harvestWildlife, tryShoot, stepProjectiles } from '@/combat/Combat'
+import { autoCombat, butcherWildlife, harvestWildlife, tryShoot, stepProjectiles } from '@/combat/Combat'
 import { countItem } from '@/inventory/Inventory'
 import { assignPost } from '@/jobs/Roster'
 import { stepWorld } from '@/simulation/SimStep'
@@ -132,6 +132,20 @@ describe('wildlife and field food', () => {
     expect(lines[0]).toMatch(/CD/)
     expect(lines.some((line) => line.includes('熟食'))).toBe(true)
     expect(lines.some((line) => line.includes('经验'))).toBe(true)
+  })
+
+  it('lets followers auto-shoot wildlife when no zombies are nearby', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.equipment.weapon = 'rifle'
+    hunter.carriedTools = ['rifle']
+    hunter.fireCooldown = 0
+    const deer = nearestLivingWildlife(world, { x: 52, z: -18 }, 20)
+    if (!deer) throw new Error('missing deer')
+    hunter.position = { x: deer.position.x, y: 0, z: deer.position.z - 6 }
+    expect(autoCombat(world, hunter)).toBe(true)
+    expect(world.projectiles.length).toBeGreaterThan(0)
   })
 
   it('lets a hunter shot drop nearby wildlife', () => {

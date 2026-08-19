@@ -127,9 +127,11 @@ export function autoCombat(world: WorldState, survivor: SurvivorState): boolean 
   if (survivor.downed) return false
   const profile = fireProfile(survivor, 0, world)
   if (!profile.weapon) return false
-  const enemy = nearestLivingEnemy(world, survivor.position, profile.range + towerRangeBonus(world, survivor))
-  if (!enemy) return false
-  survivor.facingYaw = Math.atan2(enemy.position.x - survivor.position.x, enemy.position.z - survivor.position.z)
+  const range = profile.range + towerRangeBonus(world, survivor)
+  const target = nearestLivingEnemy(world, survivor.position, range)
+    ?? nearestLivingWildlife(world, survivor.position, range)
+  if (!target) return false
+  survivor.facingYaw = Math.atan2(target.position.x - survivor.position.x, target.position.z - survivor.position.z)
   return tryShoot(world, survivor)
 }
 

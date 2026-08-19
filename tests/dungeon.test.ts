@@ -251,9 +251,9 @@ describe('dungeon run', () => {
   })
 })
 
-describe('limited ammo', () => {
-  it('keeps INFINITE_AMMO off so guns spend magazine rounds', () => {
-    expect(INFINITE_AMMO).toBe(false)
+describe('infinite ammo', () => {
+  it('keeps INFINITE_AMMO on so guns do not spend magazine rounds', () => {
+    expect(INFINITE_AMMO).toBe(true)
 
     const world = createInitialWorld()
     world.debugInfiniteAmmo = false
@@ -265,14 +265,10 @@ describe('limited ammo', () => {
     hunter.weaponAmmo = { rifle: 5 }
     hunter.fireCooldown = 0
     expect(tryShoot(world, hunter)).toBe(true)
-    expect(hunter.ammo).toBe(4)
+    expect(hunter.ammo).toBe(5)
 
     hunter.ammo = 0
     hunter.weaponAmmo.rifle = 0
-    hunter.fireCooldown = 0
-    expect(tryShoot(world, hunter)).toBe(false)
-
-    world.debugInfiniteAmmo = true
     hunter.fireCooldown = 0
     expect(tryShoot(world, hunter)).toBe(true)
     expect(hunter.ammo).toBe(0)
