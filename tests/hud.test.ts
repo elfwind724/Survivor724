@@ -29,7 +29,7 @@ describe('game hud', () => {
     expect(html).toContain('渴')
     expect(html).toContain('第 1 天')
     expect(html).toContain('复位镜头')
-    expect(html).toContain('显示整栋')
+    expect(html).toContain('显示内部')
     expect(html).toContain('C 装备')
     expect(html).toContain('N 背包')
     expect(html).toContain('保存')

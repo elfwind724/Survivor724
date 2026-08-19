@@ -25,7 +25,7 @@ import { AssetLibrary } from './AssetLibrary'
 import { animalPoseFrom, fallbackAnimalPose, pickAnimalClip, type AnimalPose } from './AnimalClips'
 import { pickArmedPose, pickCharacterClip, type CharacterPose } from './CharacterClips'
 import { barrelTipWorld, findHoldBone, prepareHeldGun, snapHeldGun } from './HeldWeapon'
-import { fitToHeight, prepareKit, suggestedScale, SURVIVOR_HEIGHT } from './ModelFit'
+import { fitToHeight, isolateMaterials, prepareKit, suggestedScale, SURVIVOR_HEIGHT } from './ModelFit'
 
 interface Marker {
   id: string
@@ -520,7 +520,7 @@ export class DebugRenderer {
       return
     }
     if (structure.stage !== 'complete') return
-    const open = world.showInteriors && isLifeBuilding(structure.definitionId)
+    const open = world.showInteriors && isLifeBuilding(structure.definitionId) && structure.placedBy !== 'creative'
     this.ensureInterior(world, structure, root)
     this.ensureOpenShell(world, structure, root)
     const hasKit = root.children.some((child) => child.name === 'kit')
@@ -1671,6 +1671,7 @@ function setCutaway(root: THREE.Object3D, on: boolean): void {
 }
 
 function ghostMaterial(root: THREE.Object3D): void {
+  isolateMaterials(root)
   root.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return
     const materials = Array.isArray(object.material) ? object.material : [object.material]

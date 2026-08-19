@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import { alignGunAxes, barrelTipWorld, findHoldBone, heldGunLength, holdPose, prepareHeldGun, snapHeldGun } from '@/render/HeldWeapon'
-import { fitHeldGun, fitToHeight } from '@/render/ModelFit'
+import { fitHeldGun, fitToHeight, isolateMaterials } from '@/render/ModelFit'
 
 describe('model fit', () => {
   it('brings an oversized Man and a normal Adventurer to the same height', () => {
@@ -75,5 +75,19 @@ describe('model fit', () => {
     const barrel = barrelTipWorld(gun)
     expect(barrel.dir.z).toBeGreaterThan(0.9)
     expect(barrel.tip.z).toBeGreaterThan(1.6)
+  })
+
+  it('clones mesh materials so a ghost preview cannot stain the source', () => {
+    const shared = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: false, opacity: 1 })
+    const source = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), shared)
+    const ghost = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), shared)
+    isolateMaterials(ghost)
+    const isolated = ghost.material
+    if (!(isolated instanceof THREE.MeshLambertMaterial)) throw new Error('expected lambert')
+    isolated.transparent = true
+    isolated.opacity = 0.4
+    expect(shared.transparent).toBe(false)
+    expect(shared.opacity).toBe(1)
+    expect(source.material).toBe(shared)
   })
 })

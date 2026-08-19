@@ -195,7 +195,7 @@ export function createInitialWorld(): WorldState {
     projectiles: [],
     impacts: [],
     rosterStrategy: 'balanced',
-    showInteriors: true,
+    showInteriors: false,
     nightKills: 0,
     nightSpawned: 0,
     nightWalls: 0,

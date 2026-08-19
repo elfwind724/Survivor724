@@ -82,8 +82,8 @@ describe('facility life', () => {
 
   it('can switch between interior cutaway and full buildings', () => {
     const world = createInitialWorld()
-    expect(world.showInteriors).toBe(true)
-    world.showInteriors = false
     expect(world.showInteriors).toBe(false)
+    world.showInteriors = true
+    expect(world.showInteriors).toBe(true)
   })
 })

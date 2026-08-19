@@ -42,7 +42,13 @@ export class AssetLibrary {
   clone(id: string): THREE.Object3D | null {
     const template = this.templates.get(id)
     if (!template) return null
-    return SkeletonUtils.clone(template.scene)
+    const cloned = SkeletonUtils.clone(template.scene)
+    cloned.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return
+      if (Array.isArray(object.material)) object.material = object.material.map((material) => material.clone())
+      else if (object.material) object.material = object.material.clone()
+    })
+    return cloned
   }
 
   async load(id: string): Promise<THREE.Object3D | null> {

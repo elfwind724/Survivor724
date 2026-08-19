@@ -75,7 +75,19 @@ export function fitHeldGun(object: THREE.Object3D): void {
   object.scale.multiplyScalar(HELD_GUN_LENGTH / longest)
 }
 
+export function isolateMaterials(root: THREE.Object3D): void {
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return
+    if (Array.isArray(object.material)) {
+      object.material = object.material.map((material) => material.clone())
+      return
+    }
+    if (object.material) object.material = object.material.clone()
+  })
+}
+
 export function prepareKit(object: THREE.Object3D, scale: number): THREE.Object3D {
+  isolateMaterials(object)
   object.scale.multiplyScalar(scale)
   sitOnGround(object)
   object.name = 'kit'
