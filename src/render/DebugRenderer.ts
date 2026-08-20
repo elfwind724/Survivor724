@@ -9,6 +9,7 @@ import { ENEMY_ASSETS, gateOpenAsset, STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '
 import { cellCenter, worldToCell } from '@/navigation/NavGrid'
 import { followCameraOffset } from '@/controls/CameraWish'
 import { BASE } from '@/simulation/baseLayout'
+import { riverStrips, roadStrips } from '@/data/landscape'
 import type { EnemyState, GridCell, StructureState, SurvivorState, WildlifeState, WorldState } from '@/simulation/types'
 import { isCasting } from '@/world/Fishing'
 import { wildlifeAssetOf, wildlifeHeight } from '@/world/Wildlife'
@@ -82,6 +83,7 @@ export class DebugRenderer {
   private dungeonKey = ''
   private ground: THREE.Mesh | null = null
   private yard: THREE.Mesh | null = null
+  private readonly landscapeRoot = new THREE.Group()
   private readonly fishingLines = new Map<string, THREE.Line>()
   private readonly ruinCrates = new Map<string, Marker>()
   private readonly berryBushes = new Map<string, Marker>()
@@ -101,17 +103,17 @@ export class DebugRenderer {
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
-    this.hemi = new THREE.HemisphereLight(0xdde6d8, 0x2a2f28, 1.1)
+    this.hemi = new THREE.HemisphereLight(0xc4d6ea, 0x3a4034, 1.15)
     this.sun = new THREE.DirectionalLight(0xfff1d0, 1.35)
-    this.sun.position.set(28, 48, 16)
+    this.sun.position.set(36, 62, -22)
     this.sun.castShadow = true
     this.sun.shadow.mapSize.set(2048, 2048)
-    this.sun.shadow.camera.left = -90
-    this.sun.shadow.camera.right = 90
-    this.sun.shadow.camera.top = 90
-    this.sun.shadow.camera.bottom = -90
+    this.sun.shadow.camera.left = -140
+    this.sun.shadow.camera.right = 140
+    this.sun.shadow.camera.top = 140
+    this.sun.shadow.camera.bottom = -140
     this.scene.add(this.hemi, this.sun)
-    this.scene.fog = new THREE.Fog(0x8fa4c4, 90, 260)
+    this.scene.fog = new THREE.Fog(0xa6c0d0, 70, 280)
 
     this.ground = new THREE.Mesh(
       new THREE.PlaneGeometry(360, 360),
@@ -130,6 +132,28 @@ export class DebugRenderer {
     this.yard.position.set((BASE.west + BASE.east) / 2, 0.02, (BASE.south + BASE.north) / 2)
     this.yard.receiveShadow = true
     this.scene.add(this.yard)
+    this.landscapeRoot.name = 'landscape'
+    const waterMat = new THREE.MeshLambertMaterial({
+      color: 0x2a5c68,
+      transparent: true,
+      opacity: 0.92,
+    })
+    for (const strip of riverStrips()) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(strip.width, 0.05, strip.length), waterMat)
+      mesh.rotation.y = strip.yaw
+      mesh.position.set(strip.x, -0.03, strip.z)
+      mesh.receiveShadow = true
+      this.landscapeRoot.add(mesh)
+    }
+    const dirtMat = new THREE.MeshLambertMaterial({ color: 0x6a5844 })
+    for (const strip of roadStrips()) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(strip.width, 0.04, strip.length), dirtMat)
+      mesh.rotation.y = strip.yaw
+      mesh.position.set(strip.x, 0.03, strip.z)
+      mesh.receiveShadow = true
+      this.landscapeRoot.add(mesh)
+    }
+    this.scene.add(this.landscapeRoot)
     this.dressingRoot.name = 'dressing'
     this.scene.add(this.dressingRoot)
     this.library.enqueue(this.bootIds())
@@ -1028,6 +1052,7 @@ export class DebugRenderer {
     const cave = isInDungeon(world)
     if (this.ground) this.ground.visible = !cave
     if (this.yard) this.yard.visible = !cave
+    this.landscapeRoot.visible = !cave
     this.dressingRoot.visible = !cave
     if (cave) {
       this.scene.background = new THREE.Color(0x2a2218)
@@ -1062,14 +1087,14 @@ export class DebugRenderer {
       this.sun.intensity = 0.7
       return
     }
-    this.scene.background = new THREE.Color(0x8fa4c4)
+    this.scene.background = new THREE.Color(0x8eacc4)
     if (this.scene.fog instanceof THREE.Fog) {
-      this.scene.fog.color.set(0x8fa4c4)
-      this.scene.fog.near = 90
-      this.scene.fog.far = 260
+      this.scene.fog.color.set(0xa6c0d0)
+      this.scene.fog.near = 70
+      this.scene.fog.far = 280
     }
-    this.hemi.intensity = 1.15
-    this.sun.intensity = 1.45
+    this.hemi.intensity = 1.2
+    this.sun.intensity = 1.5
   }
 
   private syncWildlife(world: WorldState, dt: number): void {

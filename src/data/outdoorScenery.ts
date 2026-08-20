@@ -1,6 +1,7 @@
 import type { DecorationState } from '@/simulation/types'
 import { BASE } from '@/simulation/baseLayout'
 import { assetById } from '@/data/assetIndex'
+import { RIVER_SPINE } from '@/data/landscape'
 
 export const TOWER_STAND_HEIGHT = 2.05
 
@@ -217,14 +218,7 @@ function fillWorldBiomes(add: (assetId: string, x: number, z: number, yaw?: numb
 
   plantGrove(add, { cx: 78, cz: 92, radius: 16, hole: 5, trees: 8, brush: 6, canopy: dead, under: rocks, salt: 'grove-ruin-edge' })
 
-  plantAlong(add, [
-    [-38, 18],
-    [-52, 28],
-    [-64, 36],
-    [-78, 48],
-    [-90, 62],
-    [-102, 74],
-  ], rocks, 3.2, 7, 'river-line')
+  plantAlong(add, RIVER_SPINE, rocks, 3.2, 8, 'river-line')
 
   scatterMeadow(add, grass, 28, 38, 78, 'yard-meadow')
 }
