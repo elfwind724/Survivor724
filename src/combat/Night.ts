@@ -15,7 +15,10 @@ import { beginTravel, followTravel } from '@/navigation/Travel'
 import { isHero } from '@/controls/PlayerControl'
 import { insideBase } from '@/survivors/Living'
 import { stepFollowHero } from '@/jobs/Follow'
+import { assignedRescuer } from '@/jobs/Rescue'
 import { autoCombat, createEnemy, nearestLivingEnemy } from './Combat'
+
+export { assignedRescuer }
 
 export const TOWER_RANGE_BONUS = 16
 
@@ -310,12 +313,6 @@ function assignOnePost(world: WorldState, survivor: SurvivorState): NightPost | 
   post.occupantId = survivor.id
   survivor.nightPostId = post.id
   return post
-}
-
-export function assignedRescuer(world: WorldState, downed: SurvivorState): SurvivorState | undefined {
-  return world.survivors
-    .filter((entry) => !entry.downed && entry.id !== downed.id && entry.id !== world.player.controlledId)
-    .sort((a, b) => distanceXZ(a.position, downed.position) - distanceXZ(b.position, downed.position))[0]
 }
 
 function rescueDowned(world: WorldState, survivor: SurvivorState, dt: number): boolean {

@@ -5,6 +5,7 @@ import { isCasting, remainingCast } from '@/world/Fishing'
 import { isSearchingRuin, remainingSearch } from '@/world/Ruins'
 import { isPickingBerries, remainingPick } from '@/world/Forage'
 import { isScoopingWater, remainingScoop } from '@/world/Draw'
+import { rescueCaption } from '@/jobs/Rescue'
 import { itemLabel } from '@/data/items'
 import { EAT_SECONDS } from '@/survivors/Living'
 import { xpToNext } from '@/survivors/Progress'
@@ -19,7 +20,9 @@ export const PROFESSION_LABEL: Record<string, string> = {
 }
 
 export function activityCaption(world: WorldState, survivor: SurvivorState): string {
-  if (survivor.downed) return '倒地'
+  if (survivor.downed) return rescueCaption(world, survivor) ?? '倒地'
+  const rescuing = rescueCaption(world, survivor)
+  if (rescuing) return rescuing
   if (survivor.id === world.player.heroId && world.player.controlledId === survivor.id) return '主角'
   if (survivor.dayAssignment === 'follow') return '跟随中'
   if (isSleeping(world, survivor)) return '睡觉中'

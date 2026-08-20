@@ -13,6 +13,7 @@ import { claimFishingSpot, releaseFishingSpot, stepFishing } from '@/world/Fishi
 import { claimRuinCrate, releaseRuinCrate, stepScavenge } from '@/world/Ruins'
 import { claimBerryBush, releaseBerryBush, stepGather } from '@/world/Forage'
 import { claimWaterScoop, releaseWaterScoop, stepDraw } from '@/world/Draw'
+import { stepDayRescue } from '@/jobs/Rescue'
 import { nearestLivingWildlife } from '@/world/Wildlife'
 import { nodeAllowedForSurvivor } from '@/base/workZones'
 import { WORK_SECONDS, jobDefinition } from '@/data/jobs'
@@ -66,6 +67,8 @@ export function recallFieldWorkers(world: WorldState): number {
 
 export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: number): void {
   if (world.player.controlledId === survivor.id) return
+  if (survivor.downed) return
+  if (stepDayRescue(world, survivor, dt)) return
   if (survivor.dayAssignment === 'follow') {
     stepFollowHero(world, survivor, dt)
     return

@@ -11,6 +11,7 @@ import { maybeDropGear } from '@/data/loot'
 import { extraYieldCount, skillDefenseBonus } from '@/data/skills'
 import { grantSkillXp, grantXp, recordWorkYield } from '@/survivors/Progress'
 import { markHarvested, nearestLivingWildlife, wildlifeKillXp, wildlifeYield } from '@/world/Wildlife'
+import { insideBase } from '@/survivors/Living'
 import { cloneVec3, distanceXZ, type EnemyState, type ImpactState, type ProjectileState, type StructureState, type SurvivorState, type Vec3, type WildlifeState, type WorldState } from '@/simulation/types'
 
 const HIT_RADIUS = 0.78
@@ -278,6 +279,7 @@ export function stepEnemies(world: WorldState, dt: number): void {
 export function stepRevive(world: WorldState, dt: number): void {
   for (const downed of world.survivors) {
     if (!downed.downed) continue
+    if (!insideBase(downed.position)) continue
     const helper = world.survivors.find(
       (entry) => !entry.downed && entry.id !== downed.id && distanceXZ(entry.position, downed.position) < 1.8,
     )
