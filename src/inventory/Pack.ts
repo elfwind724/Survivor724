@@ -112,6 +112,21 @@ export function swapBagAndHotbar(world: WorldState, survivor: SurvivorState, bag
   return true
 }
 
+export function selectHotbarSlot(
+  world: WorldState,
+  survivor: SurvivorState,
+  index: number,
+): { cursor: PackCursor; notice: string } {
+  const slot = ensureHotbar(survivor)[index]
+  if (!slot) {
+    return { cursor: { place: 'hot', index }, notice: '这一格是空的' }
+  }
+  return {
+    cursor: { place: 'hot', index },
+    notice: `已选 ${itemName(world, slot.itemId)} · E 使用 · 右键丢弃 · F 拆解`,
+  }
+}
+
 export function useHotbarSlot(world: WorldState, survivor: SurvivorState, index: number): string {
   const slot = ensureHotbar(survivor)[index]
   if (!slot) return '这一格是空的'
@@ -148,8 +163,11 @@ export function handlePackClick(
     return { cursor, notice: '点快捷栏空格才能放上去' }
   }
   if (cursor?.place === 'hot' && click.place === 'hot') {
-    swapHotbarSlots(survivor, cursor.index, click.index)
-    return { cursor: null, notice: '已交换快捷栏' }
+    if (bagOpen) {
+      swapHotbarSlots(survivor, cursor.index, click.index)
+      return { cursor: null, notice: '已交换快捷栏' }
+    }
+    return selectHotbarSlot(world, survivor, click.index)
   }
   if (click.place === 'hot-drop') {
     return { cursor: null, notice: dropHotbarSlot(world, survivor, click.index) }
@@ -158,9 +176,7 @@ export function handlePackClick(
     return { cursor: null, notice: dropBagItem(world, survivor, click.itemId) }
   }
   if (!bagOpen && click.place === 'hot') {
-    const slot = ensureHotbar(survivor)[click.index]
-    if (!slot) return { cursor: null, notice: '这一格是空的' }
-    return { cursor: { place: 'hot', index: click.index }, notice: `已选 ${itemName(world, slot.itemId)} · E 使用 · 右键丢弃 · F 拆解` }
+    return selectHotbarSlot(world, survivor, click.index)
   }
   if (click.place === 'bag') return { cursor: { place: 'bag', itemId: click.itemId }, notice: bagOpen ? `已选 ${itemName(world, click.itemId)}，再点快捷栏互换` : `已选 ${itemName(world, click.itemId)} · E 使用 · 右键丢弃 · F 拆解` }
   if (click.place === 'hot') return { cursor: { place: 'hot', index: click.index }, notice: '已选快捷栏，再点背包互换' }

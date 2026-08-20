@@ -40,7 +40,7 @@ import { activityLines } from '@/survivors/Activity'
 import { recallFieldWorkers } from '@/jobs/DayWorker'
 import { BuildMenu } from '@/ui/BuildMenu'
 import { CharacterSheet } from '@/ui/CharacterSheet'
-import { handlePackClick, salvageSelected, useSelected, type PackClick, type PackCursor } from '@/inventory/Pack'
+import { handlePackClick, salvageSelected, selectHotbarSlot, useSelected, type PackClick, type PackCursor } from '@/inventory/Pack'
 import { CreativeEditor } from '@/ui/CreativeEditor'
 import { GameHud } from '@/ui/GameHud'
 import { RosterPanel } from '@/ui/RosterPanel'
@@ -203,16 +203,6 @@ export class GameApp {
 
   private readonly step = (dt: number): void => {
     if (this.world.gameOver || this.world.paused) return
-    if (this.world.player.view === 'topdown') {
-      if (this.world.player.controlledId) {
-        if (this.input.isDown('KeyQ')) this.renderer.rotateBy(-dt * 1.6)
-        if (this.input.isDown('KeyE')) this.renderer.rotateBy(dt * 1.6)
-      } else {
-        const speed = this.renderer.distance * 0.95
-        if (this.input.isDown('KeyQ')) this.renderer.nudgeLook(-speed * dt, 0)
-        if (this.input.isDown('KeyE')) this.renderer.nudgeLook(speed * dt, 0)
-      }
-    }
     stepWorld(this.world, dt, this.controlIntent())
   }
 
@@ -464,7 +454,15 @@ export class GameApp {
         return
       }
       if (index >= 0 && index <= 8) {
-        this.applyPackClick({ place: 'hot', index })
+        const actor = this.focusActor()
+        if (!actor) {
+          this.notice = '先选中或接管一个人'
+          return
+        }
+        const result = selectHotbarSlot(this.world, actor, index)
+        this.packCursor = result.cursor
+        this.hud.setCursor(result.cursor)
+        this.notice = result.notice
         return
       }
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addItem } from '@/inventory/Inventory'
-import { handlePackClick, salvageSelected, swapBagAndHotbar, useBagItem, useHotbarSlot, useSelected } from '@/inventory/Pack'
+import { handlePackClick, salvageSelected, selectHotbarSlot, swapBagAndHotbar, useBagItem, useHotbarSlot, useSelected } from '@/inventory/Pack'
 import { countItem } from '@/inventory/Inventory'
 import { inspectItem } from '@/inventory/ItemInspect'
 import { createInitialWorld } from '@/simulation/WorldState'
@@ -103,5 +103,30 @@ describe('backpack and hotbar', () => {
     const html = renderHudHtml(buildHudModel(world, '', { open: false, cursor: { place: 'hot', index: 0 } }))
     expect(html).toContain('item-tip')
     expect(html).toContain('E 使用')
+  })
+
+  it('keeps the gun in slot 1 when pressing 1 then 2 with the bag closed', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    const first = handlePackClick(world, hunter, null, { place: 'hot', index: 0 }, false)
+    const second = handlePackClick(world, hunter, first.cursor, { place: 'hot', index: 1 }, false)
+    expect(hunter.hotbar[0]?.itemId).toBe('pistol')
+    expect(hunter.hotbar[1]?.itemId).toBe('meal')
+    expect(second.cursor).toEqual({ place: 'hot', index: 1 })
+    const again = selectHotbarSlot(world, hunter, 0)
+    expect(again.cursor).toEqual({ place: 'hot', index: 0 })
+    expect(hunter.hotbar[0]?.itemId).toBe('pistol')
+  })
+
+  it('still swaps two hotbar slots while the bag is open', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    const first = handlePackClick(world, hunter, null, { place: 'hot', index: 0 }, true)
+    const second = handlePackClick(world, hunter, first.cursor, { place: 'hot', index: 1 }, true)
+    expect(second.notice).toContain('交换')
+    expect(hunter.hotbar[0]?.itemId).toBe('meal')
+    expect(hunter.hotbar[1]?.itemId).toBe('pistol')
   })
 })
