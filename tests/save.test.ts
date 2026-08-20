@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deserializeWorld, loadFromBrowser, SAVE_KEY, saveToBrowser, serializeWorld } from '@/save/SaveSchema'
+import { deserializeWorld, listSlots, loadFromBrowser, peekSlot, readSlot, SAVE_KEY, saveToBrowser, serializeWorld, writeSlot } from '@/save/SaveSchema'
 import { createInitialWorld } from '@/simulation/WorldState'
 
 describe('save schema', () => {
@@ -11,6 +11,8 @@ describe('save schema', () => {
 
     const save = serializeWorld(world)
     expect(save.version).toBeGreaterThan(0)
+    expect(save.meta?.day).toBe(4)
+    expect(save.meta?.name).toContain('第 4 天')
     expect(save.world.time.dayIndex).toBe(4)
     expect(save.world.survivors).toHaveLength(roster)
 
@@ -77,5 +79,39 @@ describe('save schema', () => {
     const loaded = loadFromBrowser()
     expect(loaded?.time.dayIndex).toBe(3)
     expect(loaded?.survivors).toHaveLength(world.survivors.length)
+  })
+
+  it('keeps named slots, auto slot, and codex apart', () => {
+    const mem = new Map<string, string>()
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => mem.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          mem.set(key, value)
+        },
+        removeItem: (key: string) => {
+          mem.delete(key)
+        },
+      },
+    })
+    const world = createInitialWorld()
+    world.time.dayIndex = 5
+    world.time.phase = 'dusk'
+    world.codex.affixes = ['aspd']
+    world.codex.procs = ['burn']
+    expect(writeSlot('2', world, '黄昏撤离')).toBe(true)
+    expect(mem.has(SAVE_KEY)).toBe(false)
+    expect(writeSlot('auto', world)).toBe(true)
+    const slots = listSlots()
+    expect(slots.find((slot) => slot.id === '2')?.empty).toBe(false)
+    expect(slots.find((slot) => slot.id === '2')?.meta?.name).toBe('黄昏撤离')
+    expect(slots.find((slot) => slot.id === '1')?.empty).toBe(true)
+    expect(peekSlot('auto')?.day).toBe(5)
+    const loaded = readSlot('2')
+    expect(loaded?.time.dayIndex).toBe(5)
+    expect(loaded?.time.phase).toBe('dusk')
+    expect(loaded?.codex.affixes).toContain('aspd')
+    expect(loaded?.codex.procs).toContain('burn')
   })
 })

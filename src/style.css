@@ -43,28 +43,26 @@ body,
 
 .hud-left {
   position: absolute;
-  top: var(--hud-safe);
+  top: calc(var(--hud-safe) + 28px);
   left: var(--hud-safe);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
   max-width: min(540px, calc(100vw - 220px));
-  max-height: calc(100vh - 140px);
+  max-height: calc(100vh - 168px);
   overflow: hidden;
   pointer-events: none;
 }
 
 .hud-clock,
-.hud-stocks,
 .hud-inspect,
 .hud-toast {
   background: var(--hud-panel);
   border: 1px solid var(--hud-line);
 }
 
-.hud-clock,
-.hud-stocks {
+.hud-clock {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -74,17 +72,47 @@ body,
   pointer-events: auto;
 }
 
+.hud-stocks {
+  position: absolute;
+  top: var(--hud-safe);
+  left: var(--hud-safe);
+  right: calc(var(--hud-safe) + 176px);
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 0 14px;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  background: none;
+  border: none;
+  pointer-events: auto;
+  scrollbar-width: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-stocks::-webkit-scrollbar {
+  display: none;
+}
+
 .hud-tools {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 4px;
 }
 
-.hud-stocks strong,
+.hud-stock-cap,
 .hud-bag strong,
 .hud-queue > strong {
   color: var(--hud-brass);
-  font-size: 13px;
+  font-size: 14px;
+}
+
+.hud-stock-cap {
+  font-weight: 650;
+  flex: none;
 }
 
 .hud-queue {
@@ -182,6 +210,80 @@ body,
   border-color: var(--hud-hp);
 }
 
+.save-panel {
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  z-index: 36;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 320px;
+  max-width: min(460px, calc(100vw - 40px));
+  padding: 16px 18px;
+  transform: translateX(-50%);
+  border: 1px solid var(--hud-brass);
+  background: var(--hud-panel);
+  pointer-events: auto;
+  color: var(--hud-ink);
+}
+
+.save-panel strong {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+}
+
+.save-panel > span {
+  color: var(--hud-muted);
+  line-height: 1.45;
+  font-size: 14px;
+}
+
+.save-slot {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: baseline;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel-2);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.save-slot strong {
+  font-size: 14px;
+}
+
+.save-slot span,
+.save-slot em {
+  color: var(--hud-muted);
+  font-size: 14px;
+  font-style: normal;
+}
+
+.save-slot em {
+  white-space: nowrap;
+}
+
+.save-slot:hover,
+.save-slot:focus-visible {
+  border-color: var(--hud-brass);
+  outline: none;
+}
+
+.save-slot.is-empty {
+  opacity: 0.7;
+}
+
+.save-slot:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .hud-phase {
   color: var(--hud-brass);
   font-size: 15px;
@@ -227,33 +329,14 @@ body,
 }
 
 .hud-stock {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  display: inline;
   color: var(--hud-ink);
-}
-
-.hud-stock i {
-  width: 8px;
-  height: 8px;
-  background: var(--hud-brass);
+  font-size: 14px;
 }
 
 .hud-stock.is-empty {
   color: var(--hud-muted);
 }
-
-.hud-stock[data-stock="wood"] i { background: #8b6a3c; }
-.hud-stock[data-stock="scrap"] i { background: #8a8f96; }
-.hud-stock[data-stock="ammo"] i { background: #b9a15a; }
-.hud-stock[data-stock="water"] i { background: #4a7ea8; }
-.hud-stock[data-stock="raw_water"] i { background: #3a5a6a; }
-.hud-stock[data-stock="raw_meat"] i { background: #a45a42; }
-.hud-stock[data-stock="raw_fish"] i { background: #4a7a8a; }
-.hud-stock[data-stock="berry"] i { background: #8a4a6a; }
-.hud-stock[data-stock="meal"] i { background: #c47a3a; }
-.hud-stock[data-stock="bandage"] i { background: #c46a7a; }
-.hud-stock[data-stock="food"] i { background: #a45a42; }
 
 .hud-dock {
   position: absolute;
@@ -2078,5 +2161,9 @@ body,
 
   #defense-bar {
     top: calc(var(--hud-safe) + 140px);
+  }
+
+  .hud-stocks {
+    right: calc(var(--hud-safe) + 140px);
   }
 }

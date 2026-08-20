@@ -16,7 +16,7 @@ import {
   isInDungeon,
   nearDungeonEntrance,
 } from '@/dungeon/Dungeon'
-import { loadFromBrowser, saveToBrowser } from '@/save/SaveSchema'
+import { peekSlot, readSlot, writeSlot, type SaveSlotId } from '@/save/SaveSchema'
 import { cellCenter } from '@/navigation/NavGrid'
 import { reloadWeapon, tryShoot } from '@/combat/Combat'
 import { depositIfNearWarehouse } from '@/inventory/Cargo'
@@ -83,6 +83,7 @@ export class GameApp {
   } | null = null
   private notice = ''
   private packCursor: PackCursor | null = null
+  private lastAutosaveMark = ''
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -128,14 +129,15 @@ export class GameApp {
         this.packCursor = null
         this.notice = '已关闭背包'
       }
-      if (command === 'save') this.saveRun()
-      if (command === 'load') this.loadRun()
       if (command === 'dungeon-advance') this.advanceRun()
       if (command === 'dungeon-evacuate') this.leaveDungeon()
     }, (click) => {
       this.applyPackClick(click)
     }, (pickId) => {
       this.pickDungeon(pickId)
+    }, (action, id) => {
+      if (action === 'save') this.saveToSlot(id)
+      else this.loadFromSlot(id)
     })
     this.sheet = new CharacterSheet(sheetRoot)
     this.minimap = new Minimap(minimapCanvas)
@@ -176,6 +178,8 @@ export class GameApp {
     this.towerPanel.addEventListener('pointerdown', (event) => event.stopPropagation())
     document.querySelector('#app')?.append(this.tip, this.labels, this.towerPanel)
     this.loop = new GameLoop(this.step, this.draw)
+    this.lastAutosaveMark = this.autosaveMark()
+    window.addEventListener('beforeunload', this.onUnload)
     possessSurvivor(this.world, 'hunter')
     this.renderer.sync(this.world)
     this.refreshHud()
@@ -200,11 +204,13 @@ export class GameApp {
     this.renderer.dispose()
     this.input.dispose()
     window.removeEventListener('keydown', this.onKey)
+    window.removeEventListener('beforeunload', this.onUnload)
   }
 
   private readonly step = (dt: number): void => {
-    if (this.world.gameOver || this.world.paused) return
+    if (this.world.gameOver || this.world.paused || this.hud.isSavesOpen()) return
     stepWorld(this.world, dt, this.controlIntent())
+    this.maybeAutosave()
   }
 
   private readonly draw = (_alpha: number): void => {
@@ -258,6 +264,11 @@ export class GameApp {
       if (id) this.handleDirect(id)
     }
     if (event.code === 'Escape') {
+      if (this.hud.isSavesOpen()) {
+        this.hud.closeSaves()
+        this.notice = '已关闭存档'
+        return
+      }
       if (this.hud.isBagOpen()) {
         this.hud.closeBag()
         this.packCursor = null
@@ -431,12 +442,12 @@ export class GameApp {
     }
     if (event.code === 'F5') {
       event.preventDefault()
-      this.saveRun()
+      this.quickSave()
       return
     }
     if (event.code === 'F9') {
       event.preventDefault()
-      this.loadRun()
+      this.quickLoad()
       return
     }
     if (event.code.startsWith('Digit')) {
@@ -936,31 +947,77 @@ export class GameApp {
   }
 
   private restartRun(): void {
-    this.world = createInitialWorld()
-    this.towerPostId = null
-    this.towerPanel.innerHTML = ''
-    this.wallAnchor = null
-    this.renderer.resetView()
-    this.notice = '新的据点。白天干活建设，夜里守住才能活下去'
+    this.applyWorld(createInitialWorld(), '新的据点。白天干活建设，夜里守住才能活下去')
+    this.lastAutosaveMark = this.autosaveMark()
   }
 
-  private saveRun(): void {
-    this.notice = saveToBrowser(this.world) ? '已保存到本地' : '无法保存'
-  }
-
-  private loadRun(): void {
-    const loaded = loadFromBrowser()
-    if (!loaded) {
-      this.notice = '没有存档'
+  private saveToSlot(id: SaveSlotId): void {
+    if (!writeSlot(id, this.world)) {
+      this.notice = '无法保存'
+      this.hud.closeSaves()
       return
     }
-    this.world = loaded
+    const meta = peekSlot(id)
+    this.notice = id === 'auto'
+      ? `已写入自动档 · ${meta?.name ?? '当前日子'}`
+      : `已写入档位 ${id} · ${meta?.name ?? '当前日子'}`
+    this.hud.closeSaves()
+  }
+
+  private loadFromSlot(id: SaveSlotId): void {
+    const loaded = readSlot(id)
+    if (!loaded) {
+      this.notice = id === 'auto' ? '还没有自动档' : `档位 ${id} 是空的`
+      this.hud.closeSaves()
+      return
+    }
+    const meta = peekSlot(id)
+    this.applyWorld(loaded, `已读取${id === 'auto' ? '自动档' : `档位 ${id}`} · ${meta?.name ?? `第 ${loaded.time.dayIndex} 天`}`)
+  }
+
+  private quickSave(): void {
+    this.notice = writeSlot('auto', this.world) ? '已快速保存到自动档' : '无法保存'
+    this.lastAutosaveMark = this.autosaveMark()
+  }
+
+  private quickLoad(): void {
+    const loaded = readSlot('auto') ?? readSlot('1')
+    if (!loaded) {
+      this.notice = '没有可读取的存档'
+      return
+    }
+    this.applyWorld(loaded, `已读取 · 第 ${loaded.time.dayIndex} 天`)
+  }
+
+  private applyWorld(world: WorldState, notice: string): void {
+    this.world = world
     this.towerPostId = null
     this.towerPanel.innerHTML = ''
     this.wallAnchor = null
     this.packCursor = null
+    this.hud.closeBag()
+    this.hud.closeSaves()
+    this.sheet.close()
     this.renderer.resetView()
-    this.notice = '已读取存档'
+    this.lastAutosaveMark = this.autosaveMark()
+    this.notice = notice
+  }
+
+  private maybeAutosave(): void {
+    if (this.world.gameOver) return
+    const mark = this.autosaveMark()
+    if (mark === this.lastAutosaveMark) return
+    this.lastAutosaveMark = mark
+    writeSlot('auto', this.world)
+  }
+
+  private autosaveMark(): string {
+    return `${this.world.time.dayIndex}:${this.world.time.phase}`
+  }
+
+  private readonly onUnload = (): void => {
+    if (this.world.gameOver) return
+    writeSlot('auto', this.world)
   }
 
   private pickDungeon(pickId: DungeonPickId): void {

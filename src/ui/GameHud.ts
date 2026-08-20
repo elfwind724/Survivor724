@@ -4,6 +4,7 @@ import { bagFill, HUD_STOCK_IDS } from '@/inventory/Cargo'
 import { inspectHtml, inspectItem } from '@/inventory/ItemInspect'
 import { countItem, usedSlots } from '@/inventory/Inventory'
 import { PICK_LABEL, TUTORIAL_LINES, type DungeonPickId } from '@/data/dungeon'
+import { listSlots, type SaveSlotId, type SaveSlotView } from '@/save/SaveSchema'
 import { gunshotHordeExtra, loudestGunshotSector } from '@/data/enemies'
 import { itemLabel } from '@/data/items'
 import { gearLabel, isGearId, nearbyLootName } from '@/data/loot'
@@ -33,6 +34,7 @@ export type HudCommand =
   | 'close-bag'
   | 'save'
   | 'load'
+  | 'close-saves'
   | 'dungeon-advance'
   | 'dungeon-evacuate'
 
@@ -131,6 +133,10 @@ export interface HudModel {
     canEvacuate: boolean
   } | null
   dungeonHint: string
+  saves: {
+    mode: 'save' | 'load' | null
+    slots: SaveSlotView[]
+  }
 }
 
 const PROFESSION_LABEL: Record<string, string> = {
@@ -141,7 +147,12 @@ const PROFESSION_LABEL: Record<string, string> = {
   builder: '工匠',
 }
 
-export function buildHudModel(world: WorldState, notice = '', pack?: { open: boolean; cursor: PackCursor | null }): HudModel {
+export function buildHudModel(
+  world: WorldState,
+  notice = '',
+  pack?: { open: boolean; cursor: PackCursor | null },
+  saves?: { mode: 'save' | 'load' | null; slots: SaveSlotView[] },
+): HudModel {
   const warehouse = world.inventories['inv-warehouse']
   const hero = world.survivors.find((entry) => entry.id === world.player.heroId) ?? world.survivors[0]
   const bagInv = hero ? world.inventories[hero.inventoryId] : undefined
@@ -192,6 +203,10 @@ export function buildHudModel(world: WorldState, notice = '', pack?: { open: boo
     report: reportModel(world),
     tutorial: tutorialLine(world),
     dungeon: dungeonModel(world),
+    saves: {
+      mode: saves?.mode ?? null,
+      slots: saves?.slots ?? [],
+    },
   }
 }
 
@@ -210,25 +225,31 @@ export function hudModelKey(model: HudModel): string {
     ? `${model.dungeon.room}/${model.dungeon.total}:${model.dungeon.picks.map((pick) => pick.id).join(',')}:${model.dungeon.canAdvance ? 1 : 0}:${model.dungeon.canEvacuate ? 1 : 0}`
     : '-'
   const queue = model.queue.map((row) => `${row.id}:${row.progress}:${row.detail}`).join('|')
-  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${queue}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.lootHint}:${model.dungeonHint}:${model.tutorial}:${dungeon}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${hotbar}:${pack}:${report}`
+  const saves = `${model.saves.mode ?? '-'}:${model.saves.slots.map((slot) => `${slot.id}:${slot.empty ? 0 : 1}:${slot.meta?.name ?? ''}`).join(',')}`
+  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${queue}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.lootHint}:${model.dungeonHint}:${model.tutorial}:${dungeon}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${hotbar}:${pack}:${report}:${saves}`
 }
 
 export function renderHudHtml(model: HudModel): string {
   const scale = model.timeScale !== 1 ? `<span class="hud-chip">${model.timeScale}×</span>` : ''
   const sites = model.sites > 0 ? `<span class="hud-chip hud-chip-work">施工 ${model.sites}</span>` : ''
   const stocks = model.stocks
-    .map((item) => `<span class="hud-stock${item.count <= 0 ? ' is-empty' : ''}" data-stock="${item.id}"><i></i>${escapeHtml(item.label)} ${item.count}</span>`)
+    .map((item) => `<span class="hud-stock${item.count <= 0 ? ' is-empty' : ''}" data-stock="${item.id}">${escapeHtml(item.label)} ${item.count}</span>`)
     .join('')
   const extras = model.extras
     .map((item) => {
       const rare = item.id.startsWith('g-') ? ' is-loot' : ''
-      return `<span class="hud-stock${rare}" data-stock="${item.id}"><i></i>${escapeHtml(item.label)} ${item.count}</span>`
+      return `<span class="hud-stock${rare}" data-stock="${item.id}">${escapeHtml(item.label)} ${item.count}</span>`
     })
     .join('')
   const portraits = model.cards.map(renderPortrait).join('')
   const toast = model.notice ? `<p class="hud-toast">${escapeHtml(model.notice)}</p>` : ''
   const loot = model.lootHint ? `<p class="hud-toast hud-loot">${escapeHtml(model.lootHint)}</p>` : ''
   return `
+    <div class="hud-stocks">
+      <span class="hud-stock-cap">仓库 ${model.warehouseUsed}/${model.warehouseCap}</span>
+      ${stocks}
+      ${extras}
+    </div>
     <div class="hud-left">
       <div class="hud-clock">
         <strong>第 ${model.day} 天</strong>
@@ -244,11 +265,6 @@ export function renderHudHtml(model: HudModel): string {
           <button type="button" class="hud-reset" data-action="save">保存</button>
           <button type="button" class="hud-reset" data-action="load">读取</button>
         </span>
-      </div>
-      <div class="hud-stocks">
-        <strong>仓库 ${model.warehouseUsed}/${model.warehouseCap}</strong>
-        ${stocks}
-        ${extras}
       </div>
       ${renderQueue(model.queue)}
       <div class="hud-colonists">
@@ -266,6 +282,7 @@ export function renderHudHtml(model: HudModel): string {
     ${model.dungeonHint ? `<p class="hud-toast hud-loot">${escapeHtml(model.dungeonHint)}</p>` : ''}
     ${renderDungeon(model)}
     ${renderReport(model)}
+    ${renderSaves(model)}
   `
 }
 
@@ -275,6 +292,7 @@ export class GameHud {
   private lastClickId: string | null = null
   private bagOpen = false
   private cursor: PackCursor | null = null
+  private saveMode: 'save' | 'load' | null = null
 
   constructor(
     private readonly root: HTMLElement,
@@ -282,6 +300,7 @@ export class GameHud {
     private readonly onCommand: (command: HudCommand) => void,
     private readonly onPack: (click: PackClick) => void = () => undefined,
     private readonly onDungeonPick: (pickId: DungeonPickId) => void = () => undefined,
+    private readonly onSlot: (action: 'save' | 'load', id: SaveSlotId) => void = () => undefined,
   ) {
     this.root.classList.add('game-hud')
     this.root.addEventListener('pointerdown', this.onPointerDown)
@@ -304,13 +323,30 @@ export class GameHud {
     this.lastKey = ''
   }
 
+  isSavesOpen(): boolean {
+    return this.saveMode !== null
+  }
+
+  openSaves(mode: 'save' | 'load'): void {
+    this.saveMode = this.saveMode === mode ? null : mode
+    this.lastKey = ''
+  }
+
+  closeSaves(): void {
+    this.saveMode = null
+    this.lastKey = ''
+  }
+
   setCursor(cursor: PackCursor | null): void {
     this.cursor = cursor
     this.lastKey = ''
   }
 
   render(world: WorldState, notice = ''): void {
-    const model = buildHudModel(world, notice, { open: this.bagOpen, cursor: this.cursor })
+    const model = buildHudModel(world, notice, { open: this.bagOpen, cursor: this.cursor }, {
+      mode: this.saveMode,
+      slots: this.saveMode ? listSlots() : [],
+    })
     const key = hudModelKey(model)
     if (key === this.lastKey) return
     this.lastKey = key
@@ -332,11 +368,27 @@ export class GameHud {
       || action === 'close-bag'
       || action === 'save'
       || action === 'load'
+      || action === 'close-saves'
       || action === 'dungeon-advance'
       || action === 'dungeon-evacuate'
     ) {
       event.stopPropagation()
+      if (action === 'save' || action === 'load') {
+        this.openSaves(action)
+        return
+      }
+      if (action === 'close-saves') {
+        this.closeSaves()
+        return
+      }
       this.onCommand(action)
+      return
+    }
+    const slot = target.closest<HTMLButtonElement>('[data-save-slot]')
+    if (slot?.dataset.saveSlot && this.saveMode) {
+      event.stopPropagation()
+      const id = slot.dataset.saveSlot as SaveSlotId
+      if (id === 'auto' || id === '1' || id === '2' || id === '3') this.onSlot(this.saveMode, id)
       return
     }
     const pick = target.closest<HTMLButtonElement>('[data-dungeon-pick]')
@@ -631,6 +683,43 @@ function reportModel(world: WorldState): HudModel['report'] {
     loot: loot || '没有搜到残骸',
     lost: report.outcome === 'lost',
   }
+}
+
+function renderSaves(model: HudModel): string {
+  if (!model.saves.mode) return ''
+  const writing = model.saves.mode === 'save'
+  const title = writing ? '保存到档位' : '读取档位'
+  const hint = writing ? '点档位写入。自动档会在天亮、天黑和关页时自己写。' : '点有字的档位读回来。图鉴、日子、仓库都会回来。'
+  const rows = model.saves.slots
+    .map((slot) => {
+      const empty = slot.empty || !slot.meta
+      const disabled = !writing && empty ? ' disabled' : ''
+      const klass = empty ? ' is-empty' : ''
+      const body = empty
+        ? '<span>空档</span><em>—</em>'
+        : `<span>${escapeHtml(slot.meta?.name ?? '')} · ${slot.meta?.people ?? 0}人 · 大厅${slot.meta?.hall ?? 1}级</span><em>${formatSavedAt(slot.meta?.savedAt ?? 0)}</em>`
+      return `<button type="button" class="save-slot${klass}" data-save-slot="${slot.id}"${disabled}>
+        <strong>${escapeHtml(slot.label)}</strong>
+        ${body}
+      </button>`
+    })
+    .join('')
+  return `<div class="save-panel">
+    <strong>${title}</strong>
+    <span>${hint}</span>
+    ${rows}
+    <button type="button" class="hud-reset" data-action="close-saves">关闭</button>
+  </div>`
+}
+
+function formatSavedAt(stamp: number): string {
+  if (stamp <= 0) return '旧档'
+  const at = new Date(stamp)
+  const month = at.getMonth() + 1
+  const day = at.getDate()
+  const hours = String(at.getHours()).padStart(2, '0')
+  const minutes = String(at.getMinutes()).padStart(2, '0')
+  return `${month}/${day} ${hours}:${minutes}`
 }
 
 function renderReport(model: HudModel): string {

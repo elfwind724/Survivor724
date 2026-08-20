@@ -35,6 +35,9 @@ describe('game hud', () => {
     expect(html).toContain('保存')
     expect(html).toContain('读取')
     expect(html).toContain('仓库')
+    expect(html.indexOf('class="hud-stocks"')).toBeLessThan(html.indexOf('class="hud-left"'))
+    expect(html).toContain('hud-stock-cap')
+    expect(html).not.toMatch(/class="hud-stock[^"]*"[^>]*>\s*<i/)
     expect(html).toContain('背包')
     expect(html).toContain('熟食')
     expect(html).toContain('兽皮')
@@ -122,6 +125,24 @@ describe('game hud', () => {
     expect(hunter.hunger).toBeLessThan(hunger)
     expect(hunter.thirst).toBeLessThan(thirst)
     expect(hunter.hunger).toBeGreaterThan(40)
+  })
+
+  it('lists named save slots in the save overlay', () => {
+    const world = createInitialWorld()
+    const html = renderHudHtml(buildHudModel(world, '', undefined, {
+      mode: 'save',
+      slots: [
+        { id: 'auto', label: '自动', empty: true, meta: null },
+        { id: '1', label: '档位 1', empty: false, meta: { name: '第 2 天 · 白昼', savedAt: 1, day: 2, phase: 'day', people: 5, hall: 1 } },
+        { id: '2', label: '档位 2', empty: true, meta: null },
+        { id: '3', label: '档位 3', empty: true, meta: null },
+      ],
+    }))
+    expect(html).toContain('保存到档位')
+    expect(html).toContain('档位 1')
+    expect(html).toContain('第 2 天 · 白昼')
+    expect(html).toContain('data-save-slot="auto"')
+    expect(html).toContain('关闭')
   })
 
   it('warns that daytime hunting gunfire makes that night worse', () => {
