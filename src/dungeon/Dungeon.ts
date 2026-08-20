@@ -20,7 +20,7 @@ import { findContainer, findSurvivor } from '@/simulation/EntityRegistry'
 import { cloneVec3, distanceXZ, type AffixRoll, type DungeonRun, type ItemRarity, type SurvivorState, type Vec3, type WorldState } from '@/simulation/types'
 
 const ENTRANCE_RANGE = 2.8
-const DUNGEON_ENEMY_PREFIX = 'dng-'
+export const DUNGEON_ENEMY_PREFIX = 'dng-'
 const ROOM = DUNGEON_CAVE.room
 const HALL = DUNGEON_CAVE.hall
 const COLS = DUNGEON_CAVE.cols
@@ -101,6 +101,101 @@ export function dungeonHallRect(from: number, to: number): { minX: number; maxX:
     return { minX: midX - gap, maxX: midX + gap, minZ: south, maxZ: north }
   }
   return null
+}
+
+export function hallIsOpen(run: DungeonRun, from: number): boolean {
+  if (from < 0 || from >= run.nodes.length - 1) return false
+  return from < run.index || run.roomCleared
+}
+
+export function dungeonWallBoxes(run: DungeonRun): Array<{ x: number; y: number; z: number; sx: number; sy: number; sz: number }> {
+  const boxes: Array<{ x: number; y: number; z: number; sx: number; sy: number; sz: number }> = []
+  const thick = 0.55
+  const tall = 3.4
+  const door = 3.2
+  const y = tall / 2
+  const push = (minX: number, maxX: number, minZ: number, maxZ: number): void => {
+    const sx = Math.max(0.2, maxX - minX)
+    const sz = Math.max(0.2, maxZ - minZ)
+    if (sx < 0.25 && sz < 0.25) return
+    boxes.push({ x: (minX + maxX) / 2, y, z: (minZ + maxZ) / 2, sx, sy: tall, sz })
+  }
+  const wallWithDoor = (
+    along: 'x' | 'z',
+    start: number,
+    end: number,
+    at: number,
+    doorAt: number | null,
+  ): void => {
+    const half = thick / 2
+    if (doorAt === null) {
+      if (along === 'x') push(start, end, at - half, at + half)
+      else push(at - half, at + half, start, end)
+      return
+    }
+    const gap0 = doorAt - door / 2
+    const gap1 = doorAt + door / 2
+    if (along === 'x') {
+      push(start, gap0, at - half, at + half)
+      push(gap1, end, at - half, at + half)
+    } else {
+      push(at - half, at + half, start, gap0)
+      push(at - half, at + half, gap1, end)
+    }
+  }
+  for (let i = 0; i < run.nodes.length; i += 1) {
+    const rect = dungeonRoomRect(i)
+    const doors = { n: null as number | null, s: null as number | null, e: null as number | null, w: null as number | null }
+    const link = (other: number): void => {
+      const side = doorSide(i, other)
+      if (!side) return
+      const hall = dungeonHallRect(Math.min(i, other), Math.max(i, other))
+      if (!hall) return
+      if (side === 'e' || side === 'w') doors[side] = (hall.minZ + hall.maxZ) / 2
+      else doors[side] = (hall.minX + hall.maxX) / 2
+    }
+    if (hallIsOpen(run, i - 1)) link(i - 1)
+    if (hallIsOpen(run, i)) link(i + 1)
+    wallWithDoor('x', rect.minX, rect.maxX, rect.maxZ, doors.n)
+    wallWithDoor('x', rect.minX, rect.maxX, rect.minZ, doors.s)
+    wallWithDoor('z', rect.minZ, rect.maxZ, rect.maxX, doors.e)
+    wallWithDoor('z', rect.minZ, rect.maxZ, rect.minX, doors.w)
+  }
+  const last = run.nodes.length - 1
+  for (let i = 0; i < last; i += 1) {
+    if (!hallIsOpen(run, i)) continue
+    const hall = dungeonHallRect(i, i + 1)
+    if (!hall) continue
+    const wide = hall.maxX - hall.minX
+    const deep = hall.maxZ - hall.minZ
+    if (wide >= deep) {
+      push(hall.minX, hall.maxX, hall.minZ - thick / 2, hall.minZ + thick / 2)
+      push(hall.minX, hall.maxX, hall.maxZ - thick / 2, hall.maxZ + thick / 2)
+    } else {
+      push(hall.minX - thick / 2, hall.minX + thick / 2, hall.minZ, hall.maxZ)
+      push(hall.maxX - thick / 2, hall.maxX + thick / 2, hall.minZ, hall.maxZ)
+    }
+  }
+  return boxes
+}
+
+function doorSide(from: number, to: number): 'n' | 's' | 'e' | 'w' | null {
+  const a = dungeonRoomRect(from)
+  const b = dungeonRoomRect(to)
+  if (Math.abs(a.minZ - b.minZ) < 0.1) return a.minX < b.minX ? 'e' : 'w'
+  if (Math.abs(a.minX - b.minX) < 0.1) return a.minZ < b.minZ ? 'n' : 's'
+  return null
+}
+
+export function dungeonTorchPoints(run: DungeonRun): Array<{ x: number; y: number; z: number }> {
+  const points: Array<{ x: number; y: number; z: number }> = []
+  for (let i = 0; i < run.nodes.length; i += 1) {
+    for (const prop of dungeonRoomDressing(run, i)) {
+      if (!prop.assetId.includes('torch')) continue
+      points.push({ x: prop.x, y: 1.55, z: prop.z })
+    }
+  }
+  return points
 }
 
 export function dungeonBlockedWorldCells(run: DungeonRun): Array<{ x: number; z: number }> {
@@ -291,13 +386,13 @@ function spawnRoom(world: WorldState, run: DungeonRun): void {
     return
   }
   const center = dungeonRoomCenter(run, run.index)
-  const count = node.kind === 'elite' ? 3 : 2
+  const count = node.kind === 'elite' ? 4 : 3
   for (let i = 0; i < count; i += 1) {
-    const side = i % 2 === 0 ? 1 : -1
-    const ring = Math.floor(i / 2) + 1
+    const angle = (i / count) * Math.PI * 2 + 0.35
+    const kind = node.kind === 'elite' && i === count - 1 ? 'runner' : 'wanderer'
     world.enemies.push(createEnemy(
-      'wanderer',
-      { x: center.x + side * (1.8 + ring * 0.5), y: 0, z: center.z + side * (1.2 + ring * 0.4) },
+      kind,
+      { x: center.x + Math.cos(angle) * 2.7, y: 0, z: center.z + Math.sin(angle) * 2.7 },
       `${DUNGEON_ENEMY_PREFIX}${run.seed}-${run.index}-${i}`,
     ))
   }

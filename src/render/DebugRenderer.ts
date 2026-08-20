@@ -16,10 +16,11 @@ import { ENEMY_DEFINITIONS } from '@/data/enemies'
 import { RARITY_COLOR } from '@/data/loot'
 import { DUNGEON_DRESS_ASSETS } from '@/data/dungeon'
 import {
-  dungeonBlockedWorldCells,
   dungeonHallRect,
   dungeonRoomDressing,
   dungeonRoomRect,
+  dungeonTorchPoints,
+  dungeonWallBoxes,
   isInDungeon,
 } from '@/dungeon/Dungeon'
 import { AssetLibrary } from './AssetLibrary'
@@ -79,6 +80,8 @@ export class DebugRenderer {
   private readonly impacts = new Map<string, Marker>()
   private dungeonRoot: THREE.Group | null = null
   private dungeonKey = ''
+  private ground: THREE.Mesh | null = null
+  private yard: THREE.Mesh | null = null
   private readonly fishingLines = new Map<string, THREE.Line>()
   private readonly ruinCrates = new Map<string, Marker>()
   private readonly berryBushes = new Map<string, Marker>()
@@ -110,23 +113,23 @@ export class DebugRenderer {
     this.scene.add(this.hemi, this.sun)
     this.scene.fog = new THREE.Fog(0x8fa4c4, 90, 260)
 
-    const ground = new THREE.Mesh(
+    this.ground = new THREE.Mesh(
       new THREE.PlaneGeometry(360, 360),
       new THREE.MeshLambertMaterial({ color: 0x3a4a36 }),
     )
-    ground.rotation.x = -Math.PI / 2
-    ground.name = 'ground'
-    ground.receiveShadow = true
-    this.scene.add(ground)
+    this.ground.rotation.x = -Math.PI / 2
+    this.ground.name = 'ground'
+    this.ground.receiveShadow = true
+    this.scene.add(this.ground)
 
-    const yard = new THREE.Mesh(
+    this.yard = new THREE.Mesh(
       new THREE.PlaneGeometry(BASE.east - BASE.west + 10, BASE.north - BASE.south + 10),
       new THREE.MeshLambertMaterial({ color: 0x5c5342 }),
     )
-    yard.rotation.x = -Math.PI / 2
-    yard.position.set((BASE.west + BASE.east) / 2, 0.02, (BASE.south + BASE.north) / 2)
-    yard.receiveShadow = true
-    this.scene.add(yard)
+    this.yard.rotation.x = -Math.PI / 2
+    this.yard.position.set((BASE.west + BASE.east) / 2, 0.02, (BASE.south + BASE.north) / 2)
+    this.yard.receiveShadow = true
+    this.scene.add(this.yard)
     this.dressingRoot.name = 'dressing'
     this.scene.add(this.dressingRoot)
     this.library.enqueue(this.bootIds())
@@ -408,7 +411,8 @@ export class DebugRenderer {
       this.lookAtZ = focus.position.z
     }
     const target = new THREE.Vector3(this.lookAtX, 0, this.lookAtZ)
-    const offset = followCameraOffset(this.orbitYaw, this.distance, this.sidePull)
+    const followDist = isInDungeon(world) ? Math.min(this.distance, 26) : this.distance
+    const offset = followCameraOffset(this.orbitYaw, followDist, this.sidePull)
     const desired = new THREE.Vector3(
       this.lookAtX + offset.x,
       offset.y,
@@ -450,6 +454,7 @@ export class DebugRenderer {
       this.styleStructure(marker.mesh, structure)
       this.styleFacilityLife(world, structure, marker.mesh)
       this.syncWreckMarker(world, structure, marker.mesh)
+      marker.mesh.visible = !isInDungeon(world)
     }
     for (const [id, marker] of this.structures) {
       if (seen.has(id)) continue
@@ -897,6 +902,7 @@ export class DebugRenderer {
         this.ruinCrates.set(box.id, marker)
       }
       marker.mesh.position.set(box.position.x, 0, box.position.z)
+      marker.mesh.visible = !isInDungeon(world)
       const body = marker.mesh.getObjectByName('body')
       if (body) {
         body.scale.y = box.searched && box.kind !== 'heavy' ? 0.35 : 1
@@ -956,20 +962,20 @@ export class DebugRenderer {
     }
     if (!run || run.evacuated) return
     const root = new THREE.Group()
-    const wallMat = new THREE.MeshLambertMaterial({ color: 0x3a342c })
-    const hallMat = new THREE.MeshLambertMaterial({ color: 0x241e18 })
+    const wallMat = new THREE.MeshLambertMaterial({ color: 0x5a4a38 })
+    const hallMat = new THREE.MeshLambertMaterial({ color: 0x3a3228 })
     const kindColor: Record<string, number> = {
-      combat: 0x3a2a22,
-      elite: 0x4a2a1c,
-      reward: 0x3a3420,
-      event: 0x2a2e32,
-      exit: 0x2a3228,
+      combat: 0x6a5844,
+      elite: 0x7a4a32,
+      reward: 0x6a5a38,
+      event: 0x4a5258,
+      exit: 0x4a5a40,
     }
     for (let i = 0; i < run.nodes.length; i += 1) {
       const rect = dungeonRoomRect(i)
       const floor = new THREE.Mesh(
         new THREE.BoxGeometry(rect.maxX - rect.minX, 0.14, rect.maxZ - rect.minZ),
-        new THREE.MeshLambertMaterial({ color: kindColor[run.nodes[i]?.kind ?? 'combat'] ?? 0x2a241c }),
+        new THREE.MeshLambertMaterial({ color: kindColor[run.nodes[i]?.kind ?? 'combat'] ?? 0x5a4a38 }),
       )
       floor.position.set((rect.minX + rect.maxX) / 2, -0.05, (rect.minZ + rect.maxZ) / 2)
       floor.receiveShadow = true
@@ -984,13 +990,15 @@ export class DebugRenderer {
         hallMat,
       )
       slab.position.set((hall.minX + hall.maxX) / 2, -0.04, (hall.minZ + hall.maxZ) / 2)
+      slab.receiveShadow = true
       root.add(slab)
     }
-    for (const cell of dungeonBlockedWorldCells(run)) {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(1.02, 3.4, 1.02), wallMat)
-      wall.position.set(cell.x + 0.5, 1.7, cell.z + 0.5)
-      wall.castShadow = true
-      root.add(wall)
+    for (const wall of dungeonWallBoxes(run)) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(wall.sx, wall.sy, wall.sz), wallMat)
+      mesh.position.set(wall.x, wall.y, wall.z)
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+      root.add(mesh)
     }
     for (let i = 0; i < run.nodes.length; i += 1) {
       for (const prop of dungeonRoomDressing(run, i)) {
@@ -1001,20 +1009,35 @@ export class DebugRenderer {
         root.add(kit)
       }
     }
+    for (const lamp of dungeonTorchPoints(run)) {
+      const light = new THREE.PointLight(0xffc078, 2.4, 14, 1.6)
+      light.position.set(lamp.x, lamp.y, lamp.z)
+      root.add(light)
+      const glow = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.85 }),
+      )
+      glow.position.copy(light.position)
+      root.add(glow)
+    }
     this.scene.add(root)
     this.dungeonRoot = root
   }
 
   private syncLighting(world: WorldState): void {
-    if (isInDungeon(world)) {
-      this.scene.background = new THREE.Color(0x16120e)
+    const cave = isInDungeon(world)
+    if (this.ground) this.ground.visible = !cave
+    if (this.yard) this.yard.visible = !cave
+    this.dressingRoot.visible = !cave
+    if (cave) {
+      this.scene.background = new THREE.Color(0x2a2218)
       if (this.scene.fog instanceof THREE.Fog) {
-        this.scene.fog.color.set(0x16120e)
-        this.scene.fog.near = 8
-        this.scene.fog.far = 42
+        this.scene.fog.color.set(0x2a2218)
+        this.scene.fog.near = 70
+        this.scene.fog.far = 180
       }
-      this.hemi.intensity = 0.45
-      this.sun.intensity = 0.12
+      this.hemi.intensity = 1.05
+      this.sun.intensity = 0.7
       return
     }
     if (world.time.phase === 'night') {
@@ -1063,7 +1086,7 @@ export class DebugRenderer {
       }
       this.kitWildlife(animal)
       const height = wildlifeHeight(animal.kind)
-      marker.mesh.visible = true
+      marker.mesh.visible = !isInDungeon(world)
       marker.mesh.position.set(animal.position.x, animal.alive ? 0 : 0.02, animal.position.z)
       marker.mesh.rotation.order = 'YXZ'
       const rig = this.rigs.get(animal.id)

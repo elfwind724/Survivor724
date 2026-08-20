@@ -233,11 +233,16 @@ export function stepEnemies(world: WorldState, dt: number): void {
   const goal = warehouse?.position ?? { x: 0, y: 0, z: 0 }
   for (const enemy of world.enemies) {
     if (enemy.paralyze > 0) continue
-    const prey = nearestLivingSurvivor(world, enemy.position, 18)
+    const cave = enemy.id.startsWith('dng-')
+    const prey = nearestLivingSurvivor(world, enemy.position, cave ? 48 : 18)
     const flee = enemy.charm > 0
     const target = flee
       ? { x: enemy.position.x * 2 - (prey?.position.x ?? 0), z: enemy.position.z * 2 - (prey?.position.z ?? 0) }
-      : prey && distanceXZ(prey.position, enemy.position) < 22 ? prey.position : goal
+      : prey
+        ? prey.position
+        : cave
+          ? enemy.position
+          : goal
     const dx = target.x - enemy.position.x
     const dz = target.z - enemy.position.z
     const distance = Math.hypot(dx, dz)
@@ -262,13 +267,15 @@ export function stepEnemies(world: WorldState, dt: number): void {
       }
       continue
     }
-    const wall = adjacentStructure(world, enemy.position)
-    if (wall && (!prey || distance > 3)) {
-      if (enemy.attackCooldown <= 0) {
-        enemy.attackCooldown = definition.attackCooldown
-        damageStructure(world, wall, definition.damage + 6)
+    if (!cave) {
+      const wall = adjacentStructure(world, enemy.position)
+      if (wall && (!prey || distance > 3)) {
+        if (enemy.attackCooldown <= 0) {
+          enemy.attackCooldown = definition.attackCooldown
+          damageStructure(world, wall, definition.damage + 6)
+        }
+        continue
       }
-      continue
     }
     if (distance < 0.2) continue
     const step = enemy.moveSpeed * dt

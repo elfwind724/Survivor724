@@ -443,7 +443,7 @@ export class GameApp {
       }
       if (nearDungeonEntrance(this.world, actor) && enterDungeon(this.world, actor)) {
         this.renderer.recenter()
-        this.notice = '进入山洞。清完房间再选奖励，天黑前撤离'
+        this.notice = '进入山洞。火把亮着，打完这间再选奖励，天黑前撤离'
         return
       }
       if (isInDungeon(this.world) && evacuateDungeon(this.world, actor)) {

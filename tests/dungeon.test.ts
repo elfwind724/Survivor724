@@ -6,12 +6,16 @@ import { rollGear } from '@/data/loot'
 import {
   advanceDungeon,
   chooseDungeonPick,
+  dungeonBlockedWorldCells,
   dungeonEntrancePos,
   dungeonRoomCenter,
+  dungeonTorchPoints,
+  dungeonWallBoxes,
   enterDungeon,
   evacuateDungeon,
   isInDungeon,
 } from '@/dungeon/Dungeon'
+import { findContainer } from '@/simulation/EntityRegistry'
 import { countItem } from '@/inventory/Inventory'
 import { findSurvivor } from '@/simulation/EntityRegistry'
 import { stepWorld } from '@/simulation/SimStep'
@@ -104,7 +108,42 @@ describe('dungeon run', () => {
     expect(world.dungeonRun?.index).toBe(0)
     expect(world.dungeonRun?.evacuated).toBe(false)
     expect(distanceXZ(hunter.position, origin)).toBeGreaterThan(1)
-    expect(world.enemies.length).toBeGreaterThan(enemiesBefore)
+    expect(world.enemies.length).toBeGreaterThanOrEqual(enemiesBefore + 3)
+    expect(world.enemies.filter((enemy) => enemy.id.startsWith('dng-')).length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('builds corridor walls as segments and plants a torch in every room', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    enterDungeon(world, hunter)
+    const run = world.dungeonRun
+    if (!run) throw new Error('missing run')
+    const walls = dungeonWallBoxes(run)
+    const cells = dungeonBlockedWorldCells(run)
+    expect(walls.length).toBeGreaterThan(12)
+    expect(walls.length).toBeLessThan(cells.length / 3)
+    expect(dungeonTorchPoints(run).length).toBeGreaterThanOrEqual(run.nodes.length * 4)
+  })
+
+  it('makes cave enemies chase the hunter and bite instead of walking to the warehouse', () => {
+    const world = createInitialWorld()
+    world.worldSeed = '724'
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    enterDungeon(world, hunter)
+    stepWorld(world, 1 / 30)
+    const enemy = world.enemies.find((entry) => entry.id.startsWith('dng-'))
+    const warehouse = findContainer(world, 'warehouse')
+    if (!enemy || !warehouse) throw new Error('missing enemy')
+    const startHunter = distanceXZ(enemy.position, hunter.position)
+    const startWarehouse = distanceXZ(enemy.position, warehouse.position)
+    const hp = hunter.health
+    enemy.position = { x: hunter.position.x + 1.1, y: 0, z: hunter.position.z }
+    for (let i = 0; i < 40; i += 1) stepWorld(world, 1 / 30)
+    expect(hunter.health).toBeLessThan(hp)
+    expect(distanceXZ(enemy.position, warehouse.position)).toBeGreaterThan(startWarehouse - 4)
+    expect(startHunter).toBeGreaterThan(1)
   })
 
   it('allows chooseDungeonPick after the current room enemies are gone', () => {
