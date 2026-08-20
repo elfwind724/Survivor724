@@ -1,7 +1,11 @@
-import { repairStructure } from '@/base/construction'
+import { findStructure, needsRepair, repairStructure } from '@/base/construction'
+import { durabilityPercent, structureLabel } from '@/data/facilities'
+import { assignPost } from '@/jobs/Roster'
+import { isHero } from '@/controls/PlayerControl'
 import { refillRuinCrates } from '@/world/Ruins'
 import { refillBerryBushes } from '@/world/Forage'
 import { emptyDayNoise, gunshotHordeExtra, hordeCounts, loudestGunshotSector, sectorOfPoint } from '@/data/enemies'
+import { sectorLabel } from '@/combat/Defense'
 import { equippedWeapon, magazineSize, writeMag } from '@/data/weapons'
 import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { noteGear } from '@/data/hallPool'
@@ -10,10 +14,9 @@ import { cellCenter } from '@/navigation/NavGrid'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { BASE } from '@/simulation/baseLayout'
 import { TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
-import { distanceXZ, type NightLoot, type NightPost, type NightReport, type StructureState, type SurvivorState, type WorldState } from '@/simulation/types'
+import { distanceXZ, type DefenseSectorId, type NightLoot, type NightPost, type NightReport, type StructureState, type SurvivorState, type WorldState } from '@/simulation/types'
 import { equipItem } from '@/survivors/Equipment'
 import { beginTravel, followTravel } from '@/navigation/Travel'
-import { isHero } from '@/controls/PlayerControl'
 import { insideBase } from '@/survivors/Living'
 import { stepFollowHero } from '@/jobs/Follow'
 import { assignedRescuer } from '@/jobs/Rescue'
@@ -87,6 +90,7 @@ export function stepNightCycle(world: WorldState): void {
     world.raidBestRarity = null
     world.dayGunshots = 0
     world.dayNoise = emptyDayNoise()
+    world.nightRepairIds = []
     refillRuinCrates(world)
     refillBerryBushes(world)
     world.enemies = []
@@ -186,6 +190,7 @@ function makeReport(world: WorldState, outcome: 'won' | 'lost', reason: string):
 export function readyForNightPost(world: WorldState, survivor: SurvivorState): boolean {
   if (world.time.phase !== 'night' || survivor.downed) return false
   if (survivor.dayAssignment === 'follow') return true
+  if (world.nightRepairIds.length > 0 && canNightRepair(survivor) && survivor.dayAssignment !== 'follow') return true
   if (!insideBase(survivor.position)) return false
   return survivor.workerState !== 'ReturnToBase' && survivor.workerState !== 'DepositItems'
 }
@@ -198,6 +203,13 @@ export function stepNightDefender(world: WorldState, survivor: SurvivorState, dt
     return
   }
   if (restockNightAmmo(world, survivor, dt)) return
+  pruneNightRepairs(world)
+  const ordered = nightRepairAssignments(world).get(survivor.id)
+  if (ordered) {
+    autoCombat(world, survivor)
+    repairWall(world, survivor, ordered, dt)
+    return
+  }
   const closeThreat = nearestLivingEnemy(world, survivor.position, 10)
   if (!closeThreat && rescueDowned(world, survivor, dt)) return
   if (!closeThreat && repairDamagedWall(world, survivor, dt)) return
@@ -306,6 +318,7 @@ export function prepareNightDefense(world: WorldState): void {
   assignNightPosts(world)
   issueNightAmmo(world)
   issueNightGuns(world)
+  issueNightHammers(world)
 }
 
 function assignNightPosts(world: WorldState): void {
@@ -363,16 +376,125 @@ function rescueDowned(world: WorldState, survivor: SurvivorState, dt: number): b
   return true
 }
 
+export function canNightRepair(survivor: SurvivorState): boolean {
+  return survivor.professionId === 'builder' || survivor.carriedTools.includes('hammer')
+}
+
+export function nightRepairing(world: WorldState, survivor: SurvivorState): boolean {
+  if (world.time.phase !== 'night' && world.time.phase !== 'dusk') return false
+  return nightRepairAssignments(world).has(survivor.id)
+}
+
+export function orderRepair(world: WorldState, structureId: string, preferredId?: string): string {
+  const structure = findStructure(world, structureId)
+  if (!structure || (structure.kind !== 'wall' && structure.kind !== 'gate')) return '点要修的墙或大门'
+  if (!needsRepair(structure)) return `${structureLabel(structure)}还不需要修`
+  if (!world.nightRepairIds.includes(structure.id)) world.nightRepairIds.push(structure.id)
+  const name = `${structureLabel(structure)}（${durabilityPercent(structure)}%）`
+  if (world.time.phase !== 'night' && world.time.phase !== 'dusk') {
+    const builder = world.survivors.find((entry) => entry.professionId === 'builder' && !entry.downed && !isHero(world, entry))
+    if (builder) assignPost(world, builder.id, 'repair')
+    return builder ? `已派 ${builder.name} 白天去修 ${name}` : `已记下要修 ${name}`
+  }
+  const crew = pickRepairCrew(world, preferredId)
+  if (!crew) return `已标记抢修 ${name}，但没人拿锤子。走近按 E 可自己修`
+  detachFromPost(world, crew)
+  return `已派 ${crew.name} 去抢修 ${name}`
+}
+
+export function orderRepairSector(world: WorldState, sector: DefenseSectorId): string {
+  const walls = fortifications(world).filter((entry) => wallSector(world, entry) === sector && needsRepair(entry))
+  if (walls.length === 0) return `${sectorLabel(sector)}这一侧还不需要修`
+  for (const wall of walls) {
+    if (!world.nightRepairIds.includes(wall.id)) world.nightRepairIds.push(wall.id)
+  }
+  const crew = pickRepairCrew(world)
+  if (crew) detachFromPost(world, crew)
+  const worst = walls[0] ? durabilityPercent(walls[0]) : 0
+  return crew
+    ? `已派 ${crew.name} 去抢修${sectorLabel(sector)}（最差 ${worst}%）`
+    : `${sectorLabel(sector)}已标记抢修。走近按 E 可自己修`
+}
+
+export function sectorHasRepairOrder(world: WorldState, sector: DefenseSectorId): boolean {
+  return world.nightRepairIds.some((id) => {
+    const structure = findStructure(world, id)
+    return !!structure && wallSector(world, structure) === sector
+  })
+}
+
+export function sectorWallHp(world: WorldState, sector: DefenseSectorId): number {
+  const walls = fortifications(world).filter((entry) => wallSector(world, entry) === sector)
+  if (walls.length === 0) return 100
+  const sum = walls.reduce((total, entry) => total + durabilityPercent(entry), 0)
+  return Math.round(sum / walls.length)
+}
+
+function pickRepairCrew(world: WorldState, preferredId?: string): SurvivorState | undefined {
+  const free = world.survivors.filter((entry) => !entry.downed && !isHero(world, entry) && entry.dayAssignment !== 'follow')
+  const preferred = preferredId ? free.find((entry) => entry.id === preferredId) : undefined
+  if (preferred && (canNightRepair(preferred) || preferred.professionId === 'builder')) return preferred
+  return (
+    free.find((entry) => entry.professionId === 'builder' && canNightRepair(entry))
+    ?? free.find((entry) => canNightRepair(entry))
+    ?? free.find((entry) => entry.professionId === 'builder')
+  )
+}
+
+function detachFromPost(world: WorldState, survivor: SurvivorState): void {
+  const post = world.nightPosts.find((entry) => entry.occupantId === survivor.id)
+  if (post) post.occupantId = null
+  survivor.nightPostId = null
+  survivor.position.y = 0
+  survivor.path = []
+  survivor.destination = null
+}
+
+function pruneNightRepairs(world: WorldState): void {
+  world.nightRepairIds = world.nightRepairIds.filter((id) => {
+    const structure = findStructure(world, id)
+    return !!structure && needsRepair(structure)
+  })
+}
+
+export function nightRepairAssignments(world: WorldState): Map<string, StructureState> {
+  pruneNightRepairs(world)
+  const walls = world.nightRepairIds
+    .map((id) => findStructure(world, id))
+    .filter((entry): entry is StructureState => !!entry && needsRepair(entry))
+    .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)
+  const crew = world.survivors
+    .filter((entry) => !entry.downed && !isHero(world, entry) && entry.dayAssignment !== 'follow' && canNightRepair(entry))
+    .sort((a, b) => a.id.localeCompare(b.id))
+  const used = new Set<string>()
+  const map = new Map<string, StructureState>()
+  for (const wall of walls) {
+    const worker = [...crew]
+      .filter((entry) => !used.has(entry.id))
+      .sort((a, b) => distanceXZ(a.position, wallMid(world, wall)) - distanceXZ(b.position, wallMid(world, wall)))[0]
+    if (!worker) break
+    used.add(worker.id)
+    map.set(worker.id, wall)
+  }
+  return map
+}
+
 function repairDamagedWall(world: WorldState, survivor: SurvivorState, dt: number): boolean {
-  if (survivor.professionId !== 'builder' && !survivor.carriedTools.includes('hammer')) return false
+  if (!canNightRepair(survivor)) return false
   const wall = damagedWall(world)
-  if (!wall?.cells[0]) return false
+  if (!wall) return false
+  return repairWall(world, survivor, wall, dt)
+}
+
+function repairWall(world: WorldState, survivor: SurvivorState, wall: StructureState, dt: number): boolean {
+  if (!wall.cells[0] || !needsRepair(wall)) return false
   const warehouse = findContainer(world, 'warehouse')
   if (!warehouse || countItem(inventoryOf(world.inventories, warehouse.inventoryId), 'wood') <= 0) return false
-  const target = cellCenter(world.nav, wall.cells[0])
+  const target = wallMid(world, wall)
+  survivor.position.y = 0
   if (distanceXZ(survivor.position, target) > 2.2) {
     survivor.workElapsed = 0
-    if (!survivor.destination) beginTravel(world, survivor, target)
+    if (!survivor.pathTarget || distanceXZ(survivor.pathTarget, target) > 2) beginTravel(world, survivor, target)
     followTravel(world, survivor, dt)
     return true
   }
@@ -383,6 +505,36 @@ function repairDamagedWall(world: WorldState, survivor: SurvivorState, dt: numbe
     removeItem(inventoryOf(world.inventories, warehouse.inventoryId), 'wood', 1)
   }
   return true
+}
+
+function wallMid(world: WorldState, structure: StructureState) {
+  const first = structure.cells[0]
+  if (!first) return { x: 0, y: 0, z: 0 }
+  return cellCenter(world.nav, first)
+}
+
+function fortifications(world: WorldState): StructureState[] {
+  return world.structures.filter((entry) => (entry.kind === 'wall' || entry.kind === 'gate') && entry.stage === 'complete')
+}
+
+function wallSector(world: WorldState, structure: StructureState): DefenseSectorId {
+  const mid = wallMid(world, structure)
+  return sectorOfPoint(mid.x, mid.z)
+}
+
+function issueNightHammers(world: WorldState): void {
+  const locker = findContainer(world, 'tool_locker')
+  const stock = locker ? inventoryOf(world.inventories, locker.inventoryId) : undefined
+  for (const survivor of world.survivors) {
+    if (survivor.downed || survivor.carriedTools.includes('hammer')) continue
+    if (survivor.professionId !== 'builder') continue
+    if (stock && countItem(stock, 'hammer') > 0) {
+      removeItem(stock, 'hammer', 1)
+      survivor.carriedTools.push('hammer')
+    } else {
+      survivor.carriedTools.push('hammer')
+    }
+  }
 }
 
 function damagedWall(world: WorldState): StructureState | undefined {

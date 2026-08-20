@@ -1,12 +1,8 @@
-import { reinforceSector, sectorPressure } from '@/combat/Defense'
+import { reinforceSector, sectorLabel, sectorPressure } from '@/combat/Defense'
+import { sectorHasRepairOrder, sectorWallHp } from '@/combat/Night'
 import type { DefenseSectorId, WorldState } from '@/simulation/types'
 
-const SECTORS: Array<{ id: DefenseSectorId; label: string }> = [
-  { id: 'north', label: '北墙' },
-  { id: 'east', label: '东墙' },
-  { id: 'south', label: '南口' },
-  { id: 'west', label: '西墙' },
-]
+const SECTORS: DefenseSectorId[] = ['north', 'east', 'south', 'west']
 
 export class DefenseBar {
   private lastKey = ''
@@ -14,32 +10,44 @@ export class DefenseBar {
   constructor(
     private readonly root: HTMLElement,
     private readonly onReinforce: (sector: DefenseSectorId) => void,
+    private readonly onRepair: (sector: DefenseSectorId) => void = () => undefined,
   ) {
     this.root.addEventListener('pointerdown', (event) => event.stopPropagation())
   }
 
   render(world: WorldState): void {
-    const key = `${world.time.phase}:${world.enemies.length}:${world.defenseSectors.map((entry) => entry.order).join(',')}`
+    const hp = SECTORS.map((id) => sectorWallHp(world, id)).join(',')
+    const key = `${world.time.phase}:${world.enemies.length}:${world.defenseSectors.map((entry) => entry.order).join(',')}:${world.nightRepairIds.join(',')}:${hp}`
     if (key === this.lastKey) return
     this.lastKey = key
-    const buttons = SECTORS.map((sector) => {
-      const order = world.defenseSectors.find((entry) => entry.id === sector.id)?.order ?? 'hold'
-      const pressure = sectorPressure(world, sector.id)
+    const cards = SECTORS.map((id) => {
+      const order = world.defenseSectors.find((entry) => entry.id === id)?.order ?? 'hold'
+      const pressure = sectorPressure(world, id)
+      const wall = sectorWallHp(world, id)
       const active = order === 'reinforce' ? ' is-active' : ''
-      return `<button type="button" class="defense-card${active}" data-sector="${sector.id}">
-        <strong>${sector.label}</strong>
-        <span>压力 ${pressure}</span>
-        <span>${order === 'reinforce' ? '增援中' : '坚守'}</span>
-      </button>`
+      const patch = sectorHasRepairOrder(world, id) ? ' is-repair' : ''
+      return `<div class="defense-card${active}${patch}">
+        <strong>${sectorLabel(id)}</strong>
+        <span>压力 ${pressure} · 墙 ${wall}%</span>
+        <span class="defense-acts">
+          <button type="button" data-reinforce="${id}">增援</button>
+          <button type="button" data-repair="${id}">抢修</button>
+        </span>
+      </div>`
     }).join('')
-    this.root.innerHTML = `<div class="defense-label">夜间防区</div><div class="defense-row">${buttons}</div>`
-    this.root.querySelectorAll<HTMLButtonElement>('[data-sector]').forEach((button) => {
+    this.root.innerHTML = `<div class="defense-label">夜间防区 · 点墙也可派人修</div><div class="defense-row">${cards}</div>`
+    this.root.querySelectorAll<HTMLButtonElement>('[data-reinforce]').forEach((button) => {
       button.addEventListener('click', () => {
-        const id = button.dataset.sector as DefenseSectorId | undefined
-        if (id) {
-          reinforceSector(world, id)
-          this.onReinforce(id)
-        }
+        const id = button.dataset.reinforce as DefenseSectorId | undefined
+        if (!id) return
+        reinforceSector(world, id)
+        this.onReinforce(id)
+      })
+    })
+    this.root.querySelectorAll<HTMLButtonElement>('[data-repair]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const id = button.dataset.repair as DefenseSectorId | undefined
+        if (id) this.onRepair(id)
       })
     })
   }

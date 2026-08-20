@@ -3,6 +3,7 @@ import { assetById } from '@/data/assetIndex'
 import {
   creativeFootprint,
   demolishDuration,
+  durabilityPercent,
   facilityDefinition,
   facilityFromAsset,
   footprintCells,
@@ -11,7 +12,7 @@ import {
 } from '@/data/facilities'
 import { addItem, countItem, createInventory, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
-import type { GridCell, StructureState, Vec3, WildlifeState, WorldState } from '@/simulation/types'
+import type { GridCell, StructureState, SurvivorState, Vec3, WildlifeState, WorldState } from '@/simulation/types'
 import { nearestLivingWildlife, removeCreativeAnimal, spawnCreativeAnimal, WILDLIFE_LABEL } from '@/world/Wildlife'
 import { cellCenter, cellIndex, inBounds, markNavDirty, rebuildNav, worldToCell } from '@/navigation/NavGrid'
 import { pathExists } from '@/navigation/AStar'
@@ -264,6 +265,21 @@ export function structureAt(world: WorldState, point: Vec3): StructureState | un
   return world.structures.find((structure) =>
     structure.cells.some((entry) => entry.x === cell.x && entry.z === cell.z),
   )
+}
+
+function damagedFortNear(world: WorldState, point: Vec3, radius: number): StructureState | undefined {
+  let best: StructureState | undefined
+  let bestDist = radius
+  for (const structure of world.structures) {
+    if (structure.kind !== 'wall' && structure.kind !== 'gate') continue
+    if (!needsRepair(structure)) continue
+    const dist = distanceToStructure(world, structure, point)
+    if (dist < bestDist) {
+      best = structure
+      bestDist = dist
+    }
+  }
+  return best
 }
 
 export function structureNear(world: WorldState, point: Vec3, radius = 3.8): StructureState | undefined {
@@ -695,6 +711,22 @@ export function repairStructure(world: WorldState, structure: StructureState, am
   if (!needsRepair(structure)) return false
   structure.hp = Math.min(structure.maxHp, structure.hp + amount)
   return true
+}
+
+export function tryManualRepair(world: WorldState, survivor: SurvivorState, radius = 2.8): string | null {
+  const structure = damagedFortNear(world, survivor.position, radius)
+  if (!structure) return null
+  const bag = inventoryOf(world.inventories, survivor.inventoryId)
+  const warehouse = findContainer(world, 'warehouse')
+  const stock = warehouse ? inventoryOf(world.inventories, warehouse.inventoryId) : undefined
+  const fromBag = countItem(bag, 'wood') > 0
+  if (!fromBag && (!stock || countItem(stock, 'wood') <= 0)) return '没有木头可修墙'
+  const handy = survivor.professionId === 'builder' || survivor.carriedTools.includes('hammer')
+  const amount = handy ? REPAIR_HP : Math.max(12, Math.round(REPAIR_HP * 0.6))
+  if (!repairStructure(world, structure, amount)) return '这堵墙不需要修'
+  if (fromBag) removeItem(bag, 'wood', 1)
+  else if (stock) removeItem(stock, 'wood', 1)
+  return `已修 ${structureLabel(structure)} 到 ${durabilityPercent(structure)}%`
 }
 
 export function damageStructure(world: WorldState, structure: StructureState, amount: number): boolean {

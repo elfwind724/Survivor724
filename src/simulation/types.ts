@@ -455,6 +455,7 @@ export interface WorldState {
   dayGunshots: number
   dayNoise: Record<DefenseSectorId, number>
   rescueOrders: Record<string, string>
+  nightRepairIds: string[]
 }
 
 export function vec3(x: number, y: number, z: number): Vec3 {

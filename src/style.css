@@ -1077,6 +1077,33 @@ body,
   background: #3a221e;
 }
 
+.defense-card.is-repair {
+  border-color: #c4a04a;
+}
+
+.defense-acts {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.defense-acts button {
+  flex: 1;
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel-2);
+  color: var(--hud-ink);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.defense-acts button:hover,
+.defense-acts button:focus-visible {
+  border-color: var(--hud-brass);
+  outline: none;
+}
+
 #creative-editor,
 .creative {
   position: absolute;

@@ -146,6 +146,17 @@ describe('game hud', () => {
     expect(html).toContain('关闭')
   })
 
+  it('warns when a wall is about to fail at night', () => {
+    const world = createInitialWorld()
+    world.time.phase = 'night'
+    const wall = world.structures.find((entry) => entry.kind === 'wall' && entry.stage === 'complete')
+    if (!wall) throw new Error('missing wall')
+    wall.hp = Math.round(wall.maxHp * 0.3)
+    const html = renderHudHtml(buildHudModel(world))
+    expect(html).toContain('抢修')
+    expect(html).toMatch(/围墙只剩/)
+  })
+
   it('shows numbered dusk warnings on the clock', () => {
     const world = createInitialWorld()
     world.time.daySeconds = 60 + 11 * 60 - 180

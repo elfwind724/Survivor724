@@ -1,12 +1,12 @@
 import * as THREE from 'three'
-import { demolishTarget, findStructure, interactGate, markDemolishAt, placeBlueprint, placeCreativeAsset, placeWallLine, previewCreativePlacement, previewPlacement, previewWallLine, removeCreativeAt } from '@/base/construction'
+import { demolishTarget, findStructure, interactGate, markDemolishAt, needsRepair, placeBlueprint, placeCreativeAsset, placeWallLine, previewCreativePlacement, previewPlacement, previewWallLine, removeCreativeAt, tryManualRepair } from '@/base/construction'
 import { decorationNear, removeDecoration, snapDecor } from '@/base/decorations'
 import { buildProgress, durabilityPercent, facilityPreviewHeight, structureLabel } from '@/data/facilities'
 import { canUpgrade, facilityCap, hallLevel, markUpgrade, structureLevel, upgradeCost, upgradeProgress } from '@/base/upgrade'
 import { unlocksAtHall } from '@/data/hallPool'
 import { PICK_LABEL, type DungeonPickId } from '@/data/dungeon'
 import { itemLabel } from '@/data/items'
-import { rebuildNightPosts } from '@/combat/Night'
+import { orderRepair, orderRepairSector, rebuildNightPosts } from '@/combat/Night'
 import {
   advanceDungeon,
   chooseDungeonPick,
@@ -34,7 +34,7 @@ import { findSurvivor } from '@/simulation/EntityRegistry'
 import { skipSeconds, stepWorld } from '@/simulation/SimStep'
 import { createInitialWorld } from '@/simulation/WorldState'
 import type { GridCell, WorldState } from '@/simulation/types'
-import { reinforceSector } from '@/combat/Defense'
+import { reinforceSector, sectorLabel } from '@/combat/Defense'
 import { postForTower } from '@/combat/Night'
 import { isSleeping } from '@/base/FacilityLife'
 import { assignWatch } from '@/jobs/Roster'
@@ -170,7 +170,9 @@ export class GameApp {
       }
     })
     this.defenseBar = new DefenseBar(defenseRoot, (sector) => {
-      this.notice = `增援${sector}，守夜的人会往那边靠` 
+      this.notice = `增援${sectorLabel(sector)}，守夜的人会往那边靠`
+    }, (sector) => {
+      this.notice = orderRepairSector(this.world, sector)
     })
     this.sandbox = new SandboxPanel(sandboxRoot, (notice) => {
       this.notice = notice
@@ -456,6 +458,11 @@ export class GameApp {
         }
         return
       }
+      const patched = tryManualRepair(this.world, actor)
+      if (patched) {
+        this.notice = patched
+        return
+      }
       if (nearDungeonEntrance(this.world, actor) && enterDungeon(this.world, actor)) {
         this.renderer.recenter()
         const pack = followingSurvivors(this.world).length
@@ -486,15 +493,27 @@ export class GameApp {
       const index = Number(event.code.slice(5)) - 1
       if (event.shiftKey) {
         if (index === 0) {
-          if (this.world.time.phase === 'night') reinforceSector(this.world, 'north')
+          if (this.world.time.phase === 'night') {
+            reinforceSector(this.world, 'north')
+            this.notice = `增援${sectorLabel('north')}，守夜的人会往那边靠`
+          }
           else this.zoneJob = 'hunt'
         } else if (index === 1) {
-          if (this.world.time.phase === 'night') reinforceSector(this.world, 'east')
+          if (this.world.time.phase === 'night') {
+            reinforceSector(this.world, 'east')
+            this.notice = `增援${sectorLabel('east')}，守夜的人会往那边靠`
+          }
           else this.zoneJob = 'fish'
         } else if (index === 2) {
-          if (this.world.time.phase === 'night') reinforceSector(this.world, 'south')
+          if (this.world.time.phase === 'night') {
+            reinforceSector(this.world, 'south')
+            this.notice = `增援${sectorLabel('south')}，守夜的人会往那边靠`
+          }
           else this.zoneJob = 'scavenge'
-        } else if (index === 3 && this.world.time.phase === 'night') reinforceSector(this.world, 'west')
+        } else if (index === 3 && this.world.time.phase === 'night') {
+          reinforceSector(this.world, 'west')
+          this.notice = `增援${sectorLabel('west')}，守夜的人会往那边靠`
+        }
         return
       }
       if (index >= 0 && index <= 8) {
@@ -696,6 +715,13 @@ export class GameApp {
           return
         }
       }
+      if (tower && needsRepair(tower) && (tower.kind === 'wall' || tower.kind === 'gate')) {
+        const preferred = this.world.player.selectedId && this.world.player.selectedId !== this.world.player.heroId
+          ? this.world.player.selectedId
+          : undefined
+        this.notice = orderRepair(this.world, tower.id, preferred)
+        return
+      }
       const id = this.renderer.pickSurvivor(this.world, event.clientX, event.clientY)
       if (!id) {
         this.towerPostId = null
@@ -836,9 +862,14 @@ export class GameApp {
       const demolishMode = this.buildMenu.getSelected() === 'demolish'
       const upgradeMode = this.buildMenu.getSelected() === 'upgrade'
       const hp = structure.kind === 'wall' || structure.kind === 'gate' ? ` · 耐久 ${durabilityPercent(structure)}%` : ''
+      const repairHint = structure.kind === 'wall' || structure.kind === 'gate'
+        ? needsRepair(structure)
+          ? ' · 点击派人抢修 · 走近按 E 自己修'
+          : ''
+        : ''
       const level = structure.stage === 'complete' ? ` · ${structureLevel(structure)}级` : ''
       const progress = structure.stage === 'complete'
-        ? `${level}${hp}${structure.upgrading ? ` · 升级 ${upgradeProgress(structure)}%` : ''}${upgradeMode ? ' · 点击升级' : ''}${demolishMode ? ' · 点击标记拆除' : ''}`
+        ? `${level}${hp}${repairHint}${structure.upgrading ? ` · 升级 ${upgradeProgress(structure)}%` : ''}${upgradeMode ? ' · 点击升级' : ''}${demolishMode ? ' · 点击标记拆除' : ''}`
         : structure.stage === 'demolishing'
           ? ` · 拆除 ${buildProgress(structure)}%`
           : ` · ${structure.stage === 'blueprint' || structure.stage === 'hauling' ? '蓝图' : '建造中'} ${buildProgress(structure)}%`

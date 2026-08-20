@@ -167,7 +167,7 @@ export function buildHudModel(
     caption: hudTimeCaption(world),
     timeScale: world.time.timeScale,
     notice,
-    warning: dungeonWarning(world) || composeDuskWarning(world) || raidNightWarning(world) || huntNoiseWarning(world),
+    warning: dungeonWarning(world) || composeDuskWarning(world) || wallRepairWarning(world) || raidNightWarning(world) || huntNoiseWarning(world),
     duskLevel: duskWarningLevel(world),
     sites: queue.length,
     queue,
@@ -799,6 +799,16 @@ function dungeonHintFor(world: WorldState, hero: SurvivorState | undefined): str
   if (!hero || isInDungeon(world)) return ''
   if (!nearDungeonEntrance(world, hero)) return ''
   return '山洞入口 · 按 E 进本'
+}
+
+function wallRepairWarning(world: WorldState): string {
+  if (world.time.phase !== 'night' && world.time.phase !== 'dusk') return ''
+  const walls = world.structures.filter(
+    (entry) => (entry.kind === 'wall' || entry.kind === 'gate') && entry.stage === 'complete' && entry.hp < entry.maxHp,
+  )
+  const worst = walls.sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
+  if (!worst || worst.hp / worst.maxHp > 0.55) return ''
+  return `围墙只剩 ${Math.round((100 * worst.hp) / worst.maxHp)}%，点墙或防区「抢修」`
 }
 
 function raidNightWarning(world: WorldState): string {

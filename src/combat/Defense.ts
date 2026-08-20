@@ -50,3 +50,14 @@ export function sectorOfPoint(x: number, z: number): DefenseSectorId {
   if (Math.abs(x) > Math.abs(z)) return x >= 0 ? 'east' : 'west'
   return z >= 0 ? 'north' : 'south'
 }
+
+export const SECTOR_LABEL: Record<DefenseSectorId, string> = {
+  north: '北墙',
+  east: '东墙',
+  south: '南口',
+  west: '西墙',
+}
+
+export function sectorLabel(id: DefenseSectorId): string {
+  return SECTOR_LABEL[id]
+}

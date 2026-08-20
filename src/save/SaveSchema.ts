@@ -80,6 +80,7 @@ export function deserializeWorld(raw: unknown): WorldState {
   if (!Array.isArray(world.berryBushes) || world.berryBushes.length === 0) world.berryBushes = seedBerryBushes()
   if (!Array.isArray(world.waterScoops) || world.waterScoops.length === 0) world.waterScoops = seedWaterScoops()
   if (!world.rescueOrders || typeof world.rescueOrders !== 'object') world.rescueOrders = {}
+  if (!Array.isArray(world.nightRepairIds)) world.nightRepairIds = []
   if (!world.codex || typeof world.codex !== 'object') world.codex = emptyCodex()
   if (!Array.isArray(world.codex.affixes)) world.codex.affixes = []
   if (!Array.isArray(world.codex.procs)) world.codex.procs = []

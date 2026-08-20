@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createEnemy, reloadWeapon, stepProjectiles, towerRangeBonus, tryShoot } from '@/combat/Combat'
 import { reinforceSector } from '@/combat/Defense'
-import { assignedRescuer, lateReturnHordeExtra, nightLootFor, stepNightCycle, stepNightDefender } from '@/combat/Night'
-import { demolishStructure } from '@/base/construction'
+import { assignedRescuer, lateReturnHordeExtra, nightLootFor, nightRepairing, orderRepair, stepNightCycle, stepNightDefender } from '@/combat/Night'
+import { demolishStructure, tryManualRepair } from '@/base/construction'
 import { countItem } from '@/inventory/Inventory'
 import { gunshotHordeExtra, hordeCounts, sectorOfPoint } from '@/data/enemies'
 import { assignWatch } from '@/jobs/Roster'
@@ -509,6 +509,47 @@ describe('combat and night', () => {
     const before = wall.hp
     for (let i = 0; i < 60; i += 1) stepWorld(world, 1 / 30)
     expect(wall.hp).toBeGreaterThan(before)
+  })
+
+  it('sends a builder to patch a wall even when zombies are nearby after a repair order', () => {
+    const world = createInitialWorld()
+    world.time.daySeconds = 60 + 11 * 60 + 90
+    world.time.phase = 'night'
+    world.nightSpawnedDay = world.time.dayIndex
+    const wall = world.structures.find((structure) => structure.kind === 'wall' && structure.stage === 'complete')
+    const builder = findSurvivor(world, 'builder')
+    if (!wall?.cells[0] || !builder) throw new Error('missing wall or builder')
+    wall.hp = 40
+    const point = cellCenter(world.nav, wall.cells[0])
+    builder.position = { x: point.x, y: 0, z: point.z + 1 }
+    builder.carriedTools = ['hammer']
+    builder.nightPostId = 'post-nw'
+    world.enemies = [createEnemy('wanderer', { x: point.x + 8, y: 0, z: point.z + 1 }, 'near-wall')]
+    expect(orderRepair(world, wall.id)).toContain('木石')
+    expect(world.nightRepairIds).toContain(wall.id)
+    expect(nightRepairing(world, builder)).toBe(true)
+    expect(builder.nightPostId).toBeNull()
+    const before = wall.hp
+    for (let i = 0; i < 30 * 2; i += 1) stepWorld(world, 1 / 30)
+    expect(wall.hp).toBeGreaterThan(before)
+  })
+
+  it('lets the possessed survivor hammer a wall with wood in the pack', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    const wall = world.structures.find((structure) => structure.kind === 'wall' && structure.stage === 'complete')
+    if (!hunter || !wall?.cells[0]) throw new Error('missing hunter or wall')
+    wall.hp = 40
+    const point = cellCenter(world.nav, wall.cells[0])
+    hunter.position = { x: point.x, y: 0, z: point.z }
+    hunter.carriedTools = ['hammer']
+    const bag = world.inventories[hunter.inventoryId]
+    if (!bag) throw new Error('missing bag')
+    bag.items = [{ itemId: 'wood', count: 3 }]
+    const notice = tryManualRepair(world, hunter)
+    expect(notice).toMatch(/已修/)
+    expect(wall.hp).toBeGreaterThan(40)
+    expect(countItem(bag, 'wood')).toBe(2)
   })
 
   it('raises dusk warnings as daylight runs out', () => {
