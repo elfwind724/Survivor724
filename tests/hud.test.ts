@@ -3,7 +3,7 @@ import { stepWorld } from '@/simulation/SimStep'
 import type { SurvivorState } from '@/simulation/types'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { buildHudModel, renderHudHtml } from '@/ui/GameHud'
-import { minimapActors } from '@/ui/Minimap'
+import { minimapActors, minimapProject } from '@/ui/Minimap'
 
 describe('game hud', () => {
   it('lists every survivor with name, health, hunger, and thirst', () => {
@@ -157,6 +157,15 @@ describe('game hud', () => {
     expect(actors.find((entry) => entry.role === 'player')?.x).toBe(92)
     expect(actors.some((entry) => entry.role === 'npc' && entry.id === 'fisher')).toBe(true)
     expect(actors.filter((entry) => entry.role === 'player')).toHaveLength(1)
+  })
+
+  it('puts a walker south of the base higher on the radar, matching the camera', () => {
+    const world = createInitialWorld()
+    const base = minimapProject(world.nav, 0, 0, 180, 180)
+    const south = minimapProject(world.nav, 0, -40, 180, 180)
+    const north = minimapProject(world.nav, 0, 40, 180, 180)
+    expect(south.y).toBeLessThan(base.y)
+    expect(north.y).toBeGreaterThan(base.y)
   })
 
   it('warns that daytime hunting gunfire makes that night worse', () => {

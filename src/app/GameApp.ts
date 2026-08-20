@@ -25,7 +25,7 @@ import { setWorkZone } from '@/base/workZones'
 import { cameraRelativeWish } from '@/controls/CameraWish'
 import { Input } from '@/controls/Input'
 import { cycleControlled, possessSurvivor } from '@/controls/PlayerControl'
-import { toggleFollow } from '@/jobs/Follow'
+import { followingSurvivors, toggleFollow } from '@/jobs/Follow'
 import { beginTravel } from '@/navigation/Travel'
 import { rebuildNav, worldToCell } from '@/navigation/NavGrid'
 import { DebugRenderer } from '@/render/DebugRenderer'
@@ -443,7 +443,10 @@ export class GameApp {
       }
       if (nearDungeonEntrance(this.world, actor) && enterDungeon(this.world, actor)) {
         this.renderer.recenter()
-        this.notice = '进入山洞。火把亮着，打完这间再选奖励，天黑前撤离'
+        const pack = followingSurvivors(this.world).length
+        this.notice = pack > 0
+          ? `进入山洞。${pack} 名队员跟着进来了。打完这间再选奖励，天黑前撤离`
+          : '进入山洞。火把亮着，打完这间再选奖励，天黑前撤离'
         return
       }
       if (isInDungeon(this.world) && evacuateDungeon(this.world, actor)) {

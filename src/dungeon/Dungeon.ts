@@ -16,6 +16,7 @@ import { findGear, giveGear, isGearId, rollGear, spawnGroundLoot } from '@/data/
 import { addItem, inventoryOf, usedSlots } from '@/inventory/Inventory'
 import { ensureHotbar } from '@/inventory/Pack'
 import { cellIndex, inBounds, worldToCell } from '@/navigation/NavGrid'
+import { gatherFollowers } from '@/jobs/Follow'
 import { findContainer, findSurvivor } from '@/simulation/EntityRegistry'
 import { cloneVec3, distanceXZ, type AffixRoll, type DungeonRun, type ItemRarity, type SurvivorState, type Vec3, type WorldState } from '@/simulation/types'
 
@@ -253,6 +254,7 @@ export function enterDungeon(world: WorldState, survivor: SurvivorState): boolea
   }
   world.raidEntered = true
   placeInRoom(world, survivor, 0)
+  gatherFollowers(world, survivor.position)
   spawnRoom(world, world.dungeonRun)
   world.navDirty = true
   return true
@@ -292,6 +294,7 @@ export function evacuateDungeon(world: WorldState, survivor?: SurvivorState): bo
   actor.destination = null
   actor.path = []
   actor.pathTarget = null
+  gatherFollowers(world, actor.position)
   clearDungeonEnemies(world)
   run.evacuated = true
   run.picks = null

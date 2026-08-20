@@ -20,6 +20,21 @@ export function minimapActors(world: WorldState): MinimapActor[] {
   }))
 }
 
+export function minimapProject(
+  nav: WorldState['nav'],
+  x: number,
+  z: number,
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  const sx = width / (nav.width * nav.cellSize)
+  const sz = height / (nav.height * nav.cellSize)
+  return {
+    x: (x - nav.originX) * sx,
+    y: (z - nav.originZ) * sz,
+  }
+}
+
 export class Minimap {
   constructor(private readonly canvas: HTMLCanvasElement) {}
 
@@ -33,20 +48,22 @@ export class Minimap {
 
     const sx = width / (nav.width * nav.cellSize)
     const sz = height / (nav.height * nav.cellSize)
-    const toX = (x: number) => (x - nav.originX) * sx
-    const toY = (z: number) => height - (z - nav.originZ) * sz
+    const toX = (x: number) => minimapProject(nav, x, 0, width, height).x
+    const toY = (z: number) => minimapProject(nav, 0, z, width, height).y
 
     ctx.fillStyle = '#2c3330'
     for (let z = 0; z < nav.height; z += 1) {
       for (let x = 0; x < nav.width; x += 1) {
         if (nav.blocked[z * nav.width + x] !== 1) continue
-        ctx.fillRect(x * nav.cellSize * sx, height - (z + 1) * nav.cellSize * sz, nav.cellSize * sx, nav.cellSize * sz)
+        ctx.fillRect(x * nav.cellSize * sx, z * nav.cellSize * sz, nav.cellSize * sx, nav.cellSize * sz)
       }
     }
 
     for (const zone of world.workZones) {
       ctx.fillStyle = zone.jobDefinitionId === 'hunt' ? 'rgba(80,140,70,0.25)' : zone.jobDefinitionId === 'fish' ? 'rgba(70,120,150,0.25)' : 'rgba(150,110,70,0.25)'
-      ctx.fillRect(toX(zone.minX), toY(zone.maxZ), toX(zone.maxX) - toX(zone.minX), toY(zone.minZ) - toY(zone.maxZ))
+      const zy0 = Math.min(toY(zone.minZ), toY(zone.maxZ))
+      const zy1 = Math.max(toY(zone.minZ), toY(zone.maxZ))
+      ctx.fillRect(toX(zone.minX), zy0, toX(zone.maxX) - toX(zone.minX), zy1 - zy0)
     }
 
     for (const structure of world.structures) {
@@ -56,7 +73,7 @@ export class Minimap {
         ? structure.kind === 'gate' && structure.open ? '#8a6a3a' : '#5a5a5a'
         : '#3d7ea6'
       for (const cell of structure.cells) {
-        ctx.fillRect(cell.x * nav.cellSize * sx, height - (cell.z + 1) * nav.cellSize * sz, nav.cellSize * sx + 0.5, nav.cellSize * sz + 0.5)
+        ctx.fillRect(cell.x * nav.cellSize * sx, cell.z * nav.cellSize * sz, nav.cellSize * sx + 0.5, nav.cellSize * sz + 0.5)
       }
     }
 
@@ -97,7 +114,7 @@ export class Minimap {
     const v = (event.clientY - rect.top) / rect.height
     return {
       x: world.nav.originX + u * world.nav.width * world.nav.cellSize,
-      z: world.nav.originZ + (1 - v) * world.nav.height * world.nav.cellSize,
+      z: world.nav.originZ + v * world.nav.height * world.nav.cellSize,
     }
   }
 }
@@ -105,7 +122,7 @@ export class Minimap {
 function drawPlayerMark(ctx: CanvasRenderingContext2D, x: number, y: number, yaw: number): void {
   ctx.save()
   ctx.translate(x, y)
-  ctx.rotate(-yaw)
+  ctx.rotate(Math.PI - yaw)
   ctx.beginPath()
   ctx.moveTo(0, -7)
   ctx.lineTo(5, 6)

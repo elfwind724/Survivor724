@@ -15,6 +15,7 @@ import {
   evacuateDungeon,
   isInDungeon,
 } from '@/dungeon/Dungeon'
+import { toggleFollow } from '@/jobs/Follow'
 import { findContainer } from '@/simulation/EntityRegistry'
 import { countItem } from '@/inventory/Inventory'
 import { findSurvivor } from '@/simulation/EntityRegistry'
@@ -144,6 +145,21 @@ describe('dungeon run', () => {
     expect(hunter.health).toBeLessThan(hp)
     expect(distanceXZ(enemy.position, warehouse.position)).toBeGreaterThan(startWarehouse - 4)
     expect(startHunter).toBeGreaterThan(1)
+  })
+
+  it('brings following teammates into the cave and back out', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    const fisher = findSurvivor(world, 'fisher')
+    if (!hunter || !fisher) throw new Error('missing people')
+    fisher.position = { x: 0, y: 0, z: 0 }
+    expect(toggleFollow(world, 'fisher')).toBe('follow')
+    enterDungeon(world, hunter)
+    expect(distanceXZ(fisher.position, hunter.position)).toBeLessThan(4)
+    expect(isInDungeon(world)).toBe(true)
+    evacuateDungeon(world, hunter)
+    expect(distanceXZ(fisher.position, hunter.position)).toBeLessThan(4)
+    expect(distanceXZ(hunter.position, dungeonEntrancePos())).toBeLessThan(2)
   })
 
   it('allows chooseDungeonPick after the current room enemies are gone', () => {
