@@ -363,6 +363,7 @@ export interface DecorationState {
 export interface GroundLoot {
   id: string
   gearId: string
+  count: number
   x: number
   z: number
 }

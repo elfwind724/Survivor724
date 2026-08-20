@@ -40,7 +40,7 @@ import { activityLines } from '@/survivors/Activity'
 import { recallFieldWorkers } from '@/jobs/DayWorker'
 import { BuildMenu } from '@/ui/BuildMenu'
 import { CharacterSheet } from '@/ui/CharacterSheet'
-import { handlePackClick, type PackCursor } from '@/inventory/Pack'
+import { handlePackClick, salvageSelected, useSelected, type PackClick, type PackCursor } from '@/inventory/Pack'
 import { CreativeEditor } from '@/ui/CreativeEditor'
 import { GameHud } from '@/ui/GameHud'
 import { RosterPanel } from '@/ui/RosterPanel'
@@ -325,7 +325,7 @@ export class GameApp {
       this.hud.toggleBag()
       this.packCursor = null
       this.hud.setCursor(null)
-      this.notice = ''
+      this.notice = this.hud.isBagOpen() ? '背包 · E 使用 · 右键丢弃 · F 拆解' : ''
       return
     }
     if (event.code === 'KeyC') {
@@ -347,8 +347,21 @@ export class GameApp {
         this.notice = result === 'follow' ? `${name} 开始跟随` : `${name} 停止跟随`
       }
     }
-    if (event.code === 'KeyF' && this.world.player.controlledId) {
-      this.world.player.view = this.world.player.view === 'firstperson' ? 'topdown' : 'firstperson'
+    if (event.code === 'KeyF') {
+      if (this.packCursor) {
+        const actor = this.focusActor()
+        if (!actor) {
+          this.notice = '先选中或接管一个人'
+          return
+        }
+        this.notice = salvageSelected(this.world, actor, this.packCursor)
+        this.packCursor = null
+        this.hud.setCursor(null)
+        return
+      }
+      if (this.world.player.controlledId) {
+        this.world.player.view = this.world.player.view === 'firstperson' ? 'topdown' : 'firstperson'
+      }
     }
     if (event.code === 'KeyB') this.buildMenu.toggle()
     if (event.code === 'KeyJ') {
@@ -398,6 +411,18 @@ export class GameApp {
       const actor = this.focusActor()
       if (!actor) {
         this.notice = '先选中或接管一个人，再到门边按 E'
+        return
+      }
+      const used = useSelected(this.world, actor, this.packCursor)
+      if (used) {
+        this.notice = used
+        if (this.packCursor?.place === 'hot') {
+          const left = actor.hotbar[this.packCursor.index]
+          if (!left) {
+            this.packCursor = null
+            this.hud.setCursor(null)
+          }
+        }
         return
       }
       if (nearDungeonEntrance(this.world, actor) && enterDungeon(this.world, actor)) {
@@ -582,7 +607,7 @@ export class GameApp {
         return
       }
       const cost = upgradeCost(structure).map((item) => `${item.count}${itemLabel(item.itemId)}`).join(' ')
-      this.notice = `已标记升级 ${structureLabel(structure)} 到 ${structure.level + 1} 级，需 ${cost}，工匠会来施工`
+      this.notice = `已点升级 ${structureLabel(structure)} 到 ${structure.level + 1} 级，需 ${cost}。左上角施工队列会显示谁来了、卡在哪`
       return
     }
 
@@ -871,7 +896,7 @@ export class GameApp {
     })
   }
 
-  private applyPackClick(click: { place: 'hot'; index: number } | { place: 'bag'; itemId: string } | { place: 'bag-empty' }): void {
+  private applyPackClick(click: PackClick): void {
     const actor = this.focusActor()
     if (!actor) {
       this.notice = '先选中或接管一个人'

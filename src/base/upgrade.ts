@@ -1,5 +1,6 @@
 import { structureHp } from '@/base/construction'
 import { countItem, inventoryOf } from '@/inventory/Inventory'
+import { rushUpgrade } from '@/jobs/JobPlanner'
 import { findContainer } from '@/simulation/EntityRegistry'
 import type { ItemStack, StructureState, WorldState } from '@/simulation/types'
 
@@ -45,6 +46,7 @@ export function markUpgrade(world: WorldState, structure: StructureState): boole
   structure.upgradeRequired = upgradeCost(structure)
   structure.upgradeElapsed = 0
   structure.upgradeDuration = structure.definitionId === 'hall' ? 8 + structure.level * 3 : 4 + structure.level
+  rushUpgrade(world, structure.id)
   return true
 }
 

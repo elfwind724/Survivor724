@@ -126,11 +126,19 @@ export function gearLabel(world: WorldState, id: string): string {
 }
 
 export function spawnGroundLoot(world: WorldState, piece: GearPiece, x: number, z: number): void {
+  spawnGroundItem(world, piece.id, 1, x, z)
   world.gear[piece.id] = piece
-  if (world.groundLoot.some((drop) => drop.gearId === piece.id)) return
+}
+
+let groundSerial = 0
+
+export function spawnGroundItem(world: WorldState, itemId: string, count: number, x: number, z: number): void {
+  if (count <= 0) return
+  if (isGearId(itemId) && world.groundLoot.some((drop) => drop.gearId === itemId)) return
   world.groundLoot.push({
-    id: `loot-${piece.id}`,
-    gearId: piece.id,
+    id: `loot-${itemId}-${(groundSerial += 1)}`,
+    gearId: itemId,
+    count,
     x,
     z,
   })
@@ -209,7 +217,8 @@ export function pickupGroundLoot(world: WorldState, survivor: SurvivorState): Ge
       kept.push(drop)
       continue
     }
-    if (!addItem(bag, drop.gearId, 1) && !addToHotbar(survivor, drop.gearId, 1)) {
+    const amount = Math.max(1, drop.count || 1)
+    if (!addItem(bag, drop.gearId, amount) && !addToHotbar(survivor, drop.gearId, amount)) {
       kept.push(drop)
       continue
     }

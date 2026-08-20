@@ -81,9 +81,52 @@ body,
 }
 
 .hud-stocks strong,
-.hud-bag strong {
+.hud-bag strong,
+.hud-queue > strong {
   color: var(--hud-brass);
   font-size: 13px;
+}
+
+.hud-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 280px;
+  max-width: 420px;
+  padding: 8px 10px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-panel);
+  pointer-events: auto;
+}
+
+.hud-queue-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1.1fr) minmax(0, 1.2fr) 40px;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 12px;
+}
+
+.hud-queue-row strong {
+  color: #d8c08a;
+  font-size: 12px;
+}
+
+.hud-queue-row em {
+  color: var(--hud-muted);
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-queue-row b {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-queue-row.is-stuck em {
+  color: #e0a36a;
 }
 
 .hud-bag em {
@@ -1067,7 +1110,7 @@ body,
   width: 64px;
   height: 64px;
   padding: 4px 5px;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--hud-line);
   background: #14110d;
   color: var(--hud-ink);
@@ -1149,13 +1192,69 @@ body,
 }
 
 .pack-slot {
+  position: relative;
   min-height: 56px;
   padding: 4px;
+  overflow: visible;
   border: 1px solid var(--hud-line);
   background: #14110d;
   color: var(--hud-ink);
   text-align: left;
   cursor: pointer;
+}
+
+.item-tip {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 50;
+  width: max-content;
+  max-width: 240px;
+  padding: 8px 10px;
+  border: 1px solid var(--hud-line);
+  background: #1a1612;
+  color: var(--hud-ink);
+  text-shadow: none;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.item-tip strong {
+  display: block;
+  font-size: 13px;
+}
+
+.item-tip em {
+  color: var(--hud-brass);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.item-tip ul {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item-tip li {
+  color: var(--hud-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.item-tip small {
+  display: block;
+  margin-top: 6px;
+  color: #d8c08a;
+  font-size: 11px;
+}
+
+.hud-hot:hover .item-tip,
+.hud-hot.is-pick .item-tip,
+.pack-slot:hover .item-tip,
+.pack-slot.is-pick .item-tip {
+  display: block;
 }
 
 .pack-slot strong,

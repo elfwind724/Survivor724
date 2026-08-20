@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { addItem } from '@/inventory/Inventory'
-import { handlePackClick, swapBagAndHotbar, useBagItem, useHotbarSlot } from '@/inventory/Pack'
+import { handlePackClick, salvageSelected, swapBagAndHotbar, useBagItem, useHotbarSlot, useSelected } from '@/inventory/Pack'
+import { countItem } from '@/inventory/Inventory'
+import { inspectItem } from '@/inventory/ItemInspect'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { buildHudModel, renderHudHtml } from '@/ui/GameHud'
 
@@ -54,5 +56,52 @@ describe('backpack and hotbar', () => {
     expect(html).toContain('的背包')
     expect(html).toContain('data-bag-empty')
     expect(html).toContain('data-hot-index')
+  })
+
+  it('selects a hotbar meal with the number key instead of eating it', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.hunger = 20
+    const before = hunter.hunger
+    const selected = handlePackClick(world, hunter, null, { place: 'hot', index: 1 }, false)
+    expect(selected.cursor).toEqual({ place: 'hot', index: 1 })
+    expect(hunter.hunger).toBe(before)
+    expect(hunter.hotbar[1]?.count).toBe(2)
+    expect(useSelected(world, hunter, selected.cursor)).toContain('熟食')
+    expect(hunter.hunger).toBeGreaterThan(before)
+  })
+
+  it('drops a hotbar weapon on the ground with a right click', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    const dropped = handlePackClick(world, hunter, null, { place: 'hot-drop', index: 0 }, false)
+    expect(dropped.notice).toMatch(/丢掉/)
+    expect(hunter.hotbar[0]).toBeNull()
+    expect(world.groundLoot.some((drop) => drop.gearId === 'pistol' || drop.gearId.startsWith('g-'))).toBe(true)
+  })
+
+  it('salvages a selected weapon into warehouse scrap', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    const warehouse = world.inventories['inv-warehouse']
+    if (!hunter || !warehouse) throw new Error('missing hunter')
+    const scrap = countItem(warehouse, 'scrap')
+    const pick = handlePackClick(world, hunter, null, { place: 'hot', index: 0 }, false)
+    expect(salvageSelected(world, hunter, pick.cursor)).toMatch(/废铁/)
+    expect(hunter.hotbar[0]).toBeNull()
+    expect(countItem(warehouse, 'scrap')).toBeGreaterThan(scrap)
+  })
+
+  it('lists weapon damage on hover inspect', () => {
+    const world = createInitialWorld()
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    const info = inspectItem(world, hunter, 'pistol')
+    expect(info.lines.some((line) => line.includes('攻击'))).toBe(true)
+    const html = renderHudHtml(buildHudModel(world, '', { open: false, cursor: { place: 'hot', index: 0 } }))
+    expect(html).toContain('item-tip')
+    expect(html).toContain('E 使用')
   })
 })

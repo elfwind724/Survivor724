@@ -27,6 +27,7 @@ export function planJobs(world: WorldState): void {
     if (survivor.id === world.player.controlledId || survivor.dayAssignment === 'follow') continue
     if (hasActiveJob(world, survivor.currentJobId, survivor.id)) continue
     if (!survivor.dayAssignment) continue
+    if (survivor.dayAssignment === 'build' || survivor.dayAssignment === 'upgrade') continue
     const job = world.jobs.find(
       (entry) =>
         entry.definitionId === survivor.dayAssignment &&
@@ -39,33 +40,13 @@ export function planJobs(world: WorldState): void {
   for (const survivor of world.survivors) {
     if (isHero(world, survivor) || survivor.dayAssignment === 'follow') continue
     if (hasActiveJob(world, survivor.currentJobId, survivor.id)) continue
-    if (survivor.dayAssignment === 'build') {
-      const wreck = world.jobs.find(
-        (entry) => entry.definitionId === 'demolish' && (entry.assigneeId === null || entry.assigneeId === survivor.id) && jobIsActive(world, entry),
-      )
-      if (wreck) {
-        assignJob(world, wreck.id, survivor.id)
-        continue
-      }
-    }
     if (survivor.dayAssignment === 'build' || survivor.dayAssignment === 'upgrade') {
-      const lift = world.jobs.find(
-        (entry) => entry.definitionId === 'upgrade' && (entry.assigneeId === null || entry.assigneeId === survivor.id) && jobIsActive(world, entry),
-      )
-      if (lift) {
-        assignJob(world, lift.id, survivor.id)
-        continue
-      }
+      if (takeJob(world, survivor, 'demolish')) continue
+      if (takeJob(world, survivor, 'upgrade')) continue
+      if (survivor.dayAssignment === 'build' && takeJob(world, survivor, 'repair')) continue
+      if (survivor.dayAssignment === 'build' && takeJob(world, survivor, 'build')) continue
     }
-    if (survivor.dayAssignment === 'build' || survivor.dayAssignment === 'repair') {
-      const patch = world.jobs.find(
-        (entry) => entry.definitionId === 'repair' && (entry.assigneeId === null || entry.assigneeId === survivor.id) && jobIsActive(world, entry),
-      )
-      if (patch) {
-        assignJob(world, patch.id, survivor.id)
-        continue
-      }
-    }
+    if (survivor.dayAssignment === 'repair' && takeJob(world, survivor, 'repair')) continue
     if (survivor.dayAssignment !== 'cook' && survivor.dayAssignment !== 'build') continue
     if (survivor.dayAssignment === 'build' && world.survivors.some((entry) => entry.dayAssignment === 'cook' && !entry.downed)) {
       continue
@@ -75,6 +56,38 @@ export function planJobs(world: WorldState): void {
     )
     if (cook) assignJob(world, cook.id, survivor.id)
   }
+}
+
+export function rushUpgrade(world: WorldState, structureId: string): string | null {
+  ensureJob(world, 'upgrade', structureId)
+  const job = world.jobs.find((entry) => entry.definitionId === 'upgrade' && entry.targetId === structureId)
+  if (!job) return null
+  const builder = world.survivors.find((survivor) => {
+    if (survivor.downed || survivor.id === world.player.controlledId) return false
+    if (survivor.dayAssignment === 'follow') return false
+    return survivor.dayAssignment === 'build' || survivor.dayAssignment === 'upgrade' || survivor.professionId === 'builder'
+  })
+  if (!builder) return null
+  for (const other of world.jobs) {
+    if (other.assigneeId === builder.id && other.id !== job.id) other.assigneeId = null
+  }
+  builder.destination = null
+  builder.path = []
+  builder.workerState = 'RestOrNextJob'
+  assignJob(world, job.id, builder.id)
+  return builder.name
+}
+
+function takeJob(world: WorldState, survivor: { id: string }, definitionId: string): boolean {
+  const job = world.jobs.find(
+    (entry) =>
+      entry.definitionId === definitionId &&
+      (entry.assigneeId === null || entry.assigneeId === survivor.id) &&
+      jobIsActive(world, entry),
+  )
+  if (!job) return false
+  assignJob(world, job.id, survivor.id)
+  return true
 }
 
 function planConstructionJobs(world: WorldState): void {

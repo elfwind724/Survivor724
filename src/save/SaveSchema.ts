@@ -38,6 +38,11 @@ export function deserializeWorld(raw: unknown): WorldState {
     world.dayNoise.south = Math.max(0, world.dayNoise.south || 0)
   }
   if (!Array.isArray(world.fishingSpots) || world.fishingSpots.length === 0) world.fishingSpots = seedFishingSpots()
+  if (Array.isArray(world.groundLoot)) {
+    for (const drop of world.groundLoot) {
+      if (typeof drop.count !== 'number' || drop.count < 1) drop.count = 1
+    }
+  }
   return world
 }
 

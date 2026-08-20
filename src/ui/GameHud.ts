@@ -1,5 +1,7 @@
 import { activityCaption } from '@/survivors/Activity'
+import { buildQueue, type QueueEntry } from '@/base/BuildQueue'
 import { bagFill, HUD_STOCK_IDS } from '@/inventory/Cargo'
+import { inspectHtml, inspectItem } from '@/inventory/ItemInspect'
 import { countItem, usedSlots } from '@/inventory/Inventory'
 import { PICK_LABEL, TUTORIAL_LINES, type DungeonPickId } from '@/data/dungeon'
 import { gunshotHordeExtra, loudestGunshotSector } from '@/data/enemies'
@@ -73,6 +75,7 @@ export interface HudModel {
   notice: string
   warning: string
   sites: number
+  queue: QueueEntry[]
   interiors: boolean
   stocks: HudStock[]
   extras: HudStock[]
@@ -102,6 +105,7 @@ export interface HudModel {
     rarity: ItemRarity | null
     count: number
     picked: boolean
+    tip: string
   } | null>
   pack: {
     open: boolean
@@ -109,7 +113,7 @@ export interface HudModel {
     used: number
     capacity: number
     pick: string
-    slots: Array<{ itemId: string; label: string; count: number; picked: boolean } | null>
+    slots: Array<{ itemId: string; label: string; count: number; picked: boolean; tip: string } | null>
   }
   report: {
     title: string
@@ -143,6 +147,7 @@ export function buildHudModel(world: WorldState, notice = '', pack?: { open: boo
   const bagInv = hero ? world.inventories[hero.inventoryId] : undefined
   const fill = bagInv ? bagFill(bagInv) : { used: 0, capacity: 0, full: false }
   const tracked = new Set<string>(HUD_STOCK_IDS)
+  const queue = buildQueue(world)
   return {
     day: world.time.dayIndex,
     phase: phaseLabel(world.time.phase),
@@ -150,7 +155,8 @@ export function buildHudModel(world: WorldState, notice = '', pack?: { open: boo
     timeScale: world.time.timeScale,
     notice,
     warning: dungeonWarning(world) || duskWarningText(duskWarningLevel(world)) || raidNightWarning(world) || huntNoiseWarning(world),
-    sites: world.structures.filter((structure) => structure.stage !== 'complete').length,
+    sites: queue.length,
+    queue,
     interiors: world.showInteriors,
     stocks: HUD_STOCK_IDS.map((id) => ({
       id,
@@ -203,7 +209,8 @@ export function hudModelKey(model: HudModel): string {
   const dungeon = model.dungeon
     ? `${model.dungeon.room}/${model.dungeon.total}:${model.dungeon.picks.map((pick) => pick.id).join(',')}:${model.dungeon.canAdvance ? 1 : 0}:${model.dungeon.canEvacuate ? 1 : 0}`
     : '-'
-  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.lootHint}:${model.dungeonHint}:${model.tutorial}:${dungeon}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${hotbar}:${pack}:${report}`
+  const queue = model.queue.map((row) => `${row.id}:${row.progress}:${row.detail}`).join('|')
+  return `${model.day}:${model.phase}:${model.caption}:${model.timeScale}:${model.sites}:${queue}:${model.interiors ? 1 : 0}:${model.warning}:${model.notice}:${model.lootHint}:${model.dungeonHint}:${model.tutorial}:${dungeon}:${model.warehouseUsed}/${model.warehouseCap}:${stocks}:${extras}:${bag}:${cards}:${weapon}:${hotbar}:${pack}:${report}`
 }
 
 export function renderHudHtml(model: HudModel): string {
@@ -243,6 +250,7 @@ export function renderHudHtml(model: HudModel): string {
         ${stocks}
         ${extras}
       </div>
+      ${renderQueue(model.queue)}
       <div class="hud-colonists">
         <div class="hud-portraits">${portraits}</div>
         ${renderInspect(model)}
@@ -277,6 +285,7 @@ export class GameHud {
   ) {
     this.root.classList.add('game-hud')
     this.root.addEventListener('pointerdown', this.onPointerDown)
+    this.root.addEventListener('contextmenu', this.onContextMenu)
   }
 
   isBagOpen(): boolean {
@@ -339,7 +348,8 @@ export class GameHud {
     const hot = target.closest<HTMLButtonElement>('[data-hot-index]')
     if (hot?.dataset.hotIndex !== undefined) {
       event.stopPropagation()
-      this.onPack({ place: 'hot', index: Number(hot.dataset.hotIndex) })
+      const index = Number(hot.dataset.hotIndex)
+      this.onPack(event.button === 2 ? { place: 'hot-drop', index } : { place: 'hot', index })
       return
     }
     const empty = target.closest<HTMLButtonElement>('[data-bag-empty]')
@@ -351,7 +361,7 @@ export class GameHud {
     const bag = target.closest<HTMLButtonElement>('[data-bag-item]')
     if (bag?.dataset.bagItem) {
       event.stopPropagation()
-      this.onPack({ place: 'bag', itemId: bag.dataset.bagItem })
+      this.onPack(event.button === 2 ? { place: 'bag-drop', itemId: bag.dataset.bagItem } : { place: 'bag', itemId: bag.dataset.bagItem })
       return
     }
     const button = target.closest<HTMLButtonElement>('[data-survivor]')
@@ -363,6 +373,15 @@ export class GameHud {
     this.lastClickAt = now
     this.lastClickId = id
     this.onPick({ id, kind })
+  }
+
+  private readonly onContextMenu = (event: MouseEvent): void => {
+    const target = event.target
+    if (!(target instanceof Element)) return
+    if (target.closest('[data-hot-index], [data-bag-item], [data-bag-empty]')) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
   }
 }
 
@@ -464,13 +483,19 @@ function duskReturnHint(world: WorldState, survivor: SurvivorState): string {
 function hotbarModel(world: WorldState, cursor: PackCursor | null): HudModel['hotbar'] {
   const focus = focusSurvivor(world)
   if (!focus) return Array.from({ length: HOTBAR_SIZE }, () => null)
-  return hotbarOf(world, focus).map((entry, index) => entryToHud(entry, index, cursor))
+  return hotbarOf(world, focus).map((entry, index) => entryToHud(world, focus, entry, index, cursor))
 }
 
-function entryToHud(entry: HotbarEntry | null, index: number, cursor: PackCursor | null): HudModel['hotbar'][number] {
+function entryToHud(
+  world: WorldState,
+  survivor: SurvivorState,
+  entry: HotbarEntry | null,
+  index: number,
+  cursor: PackCursor | null,
+): HudModel['hotbar'][number] {
   const picked = cursor?.place === 'hot' && cursor.index === index
   if (!entry) {
-    return { index, itemId: '', label: '', line: '', equipped: false, rarity: null, count: 0, picked }
+    return { index, itemId: '', label: '', line: '', equipped: false, rarity: null, count: 0, picked, tip: '' }
   }
   return {
     index,
@@ -481,6 +506,7 @@ function entryToHud(entry: HotbarEntry | null, index: number, cursor: PackCursor
     rarity: entry.rarity,
     count: entry.count,
     picked,
+    tip: inspectHtml(inspectItem(world, survivor, entry.itemId)),
   }
 }
 
@@ -494,6 +520,7 @@ function packModel(world: WorldState, open: boolean, cursor: PackCursor | null):
     label: gearLabel(world, item.itemId),
     count: item.count,
     picked: cursor?.place === 'bag' && cursor.itemId === item.itemId,
+    tip: focus ? inspectHtml(inspectItem(world, focus, item.itemId)) : '',
   }))
   const empties = Math.max(0, (bag?.capacity ?? 8) - stacks.length)
   for (let i = 0; i < empties; i += 1) slots.push(null)
@@ -507,6 +534,22 @@ function packModel(world: WorldState, open: boolean, cursor: PackCursor | null):
   }
 }
 
+function renderQueue(queue: QueueEntry[]): string {
+  if (queue.length <= 0) return ''
+  const rows = queue
+    .map((row) => {
+      const stuck = row.stuck ? ' is-stuck' : ''
+      return `<div class="hud-queue-row${stuck}">
+        <strong>${escapeHtml(row.action)}</strong>
+        <span>${escapeHtml(row.name)}</span>
+        <em>${escapeHtml(row.detail)}</em>
+        <b>${row.progress}%</b>
+      </div>`
+    })
+    .join('')
+  return `<div class="hud-queue"><strong>施工队列</strong>${rows}</div>`
+}
+
 function renderPack(model: HudModel): string {
   if (!model.pack.open) return ''
   const cells = model.pack.slots
@@ -516,13 +559,14 @@ function renderPack(model: HudModel): string {
       return `<button type="button" class="pack-slot${on}" data-bag-item="${escapeHtml(slot.itemId)}">
         <strong>${escapeHtml(shortHotName(slot.label))}</strong>
         <small>×${slot.count}</small>
+        ${slot.tip}
       </button>`
     })
     .join('')
   return `<div class="pack">
     <header>
       <strong>${escapeHtml(model.pack.owner)}的背包 ${model.pack.used}/${model.pack.capacity}</strong>
-      <span></span>
+      <span>E 使用 · 右键丢弃 · F 拆解</span>
       <button type="button" data-action="close-bag">关闭</button>
     </header>
     <div class="pack-grid">${cells}</div>
@@ -542,6 +586,7 @@ function renderHotbar(slots: HudModel['hotbar']): string {
         <em>${index + 1}</em>
         <strong>${escapeHtml(shortHotName(slot.label))}</strong>
         <small>${escapeHtml(slot.line)}</small>
+        ${slot.tip}
       </button>`
     })
     .join('')

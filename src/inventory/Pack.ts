@@ -1,11 +1,12 @@
 import { equipmentById, statsOf } from '@/data/equipment'
-import { gearLabel, isGearId } from '@/data/loot'
+import { findGear, gearLabel, isGearId, spawnGroundItem } from '@/data/loot'
 import { itemLabel } from '@/data/items'
 import { addItem, inventoryOf, removeItem } from '@/inventory/Inventory'
+import { findContainer } from '@/simulation/EntityRegistry'
 import { MEAL_HUNGER, MEAL_THIRST, RAW_HUNGER, WATER_THIRST } from '@/survivors/Living'
 import { equipItem } from '@/survivors/Equipment'
 import { clampVital } from '@/survivors/Vitals'
-import type { ItemStack, SurvivorState, WorldState } from '@/simulation/types'
+import type { EquipSlot, ItemStack, SurvivorState, WorldState } from '@/simulation/types'
 
 export const HOTBAR_SIZE = 9
 export const BANDAGE_HEAL = 32
@@ -18,6 +19,8 @@ export type PackClick =
   | { place: 'bag'; itemId: string }
   | { place: 'hot'; index: number }
   | { place: 'bag-empty' }
+  | { place: 'hot-drop'; index: number }
+  | { place: 'bag-drop'; itemId: string }
 
 export function emptyHotbar(): Array<ItemStack | null> {
   return Array.from({ length: HOTBAR_SIZE }, () => null)
@@ -148,12 +151,134 @@ export function handlePackClick(
     swapHotbarSlots(survivor, cursor.index, click.index)
     return { cursor: null, notice: '已交换快捷栏' }
   }
-  if (!bagOpen && click.place === 'hot') {
-    return { cursor: null, notice: useHotbarSlot(world, survivor, click.index) }
+  if (click.place === 'hot-drop') {
+    return { cursor: null, notice: dropHotbarSlot(world, survivor, click.index) }
   }
-  if (click.place === 'bag') return { cursor: { place: 'bag', itemId: click.itemId }, notice: `已选 ${itemName(world, click.itemId)}，再点快捷栏互换` }
+  if (click.place === 'bag-drop') {
+    return { cursor: null, notice: dropBagItem(world, survivor, click.itemId) }
+  }
+  if (!bagOpen && click.place === 'hot') {
+    const slot = ensureHotbar(survivor)[click.index]
+    if (!slot) return { cursor: null, notice: '这一格是空的' }
+    return { cursor: { place: 'hot', index: click.index }, notice: `已选 ${itemName(world, slot.itemId)} · E 使用 · 右键丢弃 · F 拆解` }
+  }
+  if (click.place === 'bag') return { cursor: { place: 'bag', itemId: click.itemId }, notice: bagOpen ? `已选 ${itemName(world, click.itemId)}，再点快捷栏互换` : `已选 ${itemName(world, click.itemId)} · E 使用 · 右键丢弃 · F 拆解` }
   if (click.place === 'hot') return { cursor: { place: 'hot', index: click.index }, notice: '已选快捷栏，再点背包互换' }
   return { cursor: null, notice: '点背包里的物品，再点快捷栏' }
+}
+
+export function dropHotbarSlot(world: WorldState, survivor: SurvivorState, index: number): string {
+  const slot = ensureHotbar(survivor)[index]
+  if (!slot) return '这一格是空的'
+  return dropOwnedItem(world, survivor, slot.itemId, slot.count, 'hot')
+}
+
+export function dropBagItem(world: WorldState, survivor: SurvivorState, itemId: string): string {
+  const bag = inventoryOf(world.inventories, survivor.inventoryId)
+  const stack = bag.items.find((item) => item.itemId === itemId)
+  if (!stack) return '背包里没有这件'
+  return dropOwnedItem(world, survivor, stack.itemId, stack.count, 'bag')
+}
+
+export function salvageSelected(world: WorldState, survivor: SurvivorState, cursor: PackCursor | null): string {
+  if (!cursor) return '先选中一件物品再按 F 拆解'
+  if (cursor.place === 'hot') {
+    const slot = ensureHotbar(survivor)[cursor.index]
+    if (!slot) return '这一格是空的'
+    return salvageOwnedItem(world, survivor, slot.itemId, 'hot')
+  }
+  return salvageOwnedItem(world, survivor, cursor.itemId, 'bag')
+}
+
+export function useSelected(world: WorldState, survivor: SurvivorState, cursor: PackCursor | null): string | null {
+  if (!cursor) return null
+  if (cursor.place === 'hot') return useHotbarSlot(world, survivor, cursor.index)
+  return useBagItem(world, survivor, cursor.itemId)
+}
+
+function dropOwnedItem(
+  world: WorldState,
+  survivor: SurvivorState,
+  itemId: string,
+  count: number,
+  from: 'bag' | 'hot',
+): string {
+  if (!takeOwnedStack(world, survivor, itemId, count, from)) return '丢不掉'
+  clearIfEquipped(survivor, itemId)
+  const drop = dropInFront(survivor)
+  spawnGroundItem(world, itemId, count, drop.x, drop.z)
+  return `已丢掉 ${itemName(world, itemId)}，在脚边发光`
+}
+
+function salvageOwnedItem(
+  world: WorldState,
+  survivor: SurvivorState,
+  itemId: string,
+  from: 'bag' | 'hot',
+): string {
+  const scrap = salvageScrap(world, itemId)
+  if (scrap <= 0) return `${itemName(world, itemId)} 拆不出材料`
+  if (!takeOwnedStack(world, survivor, itemId, 1, from)) return '拆不了'
+  clearIfEquipped(survivor, itemId)
+  const warehouse = findContainer(world, 'warehouse')
+  const stock = warehouse ? inventoryOf(world.inventories, warehouse.inventoryId) : null
+  if (stock && addItem(stock, 'scrap', scrap)) {
+    return `拆解 ${itemName(world, itemId)}，仓库 +${scrap}废铁`
+  }
+  const bag = inventoryOf(world.inventories, survivor.inventoryId)
+  if (addItem(bag, 'scrap', scrap)) return `仓库满了，废铁进了背包 +${scrap}`
+  const drop = dropInFront(survivor)
+  spawnGroundItem(world, 'scrap', scrap, drop.x, drop.z)
+  return `没地方放，废铁丢在地上 +${scrap}`
+}
+
+function salvageScrap(world: WorldState, itemId: string): number {
+  const piece = findGear(world, itemId)
+  if (piece) {
+    if (piece.rarity === 'legendary') return 8
+    if (piece.rarity === 'rare') return 5
+    if (piece.rarity === 'magic') return 3
+    return 2
+  }
+  const item = equipmentById(itemId, world)
+  if (item?.slot === 'weapon') return 2
+  if (item?.slot === 'tool') return 1
+  return 0
+}
+
+function takeOwnedStack(
+  world: WorldState,
+  survivor: SurvivorState,
+  itemId: string,
+  count: number,
+  from: 'bag' | 'hot',
+): boolean {
+  if (from === 'hot') return takeFromHotbar(survivor, itemId, count)
+  return removeItem(inventoryOf(world.inventories, survivor.inventoryId), itemId, count)
+}
+
+function clearIfEquipped(survivor: SurvivorState, itemId: string): void {
+  const slots: EquipSlot[] = ['weapon', 'hat', 'clothes', 'gloves', 'shoes']
+  let changed = false
+  for (const slot of slots) {
+    if (survivor.equipment[slot] !== itemId) continue
+    survivor.equipment[slot] = null
+    if (survivor.enhance) survivor.enhance[slot] = 0
+    changed = true
+  }
+  survivor.carriedTools = survivor.carriedTools.filter((tool) => tool !== itemId)
+  if (changed) {
+    const stats = statsOf(survivor)
+    survivor.moveSpeed = stats.moveSpeed
+    if (survivor.health > stats.maxHealth) survivor.health = stats.maxHealth
+  }
+}
+
+function dropInFront(survivor: SurvivorState): { x: number; z: number } {
+  return {
+    x: survivor.position.x + Math.sin(survivor.facingYaw) * 2.4,
+    z: survivor.position.z + Math.cos(survivor.facingYaw) * 2.4,
+  }
 }
 
 function useOwnedItem(world: WorldState, survivor: SurvivorState, itemId: string, from: 'bag' | 'hot'): string {
