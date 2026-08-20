@@ -81,6 +81,7 @@ export class DebugRenderer {
   private dungeonKey = ''
   private readonly fishingLines = new Map<string, THREE.Line>()
   private readonly ruinCrates = new Map<string, Marker>()
+  private readonly berryBushes = new Map<string, Marker>()
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
@@ -322,6 +323,7 @@ export class DebugRenderer {
     this.syncEnemies(world, dt)
     this.syncWildlife(world, dt)
     this.syncRuinCrates(world)
+    this.syncBerryBushes(world)
     this.syncGroundLoot(world)
     for (const survivor of world.survivors) {
       let marker = this.survivors.get(survivor.id)
@@ -764,6 +766,7 @@ export class DebugRenderer {
 
     for (const node of world.nodes) {
       if (node.kind === 'scavenge' && world.ruinCrates.length > 0) continue
+      if (node.kind === 'berry' && world.berryBushes.length > 0) continue
       const mesh = new THREE.Mesh(
         new THREE.CylinderGeometry(1.6, 1.6, 0.4, 10),
         new THREE.MeshLambertMaterial({ color: node.kind === 'hunt' ? 0x4d6b3c : node.kind === 'fish' ? 0x3c5d6b : 0x6b4d3c }),
@@ -791,6 +794,46 @@ export class DebugRenderer {
       peg.position.set(hole.position.x, 0.55, hole.position.z)
       this.scene.add(peg)
       this.extras.push(peg)
+    }
+  }
+
+  private syncBerryBushes(world: WorldState): void {
+    const seen = new Set<string>()
+    for (const shrub of world.berryBushes) {
+      seen.add(shrub.id)
+      let marker = this.berryBushes.get(shrub.id)
+      if (!marker) {
+        const group = new THREE.Group()
+        const foliage = new THREE.Mesh(
+          new THREE.SphereGeometry(0.7, 8, 6),
+          new THREE.MeshLambertMaterial({ color: 0x3d6b38 }),
+        )
+        foliage.position.y = 0.7
+        foliage.name = 'foliage'
+        const fruit = new THREE.Mesh(
+          new THREE.SphereGeometry(0.12, 6, 5),
+          new THREE.MeshLambertMaterial({ color: 0xa83a5a }),
+        )
+        fruit.position.set(0.28, 0.85, 0.1)
+        fruit.name = 'fruit'
+        group.add(foliage)
+        group.add(fruit)
+        this.scene.add(group)
+        marker = { id: shrub.id, mesh: group }
+        this.berryBushes.set(shrub.id, marker)
+      }
+      marker.mesh.position.set(shrub.position.x, 0, shrub.position.z)
+      const fruit = marker.mesh.getObjectByName('fruit')
+      if (fruit) fruit.visible = shrub.berries > 0
+      const foliage = marker.mesh.getObjectByName('foliage')
+      if (foliage instanceof THREE.Mesh && foliage.material instanceof THREE.MeshLambertMaterial) {
+        foliage.material.color.set(shrub.berries > 0 ? 0x3d6b38 : 0x4a5a3c)
+      }
+    }
+    for (const [id, marker] of this.berryBushes) {
+      if (seen.has(id)) continue
+      this.disposeObject(marker.mesh)
+      this.berryBushes.delete(id)
     }
   }
 

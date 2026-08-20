@@ -5,6 +5,7 @@ import { seedOutdoorScenery } from '@/data/outdoorScenery'
 import { createWorkZone } from '@/base/workZones'
 import { seedFishingSpots } from '@/world/Fishing'
 import { seedRuinCrates } from '@/world/Ruins'
+import { seedBerryBushes } from '@/world/Forage'
 import { loadCreativeWildlife, seedWildlife } from '@/world/Wildlife'
 import { createDefenseSectors } from '@/combat/Defense'
 import { rebuildNightPosts } from '@/combat/Night'
@@ -188,6 +189,7 @@ export function createInitialWorld(): WorldState {
     wildlife: seedWildlife(),
     fishingSpots: seedFishingSpots(),
     ruinCrates: seedRuinCrates(),
+    berryBushes: seedBerryBushes(),
     gear: {},
     groundLoot: [],
     nightPosts: [],

@@ -3,6 +3,7 @@ import { nearestCarcass } from '@/combat/Combat'
 import { WORK_SECONDS } from '@/data/jobs'
 import { isCasting, remainingCast } from '@/world/Fishing'
 import { isSearchingRuin, remainingSearch } from '@/world/Ruins'
+import { isPickingBerries, remainingPick } from '@/world/Forage'
 import { itemLabel } from '@/data/items'
 import { EAT_SECONDS } from '@/survivors/Living'
 import { xpToNext } from '@/survivors/Progress'
@@ -33,6 +34,7 @@ export function activityCaption(world: WorldState, survivor: SurvivorState): str
   }
   if (isCasting(world, survivor)) return '下竿等待'
   if (isSearchingRuin(world, survivor)) return '翻箱中'
+  if (isPickingBerries(world, survivor)) return '摘果中'
   if (world.time.phase === 'night' || world.time.phase === 'aftermath') return '守夜中'
   const job = jobId(world, survivor)
   switch (survivor.workerState) {
@@ -62,10 +64,12 @@ export function activityCaption(world: WorldState, survivor: SurvivorState): str
 export function activityCooldown(world: WorldState, survivor: SurvivorState): number {
   if (isCasting(world, survivor)) return remainingCast(world, survivor)
   if (isSearchingRuin(world, survivor)) return remainingSearch(world, survivor)
+  if (isPickingBerries(world, survivor)) return remainingPick(world, survivor)
   if (survivor.workerState === 'Work') {
     if (jobId(world, survivor) === 'hunt' && survivor.fireCooldown > 0) return survivor.fireCooldown
     if (jobId(world, survivor) === 'fish') return remainingCast(world, survivor)
     if (jobId(world, survivor) === 'scavenge') return remainingSearch(world, survivor)
+    if (jobId(world, survivor) === 'gather') return remainingPick(world, survivor)
     return Math.max(0, WORK_SECONDS - survivor.workElapsed)
   }
   if (survivor.workerState === 'Eat') return Math.max(0, EAT_SECONDS - survivor.workElapsed)
@@ -103,7 +107,7 @@ function jobId(world: WorldState, survivor: SurvivorState): string {
 function workCaption(job: string): string {
   if (job === 'hunt') return '打猎中'
   if (job === 'fish') return '下竿等待'
-  if (job === 'gather') return '采集中'
+  if (job === 'gather') return '摘果中'
   if (job === 'draw') return '打水中'
   if (job === 'upgrade') return '升级中'
   if (job === 'scavenge') return '翻箱中'

@@ -11,6 +11,7 @@ import { countRawFood, firstRawFood, WORK_XP } from '@/data/items'
 import { recordWorkYield } from '@/survivors/Progress'
 import { claimFishingSpot, releaseFishingSpot, stepFishing } from '@/world/Fishing'
 import { claimRuinCrate, releaseRuinCrate, stepScavenge } from '@/world/Ruins'
+import { claimBerryBush, releaseBerryBush, stepGather } from '@/world/Forage'
 import { nearestLivingWildlife } from '@/world/Wildlife'
 import { nodeAllowedForSurvivor } from '@/base/workZones'
 import { WORK_SECONDS, jobDefinition } from '@/data/jobs'
@@ -267,6 +268,29 @@ function startNextAction(world: WorldState, survivor: SurvivorState): void {
     return
   }
 
+  if (definition.id === 'gather') {
+    const node = findNode(world, job.targetId)
+    if (node && !nodeAllowedForSurvivor(world, survivor, node)) {
+      goHome(world, survivor)
+      return
+    }
+    const shrub = claimBerryBush(world, survivor)
+    const target = shrub?.position ?? node?.position
+    if (!target) {
+      goHome(world, survivor)
+      return
+    }
+    if (distanceXZ(survivor.position, target) <= 1.4) {
+      survivor.workElapsed = 0
+      survivor.workerState = 'Work'
+      survivor.destination = null
+      survivor.path = []
+      return
+    }
+    if (beginTravel(world, survivor, target)) survivor.workerState = 'TravelToTarget'
+    return
+  }
+
   if (definition.id === 'build' || definition.id === 'demolish') {
     const structure = findStructure(world, job.targetId)
     if (!structure) {
@@ -382,6 +406,13 @@ function stepWork(world: WorldState, survivor: SurvivorState, dt: number): void 
     }
     return
   }
+  if (job && jobDefinition(job.definitionId)?.id === 'gather') {
+    const result = stepGather(world, survivor, dt, { autoTravel: true })
+    if (result === 'travel') survivor.workerState = 'TravelToTarget'
+    else if (result === 'full' || (result === 'picked' && shouldReturn(world, survivor))) beginReturn(world, survivor)
+    else if (result === 'empty') beginReturn(world, survivor)
+    return
+  }
   if (job && jobDefinition(job.definitionId)?.id === 'hunt') {
     const carcass = nearestCarcass(world, survivor.position, 28)
     if (carcass) {
@@ -455,6 +486,11 @@ function stepCollect(world: WorldState, survivor: SurvivorState): void {
   }
 
   if (definition.id === 'scavenge') {
+    survivor.workerState = 'Work'
+    return
+  }
+
+  if (definition.id === 'gather') {
     survivor.workerState = 'Work'
     return
   }
@@ -703,6 +739,7 @@ function stepBuild(world: WorldState, survivor: SurvivorState, dt: number): void
 function beginReturn(world: WorldState, survivor: SurvivorState): void {
   releaseFishingSpot(world, survivor)
   releaseRuinCrate(world, survivor)
+  releaseBerryBush(world, survivor)
   const warehouse = findContainer(world, 'warehouse')
   const target = warehouse ? warehouse.position : survivor.homePosition
   survivor.workerState = 'ReturnToBase'
@@ -761,6 +798,7 @@ function goToLocker(
 function goHome(world: WorldState, survivor: SurvivorState): void {
   releaseFishingSpot(world, survivor)
   releaseRuinCrate(world, survivor)
+  releaseBerryBush(world, survivor)
   survivor.workerState = 'RestOrNextJob'
   beginTravel(world, survivor, survivor.homePosition)
 }

@@ -329,6 +329,13 @@ export interface DefenseSector {
   order: 'hold' | 'reinforce' | 'fallback'
 }
 
+export interface BerryBushState {
+  id: string
+  position: Vec3
+  occupantId: string | null
+  berries: number
+}
+
 export type RuinCrateKind = 'crate' | 'locker' | 'pile' | 'heavy'
 
 export interface RuinCrateState {
@@ -406,6 +413,7 @@ export interface WorldState {
   wildlife: WildlifeState[]
   fishingSpots: FishingSpotState[]
   ruinCrates: RuinCrateState[]
+  berryBushes: BerryBushState[]
   gear: Record<string, GearPiece>
   groundLoot: GroundLoot[]
   nightPosts: NightPost[]

@@ -23,7 +23,7 @@ export const SKILL_IDS: readonly SkillId[] = [
 export const SKILL_DEFS: readonly SkillDef[] = [
   { id: 'hunt', label: '狩猎', group: 'profession', hint: '追踪野兽，剥出生肉、兽皮和骨料' },
   { id: 'fish', label: '钓鱼', group: 'profession', hint: '河边下竿等上钩。浅水稳产，深水要钓鱼 3 级' },
-  { id: 'gather', label: '采集', group: 'profession', hint: '灌木丛里摘果子' },
+  { id: 'gather', label: '采集', group: 'profession', hint: '走近果丛摘，摘完换下一丛' },
   { id: 'cook', label: '厨艺', group: 'profession', hint: '把生料做成熟食' },
   { id: 'scavenge', label: '搜刮', group: 'profession', hint: '废墟里翻箱子。发电机太沉，不能塞进背包' },
   { id: 'build', label: '工艺', group: 'profession', hint: '建造、拆除、修墙' },
@@ -143,7 +143,7 @@ export function skillEffectLines(survivor: SurvivorState, id: SkillId): string[]
   const rank = level - 1
   if (id === 'hunt') return [`剥皮多肉 +${Math.round(rank * 8)}%`, '命中野兽后可剥生肉']
   if (id === 'fish') return [`出鱼加成 +${Math.round(rank * 8)}%`, `下竿速度 +${Math.round(rank * 4.5)}%`, level >= 3 ? '可钓深水，一次两条' : '深水需钓鱼 3 级']
-  if (id === 'gather') return [`摘果加成 +${Math.round(rank * 8)}%`, `采集速度 +${Math.round(rank * 4.5)}%`]
+  if (id === 'gather') return [`摘果加成 +${Math.round(rank * 8)}%`, `采集速度 +${Math.round(rank * 4.5)}%`, '果丛摘空再换下一丛']
   if (id === 'cook') return [`出餐加成 +${Math.round(rank * 8)}%`, `做饭速度 +${Math.round(rank * 4.5)}%`]
   if (id === 'scavenge') return [`搜刮加成 +${Math.round(rank * 8)}%`, `翻找速度 +${Math.round(rank * 4.5)}%`, '箱子里出废铁、弹药，发电机搬不走']
   if (id === 'build') return [`施工速度 +${Math.round(rank * 6)}%`, '建造、拆除、修墙都吃这档']
