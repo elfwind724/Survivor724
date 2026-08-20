@@ -27,7 +27,7 @@ import { Input } from '@/controls/Input'
 import { cycleControlled, possessSurvivor } from '@/controls/PlayerControl'
 import { toggleFollow } from '@/jobs/Follow'
 import { beginTravel } from '@/navigation/Travel'
-import { worldToCell } from '@/navigation/NavGrid'
+import { rebuildNav, worldToCell } from '@/navigation/NavGrid'
 import { DebugRenderer } from '@/render/DebugRenderer'
 import { findSurvivor } from '@/simulation/EntityRegistry'
 import { skipSeconds, stepWorld } from '@/simulation/SimStep'
@@ -1005,6 +1005,7 @@ export class GameApp {
 
   private applyWorld(world: WorldState, notice: string): void {
     this.world = world
+    rebuildNav(this.world)
     this.towerPostId = null
     this.towerPanel.innerHTML = ''
     this.wallAnchor = null

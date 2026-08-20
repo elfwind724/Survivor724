@@ -1,5 +1,25 @@
 import type { WorldState } from '@/simulation/types'
 
+export interface MinimapActor {
+  id: string
+  x: number
+  z: number
+  yaw: number
+  role: 'player' | 'selected' | 'npc'
+}
+
+export function minimapActors(world: WorldState): MinimapActor[] {
+  const playerId = world.player.controlledId ?? world.player.heroId
+  const selectedId = world.player.selectedId
+  return world.survivors.map((survivor) => ({
+    id: survivor.id,
+    x: survivor.position.x,
+    z: survivor.position.z,
+    yaw: survivor.facingYaw,
+    role: survivor.id === playerId ? 'player' : survivor.id === selectedId ? 'selected' : 'npc',
+  }))
+}
+
 export class Minimap {
   constructor(private readonly canvas: HTMLCanvasElement) {}
 
@@ -61,10 +81,14 @@ export class Minimap {
       }
     }
 
-    for (const survivor of world.survivors) {
-      ctx.fillStyle = '#f2efe6'
-      ctx.fillRect(toX(survivor.position.x) - 2, toY(survivor.position.z) - 2, 4, 4)
+    const actors = minimapActors(world)
+    for (const actor of actors) {
+      if (actor.role === 'player') continue
+      ctx.fillStyle = actor.role === 'selected' ? '#e8d4a4' : '#9a9488'
+      ctx.fillRect(toX(actor.x) - 2, toY(actor.z) - 2, 4, 4)
     }
+    const player = actors.find((actor) => actor.role === 'player')
+    if (player) drawPlayerMark(ctx, toX(player.x), toY(player.z), player.yaw)
   }
 
   worldFromEvent(world: WorldState, event: MouseEvent): { x: number; z: number } {
@@ -76,4 +100,22 @@ export class Minimap {
       z: world.nav.originZ + (1 - v) * world.nav.height * world.nav.cellSize,
     }
   }
+}
+
+function drawPlayerMark(ctx: CanvasRenderingContext2D, x: number, y: number, yaw: number): void {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.rotate(-yaw)
+  ctx.beginPath()
+  ctx.moveTo(0, -7)
+  ctx.lineTo(5, 6)
+  ctx.lineTo(0, 3)
+  ctx.lineTo(-5, 6)
+  ctx.closePath()
+  ctx.fillStyle = '#f0d27a'
+  ctx.strokeStyle = '#1a140c'
+  ctx.lineWidth = 1.4
+  ctx.fill()
+  ctx.stroke()
+  ctx.restore()
 }

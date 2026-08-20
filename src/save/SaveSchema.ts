@@ -4,6 +4,7 @@ import { seedRuinCrates } from '@/world/Ruins'
 import { seedBerryBushes } from '@/world/Forage'
 import { seedWaterScoops } from '@/world/Draw'
 import { emptyCodex } from '@/data/hallPool'
+import { remapNav } from '@/navigation/NavGrid'
 import { phaseLabel } from '@/simulation/TimeSystem'
 import type { DayPhase, WorldState } from '@/simulation/types'
 
@@ -87,6 +88,7 @@ export function deserializeWorld(raw: unknown): WorldState {
       if (typeof drop.count !== 'number' || drop.count < 1) drop.count = 1
     }
   }
+  remapNav(world)
   return world
 }
 

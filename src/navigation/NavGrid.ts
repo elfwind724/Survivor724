@@ -2,8 +2,9 @@ import { facilityDefinition } from '@/data/facilities'
 import type { GridCell, NavGridState, StructureState, Vec3, WorldState } from '@/simulation/types'
 
 export const NAV_CELL = 1
-export const NAV_SIZE = 160
-export const NAV_ORIGIN = -80
+export const NAV_SIZE = 360
+export const NAV_ORIGIN = -180
+export const NAV_EXTENT = NAV_ORIGIN + NAV_SIZE
 
 export function createNavGrid(): NavGridState {
   return {
@@ -69,4 +70,34 @@ export function rebuildNav(world: WorldState): void {
 
 export function markNavDirty(world: WorldState): void {
   world.navDirty = true
+}
+
+export function remapNav(world: WorldState): boolean {
+  const nav = world.nav
+  if (
+    nav
+    && nav.width === NAV_SIZE
+    && nav.height === NAV_SIZE
+    && nav.originX === NAV_ORIGIN
+    && nav.originZ === NAV_ORIGIN
+    && nav.blocked.length === NAV_SIZE * NAV_SIZE
+  ) {
+    return false
+  }
+  const cellSize = nav?.cellSize || NAV_CELL
+  const oldOriginX = typeof nav?.originX === 'number' ? nav.originX : -80
+  const oldOriginZ = typeof nav?.originZ === 'number' ? nav.originZ : -80
+  const shiftX = Math.round((oldOriginX - NAV_ORIGIN) / cellSize)
+  const shiftZ = Math.round((oldOriginZ - NAV_ORIGIN) / cellSize)
+  if (shiftX !== 0 || shiftZ !== 0) {
+    for (const structure of world.structures) {
+      for (const cell of structure.cells) {
+        cell.x += shiftX
+        cell.z += shiftZ
+      }
+    }
+  }
+  world.nav = createNavGrid()
+  world.navDirty = true
+  return true
 }

@@ -107,4 +107,17 @@ describe('player control', () => {
     expect(world.player.controlledId).toBe('hunter')
     expect(world.player.view).toBe('topdown')
   })
+
+  it('keeps walking on the grass past the old ±80 air wall', () => {
+    const world = createInitialWorld()
+    possessSurvivor(world, 'hunter')
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    hunter.position = { x: 140, y: 0, z: 12 }
+    const start = hunter.position.x
+    for (let i = 0; i < 24; i += 1) {
+      stepWorld(world, 1 / 30, { wishX: 1, wishZ: 0, faceX: null, faceZ: null, yawDelta: 0 })
+    }
+    expect(hunter.position.x).toBeGreaterThan(start + 1.5)
+  })
 })

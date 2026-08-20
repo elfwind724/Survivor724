@@ -536,6 +536,8 @@ interface SavedCreativeStructure {
   visualAssetId: string
   originX: number
   originZ: number
+  worldX?: number
+  worldZ?: number
   yaw: number
   width: number
   depth: number
@@ -548,11 +550,16 @@ export function persistCreativeStructures(world: WorldState): void {
     .map((entry) => {
       const xs = entry.cells.map((cell) => cell.x)
       const zs = entry.cells.map((cell) => cell.z)
+      const originX = Math.min(...xs)
+      const originZ = Math.min(...zs)
+      const at = cellCenter(world.nav, { x: originX, z: originZ })
       return {
         definitionId: entry.definitionId,
         visualAssetId: entry.visualAssetId ?? '',
-        originX: Math.min(...xs),
-        originZ: Math.min(...zs),
+        originX,
+        originZ,
+        worldX: at.x,
+        worldZ: at.z,
         yaw: entry.yaw ?? 0,
         width: Math.max(...xs) - Math.min(...xs) + 1,
         depth: Math.max(...zs) - Math.min(...zs) + 1,
@@ -575,9 +582,10 @@ export function loadCreativeStructures(world: WorldState): void {
       if (!definition) continue
       const width = Math.max(1, entry.width || definition.width)
       const depth = Math.max(1, entry.depth || definition.depth)
-      const cells = footprintCells({ ...definition, width, depth }, entry.originX, entry.originZ)
+      const origin = creativeOriginCell(world, entry)
+      const cells = footprintCells({ ...definition, width, depth }, origin.x, origin.z)
       if (!evaluateCells(world, cells, definition.kind === 'gate').valid) continue
-      createCompleteStructure(world, entry.definitionId, entry.originX, entry.originZ, true, {
+      createCompleteStructure(world, entry.definitionId, origin.x, origin.z, true, {
         visualAssetId: entry.visualAssetId,
         yaw: entry.yaw,
         width,
@@ -588,6 +596,13 @@ export function loadCreativeStructures(world: WorldState): void {
   } catch {
     return
   }
+}
+
+function creativeOriginCell(world: WorldState, entry: SavedCreativeStructure): GridCell {
+  if (typeof entry.worldX === 'number' && typeof entry.worldZ === 'number') {
+    return worldToCell(world.nav, { x: entry.worldX, y: 0, z: entry.worldZ })
+  }
+  return worldToCell(world.nav, { x: -80 + entry.originX, y: 0, z: -80 + entry.originZ })
 }
 
 export function promoteBuildingDecorations(world: WorldState): number {

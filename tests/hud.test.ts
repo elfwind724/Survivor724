@@ -3,6 +3,7 @@ import { stepWorld } from '@/simulation/SimStep'
 import type { SurvivorState } from '@/simulation/types'
 import { createInitialWorld } from '@/simulation/WorldState'
 import { buildHudModel, renderHudHtml } from '@/ui/GameHud'
+import { minimapActors } from '@/ui/Minimap'
 
 describe('game hud', () => {
   it('lists every survivor with name, health, hunger, and thirst', () => {
@@ -143,6 +144,19 @@ describe('game hud', () => {
     expect(html).toContain('第 2 天 · 白昼')
     expect(html).toContain('data-save-slot="auto"')
     expect(html).toContain('关闭')
+  })
+
+  it('marks the controlled hunter on the minimap separately from npcs', () => {
+    const world = createInitialWorld()
+    world.player.controlledId = 'hunter'
+    world.player.heroId = 'hunter'
+    const hunter = world.survivors.find((entry) => entry.id === 'hunter')
+    if (hunter) hunter.position = { x: 92, y: 0, z: -14 }
+    const actors = minimapActors(world)
+    expect(actors.find((entry) => entry.role === 'player')?.id).toBe('hunter')
+    expect(actors.find((entry) => entry.role === 'player')?.x).toBe(92)
+    expect(actors.some((entry) => entry.role === 'npc' && entry.id === 'fisher')).toBe(true)
+    expect(actors.filter((entry) => entry.role === 'player')).toHaveLength(1)
   })
 
   it('warns that daytime hunting gunfire makes that night worse', () => {

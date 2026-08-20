@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { demolishAt, placeBlueprint, setGateOpen } from '@/base/construction'
 import { findPath, pathExists } from '@/navigation/AStar'
-import { isBlocked, rebuildNav, worldToCell } from '@/navigation/NavGrid'
+import { isBlocked, NAV_ORIGIN, NAV_SIZE, rebuildNav, remapNav, worldToCell } from '@/navigation/NavGrid'
 import { BASE, createInitialWorld } from '@/simulation/WorldState'
 import { vec3 } from '@/simulation/types'
 
@@ -62,5 +62,44 @@ describe('navigation', () => {
     expect(result.ok).toBe(false)
     expect(result.reason).toBe('blocks_exit')
     expect(pathExists(world, vec3(0, 0, 0), forestPosition(world))).toBe(true)
+  })
+
+  it('lets a walker reach the visible ground instead of stopping at ±80', () => {
+    const world = createInitialWorld()
+    expect(world.nav.originX).toBe(NAV_ORIGIN)
+    expect(world.nav.width).toBe(NAV_SIZE)
+    expect(isBlocked(world.nav, worldToCell(world.nav, vec3(150, 0, 0)))).toBe(false)
+    expect(isBlocked(world.nav, worldToCell(world.nav, vec3(-150, 0, 40)))).toBe(false)
+    expect(isBlocked(world.nav, worldToCell(world.nav, vec3(0, 0, 150)))).toBe(false)
+  })
+
+  it('shifts old ±80 nav cells onto the larger grid', () => {
+    const world = createInitialWorld()
+    const hall = world.structures.find((entry) => entry.definitionId === 'hall')
+    if (!hall?.cells[0]) throw new Error('missing hall')
+    const worldX = world.nav.originX + (hall.cells[0].x + 0.5) * world.nav.cellSize
+    const worldZ = world.nav.originZ + (hall.cells[0].z + 0.5) * world.nav.cellSize
+    for (const structure of world.structures) {
+      for (const cell of structure.cells) {
+        cell.x -= 100
+        cell.z -= 100
+      }
+    }
+    world.nav = {
+      originX: -80,
+      originZ: -80,
+      cellSize: 1,
+      width: 160,
+      height: 160,
+      blocked: new Array<number>(160 * 160).fill(0),
+      version: 1,
+    }
+    expect(remapNav(world)).toBe(true)
+    expect(world.nav.originX).toBe(NAV_ORIGIN)
+    expect(world.nav.width).toBe(NAV_SIZE)
+    const moved = world.structures.find((entry) => entry.definitionId === 'hall')?.cells[0]
+    if (!moved) throw new Error('missing hall after remap')
+    expect(world.nav.originX + (moved.x + 0.5) * world.nav.cellSize).toBeCloseTo(worldX, 5)
+    expect(world.nav.originZ + (moved.z + 0.5) * world.nav.cellSize).toBeCloseTo(worldZ, 5)
   })
 })
