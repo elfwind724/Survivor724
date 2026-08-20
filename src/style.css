@@ -1049,6 +1049,14 @@ body,
   margin-bottom: 4px;
 }
 
+.defense-lock {
+  margin: 0;
+  padding: 8px 6px;
+  color: #f07868;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .defense-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2180,6 +2188,22 @@ body,
 .hud-dungeon strong {
   color: var(--hud-brass);
   font-size: 13px;
+}
+
+.hud-dungeon-clock {
+  color: var(--hud-muted);
+  font-size: 12px;
+}
+
+.hud-dungeon.is-lock {
+  border-color: #8a2820;
+  background: #2a1614;
+}
+
+.hud-dungeon-lock,
+.hud-dungeon-clock.is-lock {
+  color: #f07868;
+  font-size: 12px;
 }
 
 .sheet-unequip {

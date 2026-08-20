@@ -1,6 +1,6 @@
 import { autoCombat, butcherWildlife, stepAilments, stepEnemies, stepProjectiles, stepRevive, tickCooldowns } from '@/combat/Combat'
 import { ejectWarehouseGear, pickupGroundLoot } from '@/data/loot'
-import { applyDungeonNav, stepDungeonRun } from '@/dungeon/Dungeon'
+import { applyDungeonNav, isInDungeon, stepDungeonRun } from '@/dungeon/Dungeon'
 import { depositIfNearWarehouse } from '@/inventory/Cargo'
 import { stepFishing } from '@/world/Fishing'
 import { stepScavenge } from '@/world/Ruins'
@@ -18,6 +18,7 @@ import { advanceTime } from './TimeSystem'
 import type { WorldState } from './types'
 
 export function stepWorld(world: WorldState, dt: number, intent: ControlIntent | null = null): void {
+  if (isInDungeon(world)) world.time.timeScale = 1
   advanceTime(world, dt)
   ejectWarehouseGear(world)
   if (world.navDirty) {

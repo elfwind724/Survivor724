@@ -8,11 +8,11 @@ import { listSlots, type SaveSlotId, type SaveSlotView } from '@/save/SaveSchema
 import { gunshotHordeExtra, loudestGunshotSector } from '@/data/enemies'
 import { itemLabel } from '@/data/items'
 import { gearLabel, isGearId, nearbyLootName } from '@/data/loot'
-import { isInDungeon, nearDungeonEntrance } from '@/dungeon/Dungeon'
+import { commandLocked, isInDungeon, nearDungeonEntrance } from '@/dungeon/Dungeon'
 import { fieldReturnForecast } from '@/jobs/DayWorker'
 import { assignmentLabel } from '@/jobs/Roster'
 import { equippedWeapon, INFINITE_AMMO, magazineSize, readMag } from '@/data/weapons'
-import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
+import { duskWarningLevel, duskWarningText, formatMmSs, hudTimeCaption, phaseLabel, secondsUntilDusk } from '@/simulation/TimeSystem'
 import { insideBase } from '@/survivors/Living'
 import type { ItemRarity, SurvivorState, WorldState } from '@/simulation/types'
 import { clampVital } from '@/survivors/Vitals'
@@ -133,6 +133,9 @@ export interface HudModel {
     picks: Array<{ id: DungeonPickId; label: string }>
     canAdvance: boolean
     canEvacuate: boolean
+    left: number
+    untilDusk: string
+    locked: boolean
   } | null
   dungeonHint: string
   saves: {
@@ -225,7 +228,7 @@ export function hudModelKey(model: HudModel): string {
   const pack = `${model.pack.open ? 1 : 0}:${model.pack.pick}:${model.pack.slots.map((slot) => slot ? `${slot.itemId}:${slot.count}` : '-').join(',')}`
   const report = model.report ? `${model.report.lost ? 'L' : 'W'}:${model.report.stats}:${model.report.loot}` : '-'
   const dungeon = model.dungeon
-    ? `${model.dungeon.room}/${model.dungeon.total}:${model.dungeon.picks.map((pick) => pick.id).join(',')}:${model.dungeon.canAdvance ? 1 : 0}:${model.dungeon.canEvacuate ? 1 : 0}`
+    ? `${model.dungeon.room}/${model.dungeon.total}:${model.dungeon.picks.map((pick) => pick.id).join(',')}:${model.dungeon.canAdvance ? 1 : 0}:${model.dungeon.canEvacuate ? 1 : 0}:${model.dungeon.left}:${model.dungeon.locked ? 1 : 0}`
     : '-'
   const queue = model.queue.map((row) => `${row.id}:${row.progress}:${row.detail}`).join('|')
   const saves = `${model.saves.mode ?? '-'}:${model.saves.slots.map((slot) => `${slot.id}:${slot.empty ? 0 : 1}:${slot.meta?.name ?? ''}`).join(',')}`
@@ -831,8 +834,13 @@ function huntNoiseWarning(world: WorldState): string {
 
 function dungeonWarning(world: WorldState): string {
   if (!isInDungeon(world)) return ''
-  if (world.time.phase === 'dusk' || world.time.phase === 'night') return '天黑了，赶紧撤离'
-  return ''
+  if (world.time.phase === 'night') return '还在洞里 · 今夜失去实时指挥，基地按岗位自主守夜'
+  if (world.time.phase === 'dusk') return '天黑了，赶紧撤离'
+  const run = world.dungeonRun
+  const left = run ? Math.max(0, run.nodes.length - run.index - 1) : 0
+  const level = duskWarningLevel(world)
+  if (level <= 0) return ''
+  return `${duskWarningText(level)} · 洞里还剩 ${left} 间`
 }
 
 function tutorialLine(world: WorldState): string {
@@ -846,12 +854,16 @@ function dungeonModel(world: WorldState): HudModel['dungeon'] {
   if (!run || run.evacuated) return null
   const last = run.nodes.length - 1
   const atExit = run.index >= last || run.nodes[run.index]?.kind === 'exit'
+  const day = world.time.phase === 'dawn' || world.time.phase === 'day'
   return {
     room: run.index + 1,
     total: run.nodes.length,
     picks: (run.picks ?? []).map((id) => ({ id, label: PICK_LABEL[id] })),
     canAdvance: run.roomCleared && !atExit,
     canEvacuate: true,
+    left: Math.max(0, run.nodes.length - run.index - 1),
+    untilDusk: day ? `距黄昏 ${formatMmSs(secondsUntilDusk(world))}` : world.time.phase === 'dusk' ? '日落了' : '已入夜',
+    locked: commandLocked(world),
   }
 }
 
@@ -866,8 +878,12 @@ function renderDungeon(model: HudModel): string {
   const leave = model.dungeon.canEvacuate
     ? '<button type="button" class="hud-reset" data-action="dungeon-evacuate">撤离</button>'
     : ''
-  return `<div class="hud-dungeon">
+  const clock = `<span class="hud-dungeon-clock${model.dungeon.locked ? ' is-lock' : ''}">${escapeHtml(model.dungeon.untilDusk)} · 还剩 ${model.dungeon.left} 间</span>`
+  const lock = model.dungeon.locked ? '<span class="hud-dungeon-lock">今夜指挥已切断</span>' : ''
+  return `<div class="hud-dungeon${model.dungeon.locked ? ' is-lock' : ''}">
     <strong>房间 ${model.dungeon.room}/${model.dungeon.total}</strong>
+    ${clock}
+    ${lock}
     ${picks}
     ${advance}
     ${leave}

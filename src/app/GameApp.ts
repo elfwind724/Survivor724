@@ -13,6 +13,7 @@ import {
   dungeonRoomCenter,
   enterDungeon,
   evacuateDungeon,
+  commandLocked,
   isInDungeon,
   nearDungeonEntrance,
 } from '@/dungeon/Dungeon'
@@ -170,8 +171,16 @@ export class GameApp {
       }
     })
     this.defenseBar = new DefenseBar(defenseRoot, (sector) => {
+      if (commandLocked(this.world)) {
+        this.notice = '你还在洞里，今夜不能远程指挥基地'
+        return
+      }
       this.notice = `增援${sectorLabel(sector)}，守夜的人会往那边靠`
     }, (sector) => {
+      if (commandLocked(this.world)) {
+        this.notice = '你还在洞里，今夜不能远程指挥基地'
+        return
+      }
       this.notice = orderRepairSector(this.world, sector)
     })
     this.sandbox = new SandboxPanel(sandboxRoot, (notice) => {
@@ -492,6 +501,10 @@ export class GameApp {
     if (event.code.startsWith('Digit')) {
       const index = Number(event.code.slice(5)) - 1
       if (event.shiftKey) {
+        if (this.world.time.phase === 'night' && commandLocked(this.world) && index >= 0 && index <= 3) {
+          this.notice = '你还在洞里，今夜不能远程指挥基地'
+          return
+        }
         if (index === 0) {
           if (this.world.time.phase === 'night') {
             reinforceSector(this.world, 'north')
@@ -535,6 +548,11 @@ export class GameApp {
       return
     }
     if (event.code === 'KeyT') {
+      if (isInDungeon(this.world)) {
+        this.world.time.timeScale = 1
+        this.notice = '洞里不能加速'
+        return
+      }
       this.world.time.timeScale = this.world.time.timeScale === 1 ? 2 : 1
       this.notice = `时间倍率 ${this.world.time.timeScale}×`
     }
@@ -716,6 +734,10 @@ export class GameApp {
         }
       }
       if (tower && needsRepair(tower) && (tower.kind === 'wall' || tower.kind === 'gate')) {
+        if (commandLocked(this.world)) {
+          this.notice = '你还在洞里，今夜不能远程指挥基地'
+          return
+        }
         const preferred = this.world.player.selectedId && this.world.player.selectedId !== this.world.player.heroId
           ? this.world.player.selectedId
           : undefined

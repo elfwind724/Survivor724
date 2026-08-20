@@ -1,5 +1,6 @@
 import { reinforceSector, sectorLabel, sectorPressure } from '@/combat/Defense'
 import { sectorHasRepairOrder, sectorWallHp } from '@/combat/Night'
+import { commandLocked } from '@/dungeon/Dungeon'
 import type { DefenseSectorId, WorldState } from '@/simulation/types'
 
 const SECTORS: DefenseSectorId[] = ['north', 'east', 'south', 'west']
@@ -17,9 +18,14 @@ export class DefenseBar {
 
   render(world: WorldState): void {
     const hp = SECTORS.map((id) => sectorWallHp(world, id)).join(',')
-    const key = `${world.time.phase}:${world.enemies.length}:${world.defenseSectors.map((entry) => entry.order).join(',')}:${world.nightRepairIds.join(',')}:${hp}`
+    const locked = commandLocked(world)
+    const key = `${world.time.phase}:${world.enemies.length}:${world.defenseSectors.map((entry) => entry.order).join(',')}:${world.nightRepairIds.join(',')}:${hp}:${locked ? 1 : 0}`
     if (key === this.lastKey) return
     this.lastKey = key
+    if (locked) {
+      this.root.innerHTML = `<div class="defense-label">夜间防区</div><p class="defense-lock">你还在洞里 · 今夜失去实时指挥，基地按岗位自主守夜</p>`
+      return
+    }
     const cards = SECTORS.map((id) => {
       const order = world.defenseSectors.find((entry) => entry.id === id)?.order ?? 'hold'
       const pressure = sectorPressure(world, id)

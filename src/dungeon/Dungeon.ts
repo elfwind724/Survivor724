@@ -231,6 +231,11 @@ export function isInDungeon(world: WorldState): boolean {
   return world.dungeonRun !== null && !world.dungeonRun.evacuated
 }
 
+/** Night while still in the cave: the base fights on its posted plan, no live commands. */
+export function commandLocked(world: WorldState): boolean {
+  return isInDungeon(world) && world.time.phase === 'night'
+}
+
 export function nearDungeonEntrance(world: WorldState, survivor: SurvivorState): boolean {
   if (isInDungeon(world)) return false
   return distanceXZ(survivor.position, dungeonEntrancePos()) < ENTRANCE_RANGE

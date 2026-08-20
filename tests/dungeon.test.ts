@@ -6,6 +6,7 @@ import { rollGear } from '@/data/loot'
 import {
   advanceDungeon,
   chooseDungeonPick,
+  commandLocked,
   dungeonBlockedWorldCells,
   dungeonEntrancePos,
   dungeonRoomCenter,
@@ -259,6 +260,32 @@ describe('dungeon run', () => {
     expect(distanceXZ(hunter.position, inside)).toBeLessThan(1)
     const html = renderHudHtml(buildHudModel(world))
     expect(html).toContain('天黑了，赶紧撤离')
+    const model = buildHudModel(world)
+    expect(model.dungeon?.untilDusk).toBe('日落了')
+    expect(model.dungeon?.locked).toBe(false)
+  })
+
+  it('cuts live base command if night falls while still in the cave', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    enterDungeon(world, hunter)
+    world.time.timeScale = 2
+    stepWorld(world, 1 / 30)
+    expect(world.time.timeScale).toBe(1)
+    const dayHud = renderHudHtml(buildHudModel(world))
+    expect(dayHud).toContain('距黄昏')
+    expect(dayHud).toContain('还剩')
+    expect(commandLocked(world)).toBe(false)
+    world.time.daySeconds = 60 + 11 * 60 + 90
+    world.time.phase = 'night'
+    expect(commandLocked(world)).toBe(true)
+    const html = renderHudHtml(buildHudModel(world))
+    expect(html).toContain('今夜失去实时指挥')
+    expect(html).toContain('今夜指挥已切断')
+    expect(html).toContain('撤离')
+    evacuateDungeon(world, hunter)
+    expect(commandLocked(world)).toBe(false)
   })
 
   it('shows room count and pick buttons on the HUD', () => {
