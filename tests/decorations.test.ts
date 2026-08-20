@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { markDemolish, placeCreativeAsset, promoteBuildingDecorations } from '@/base/construction'
+import { markDemolish, placeCreativeAsset, promoteBuildingDecorations, removeCreativeAt, sitePosition } from '@/base/construction'
 import { decorationNear, placeDecoration, removeDecoration } from '@/base/decorations'
 import { facilityFromAsset, structureLabel } from '@/data/facilities'
 import { interiorProps } from '@/base/FacilityLife'
@@ -109,5 +109,33 @@ describe('map decorations', () => {
     expect(markDemolish(world, placed.structure)).toBe('marked')
     expect(placed.structure.stage).toBe('demolishing')
     expect(placed.structure.buildDuration).toBeGreaterThan(2)
+  })
+
+  it('instantly deletes a creative house, decoration, and animal', () => {
+    const world = createInitialWorld()
+    const house = placeCreativeAsset(world, 'fort/house-2', 0, 10)
+    if (house?.kind !== 'structure') throw new Error('expected structure')
+    const erased = removeCreativeAt(world, { x: 0, y: 0, z: 10 })
+    expect(erased?.kind).toBe('structure')
+    expect(world.structures.some((entry) => entry.id === house.structure.id)).toBe(false)
+
+    const tree = placeCreativeAsset(world, 'nature/pine', 12, -8)
+    expect(tree?.kind).toBe('decoration')
+    expect(removeCreativeAt(world, { x: 12, y: 0, z: -8 })?.kind).toBe('decoration')
+    expect(world.decorations).toHaveLength(0)
+
+    const deer = placeCreativeAsset(world, 'animals/deer', 50, -20)
+    if (deer?.kind !== 'wildlife') throw new Error('expected wildlife')
+    expect(removeCreativeAt(world, { x: 50, y: 0, z: -20 })?.kind).toBe('wildlife')
+    expect(world.wildlife.some((entry) => entry.id === deer.animal.id)).toBe(false)
+  })
+
+  it('does not instantly delete a seed building', () => {
+    const world = createInitialWorld()
+    const kitchen = world.structures.find((entry) => entry.definitionId === 'kitchen' && entry.placedBy !== 'creative')
+    if (!kitchen) throw new Error('missing kitchen')
+    const at = sitePosition(world, kitchen)
+    expect(removeCreativeAt(world, at)).toBeNull()
+    expect(world.structures.some((entry) => entry.id === kitchen.id)).toBe(true)
   })
 })

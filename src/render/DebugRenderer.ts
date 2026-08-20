@@ -91,7 +91,7 @@ export class DebugRenderer {
   private readonly waterScoops = new Map<string, Marker>()
 
   constructor(canvas: HTMLCanvasElement) {
-    this.scene.background = new THREE.Color(0x1b2124)
+    this.scene.background = new THREE.Color(0x8fa88a)
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500)
     this.camera.position.set(0, 48, 36)
     this.camera.lookAt(0, 0, 0)
@@ -100,12 +100,12 @@ export class DebugRenderer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 1.15
+    this.renderer.toneMappingExposure = 1.08
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
-    this.hemi = new THREE.HemisphereLight(0xc4d6ea, 0x3a4034, 1.15)
-    this.sun = new THREE.DirectionalLight(0xfff1d0, 1.35)
+    this.hemi = new THREE.HemisphereLight(0xc5d0c2, 0x3d4536, 1.05)
+    this.sun = new THREE.DirectionalLight(0xffe9c4, 1.28)
     this.sun.position.set(36, 62, -22)
     this.sun.castShadow = true
     this.sun.shadow.mapSize.set(2048, 2048)
@@ -114,14 +114,14 @@ export class DebugRenderer {
     this.sun.shadow.camera.top = 140
     this.sun.shadow.camera.bottom = -140
     this.scene.add(this.hemi, this.sun)
-    this.scene.fog = new THREE.Fog(0xa6c0d0, 70, 280)
+    this.scene.fog = new THREE.Fog(0x96aa90, 90, 290)
 
     this.ground = createTerrainMesh()
     this.scene.add(this.ground)
 
     this.yard = new THREE.Mesh(
       new THREE.PlaneGeometry(BASE.east - BASE.west + 10, BASE.north - BASE.south + 10),
-      new THREE.MeshLambertMaterial({ color: 0x5c5342 }),
+      new THREE.MeshStandardMaterial({ color: 0x5a4e3c, roughness: 0.93, metalness: 0 }),
     )
     this.yard.rotation.x = -Math.PI / 2
     this.yard.position.set((BASE.west + BASE.east) / 2, 0.02, (BASE.south + BASE.north) / 2)

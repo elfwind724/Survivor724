@@ -72,10 +72,12 @@ export function terrainTint(x: number, z: number): [number, number, number] {
   const ruins = smoothstep(24, 78, x) * smoothstep(34, 92, z)
   const rock = smoothstep(128, 165, d)
   const dirt = 1 - smoothstep(36, 58, d)
+  const patch = (valueNoise(x * 0.22, z * 0.22) - 0.5) * 0.09
+  const blades = (valueNoise(x * 0.9, z * 0.9) - 0.5) * 0.05
   const g = [
-    0.32 + woods * -0.1 + wet * -0.06 + ruins * 0.04 + rock * 0.06 + dirt * 0.08,
-    0.4 + woods * -0.08 + wet * -0.04 + ruins * -0.08 + rock * -0.07 + dirt * -0.06,
-    0.24 + woods * -0.04 + wet * 0.06 + ruins * -0.02 + rock * 0.02 + dirt * -0.02,
+    0.2 + woods * -0.05 + wet * -0.02 + ruins * 0.08 + rock * 0.16 + dirt * 0.04 + patch + blades,
+    0.34 + woods * -0.06 + wet * -0.07 + ruins * -0.1 + rock * -0.12 + dirt * 0.02 + patch * 0.55 + blades,
+    0.13 + woods * -0.03 + wet * 0.05 + ruins * -0.03 + rock * 0.05 + dirt * -0.02 + patch * 0.25,
   ] as [number, number, number]
   return [
     clamp01(g[0]),

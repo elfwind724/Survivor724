@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { pointNearRiver, riverStrips, roadStrips, RIVER_SPINE, terrainBlocksWalk, terrainHeight, terrainTint } from '@/data/landscape'
 import { seedOutdoorScenery } from '@/data/outdoorScenery'
+import { BASE } from '@/simulation/baseLayout'
 
 describe('landscape', () => {
   it('builds a continuous river that passes the fishing banks', () => {
@@ -35,5 +36,26 @@ describe('landscape', () => {
     const scenery = seedOutdoorScenery()
     const banks = scenery.filter((pose) => pointNearRiver(pose.x, pose.z, 10))
     expect(banks.length).toBeGreaterThan(8)
+  })
+
+  it('dresses the palisade skirt instead of a golf lawn', () => {
+    const scenery = seedOutdoorScenery()
+    const southYard = scenery.filter(
+      (pose) => pose.z < BASE.south - 2 && pose.z > BASE.south - 14 && pose.x > BASE.west + 6 && pose.x < BASE.east - 6,
+    )
+    const eastYard = scenery.filter(
+      (pose) => pose.x > BASE.east + 2 && pose.x < BASE.east + 14 && pose.z > BASE.south + 6 && pose.z < BASE.north - 6,
+    )
+    expect(southYard.length).toBeGreaterThan(12)
+    expect(eastYard.length).toBeGreaterThan(8)
+    expect(
+      scenery.every(
+        (pose) =>
+          pose.x <= BASE.west + 1.5 || pose.x >= BASE.east - 1.5 || pose.z <= BASE.south + 1.5 || pose.z >= BASE.north - 1.5,
+      ),
+    ).toBe(true)
+    const a = terrainTint(12, 8)
+    const b = terrainTint(18, 14)
+    expect(Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1])).toBeGreaterThan(0.008)
   })
 })

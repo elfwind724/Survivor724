@@ -124,7 +124,7 @@ export class CreativeEditor {
         <div class="cr-panel" data-panel>
           <header class="cr-head">
             <strong>创造模式</strong>
-            <span>点地即完成 · / 搜索 · 手中素材 R/Q 旋转，-/= 或滚轮缩放，右键拆除</span>
+            <span>点地即完成 · / 搜索 · 手中素材 R/Q 旋转，-/= 或滚轮缩放，右键或 Delete 立刻删除</span>
             <input class="cr-search" type="search" placeholder="搜索名字 · / 聚焦" value="${escapeAttr(this.query)}" autocomplete="off" spellcheck="false" tabindex="0" />
           </header>
           <div class="cr-tabs">${tabs}</div>

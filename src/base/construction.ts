@@ -6,12 +6,13 @@ import {
   facilityDefinition,
   facilityFromAsset,
   footprintCells,
+  structureLabel,
   wallLineDuration,
 } from '@/data/facilities'
 import { addItem, countItem, createInventory, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { findContainer } from '@/simulation/EntityRegistry'
 import type { GridCell, StructureState, Vec3, WildlifeState, WorldState } from '@/simulation/types'
-import { spawnCreativeAnimal } from '@/world/Wildlife'
+import { nearestLivingWildlife, removeCreativeAnimal, spawnCreativeAnimal, WILDLIFE_LABEL } from '@/world/Wildlife'
 import { cellCenter, cellIndex, inBounds, markNavDirty, rebuildNav, worldToCell } from '@/navigation/NavGrid'
 import { pathExists } from '@/navigation/AStar'
 
@@ -122,6 +123,59 @@ export function markDemolishAt(
       : target.structure
   if (!structure) return null
   return { result: markDemolish(world, structure), structure }
+}
+
+export interface CreativeRemoval {
+  kind: 'structure' | 'decoration' | 'wildlife'
+  name: string
+  definitionId?: string
+}
+
+/** Instantly erase something the player put down in create mode. Seed buildings stay. */
+export function removeCreativeAt(world: WorldState, point: Vec3, radius = 3.6): CreativeRemoval | null {
+  type Candidate = { kind: CreativeRemoval['kind']; dist: number; id: string; name: string; definitionId: string | undefined }
+  const found: Candidate[] = []
+  for (const structure of world.structures) {
+    if (structure.placedBy !== 'creative') continue
+    const dist = distanceToStructure(world, structure, point)
+    if (dist > radius) continue
+    found.push({ kind: 'structure', dist, id: structure.id, name: structureLabel(structure), definitionId: structure.definitionId })
+  }
+  const animal = nearestLivingWildlife(world, point, radius)
+  if (animal?.id.startsWith('creative-')) {
+    const dist = Math.hypot(animal.position.x - point.x, animal.position.z - point.z)
+    if (dist <= radius) {
+      found.push({ kind: 'wildlife', dist, id: animal.id, name: WILDLIFE_LABEL[animal.kind], definitionId: undefined })
+    }
+  }
+  const decoration = decorationNear(world, point.x, point.z, radius)
+  if (decoration) {
+    const dist = Math.hypot(decoration.x - point.x, decoration.z - point.z)
+    if (dist <= radius) {
+      found.push({
+        kind: 'decoration',
+        dist,
+        id: decoration.id,
+        name: decoration.assetId.split('/').pop() ?? decoration.assetId,
+        definitionId: undefined,
+      })
+    }
+  }
+  found.sort((a, b) => a.dist - b.dist)
+  const hit = found[0]
+  if (!hit) return null
+  if (hit.kind === 'structure') {
+    demolishStructure(world, hit.id, false)
+    return hit.definitionId
+      ? { kind: 'structure', name: hit.name, definitionId: hit.definitionId }
+      : { kind: 'structure', name: hit.name }
+  }
+  if (hit.kind === 'wildlife') {
+    removeCreativeAnimal(world, hit.id)
+    return { kind: 'wildlife', name: hit.name }
+  }
+  removeDecoration(world, hit.id)
+  return { kind: 'decoration', name: hit.name }
 }
 
 export function demolishTarget(

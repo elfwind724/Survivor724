@@ -9,7 +9,7 @@ export function seedOutdoorScenery(): DecorationState[] {
   const items: DecorationState[] = []
   const add = (assetId: string, x: number, z: number, yaw = 0, scale = 1): void => {
     if (!assetById(assetId)) return
-    if (x > BASE.west - 6 && x < BASE.east + 6 && z > BASE.south - 6 && z < BASE.north + 6) return
+    if (x > BASE.west - 1.4 && x < BASE.east + 1.4 && z > BASE.south - 1.4 && z < BASE.north + 1.4) return
     items.push({
       id: `scenery-${items.length + 1}-${assetId.replaceAll('/', '-')}`,
       assetId,
@@ -180,8 +180,44 @@ export function seedOutdoorScenery(): DecorationState[] {
   path(6, 26, 24, 42)
   path(24, 42, 38, 52)
 
+  dressYardEdge(add)
   fillWorldBiomes(add)
   return items
+}
+
+function dressYardEdge(add: (assetId: string, x: number, z: number, yaw?: number, scale?: number) => void): void {
+  // South palisade is the default camera vista — bushes and grass right outside the wall.
+  add('natureClump/bushes', 12, -32, 0.55, 1.22)
+  add('natureClump/flower-bushes', -14, -34, 1.7, 1.18)
+  add('natureClump/grass', 18, -30, 0.2, 1.2)
+  add('natureClump/grass', -9, -31, 2.1, 1.12)
+  add('natureClump/flowers', 8, -36, 0.9, 1.1)
+  add('nature/bush', 5.5, -29, 0.4, 1.05)
+  add('nature/bush-with-flowers', -6, -29.4, 1.3, 1)
+  add('nature/tall-grass', 2.4, -28.6, 0.15, 1.15)
+  add('nature/tall-grass', -3.2, -28.8, 1.9, 1.1)
+  add('natureKit/tall-grass', 9.5, -29.2, 0.7, 1.05)
+  add('natureKit/fern', 15, -33, 1.1, 1)
+  add('nature/rock-medium', 16.5, -36, 0.8, 0.95)
+  add('natureKit/pebble-round', 7, -30.5, 0.3, 1)
+  add('nature/pine', 22, -44, 0.5, 1)
+  add('nature/tree', -21, -48, 1.4, 1)
+
+  add('natureClump/bushes', 34, 8, 0.4, 1.15)
+  add('natureClump/grass', 33, -12, 1.6, 1.12)
+  add('nature/bush', 32, 14, 2.2, 1)
+  add('natureKit/tall-grass', 31.5, -8, 0.6, 1.1)
+  add('nature/fern', 35, 18, 1.8, 1)
+
+  add('natureClump/flower-bushes', -34, -8, 0.9, 1.15)
+  add('natureClump/grass', -33, 12, 2.4, 1.1)
+  add('nature/bush', -32, -14, 0.3, 1)
+  add('natureKit/fern', -35, 6, 1.2, 1)
+
+  add('natureClump/grass', 10, 34, 0.5, 1.15)
+  add('natureClump/bushes', -12, 35, 1.8, 1.12)
+  add('nature/bush-with-flowers', 16, 33, 0.7, 1)
+  add('natureKit/tall-grass', -6, 32.4, 2.0, 1.08)
 }
 
 const taken: Array<{ x: number; z: number; r: number }> = []
@@ -220,7 +256,12 @@ function fillWorldBiomes(add: (assetId: string, x: number, z: number, yaw?: numb
 
   plantAlong(add, RIVER_SPINE, rocks, 3.2, 8, 'river-line')
 
-  scatterMeadow(add, grass, 28, 38, 78, 'yard-meadow')
+  const brush = ['nature/bush', 'natureKit/bush', 'natureKit/fern', 'nature/bush-with-flowers', 'natureKit/plant']
+  scatterAroundBase(add, grass, 2.2, 11, 120, 2.15, [0.88, 1.22], 'yard-grass')
+  scatterAroundBase(add, brush, 5.5, 16, 40, 3.4, [0.9, 1.2], 'yard-brush')
+  scatterAroundBase(add, rocks, 4.5, 18, 22, 4.1, [0.72, 1.08], 'yard-rock')
+  scatterAroundBase(add, [...pines, ...hardwood], 15, 26, 12, 8.5, [0.86, 1.12], 'yard-tree')
+  scatterAroundBase(add, grass, 12, 26, 64, 2.7, [0.9, 1.18], 'field-grass')
 }
 
 function plantGrove(
@@ -305,25 +346,36 @@ function plantAlong(
   }
 }
 
-function scatterMeadow(
+function scatterAroundBase(
   add: (assetId: string, x: number, z: number, yaw?: number, scale?: number) => void,
   assets: string[],
   inner: number,
   outer: number,
   count: number,
+  spacing: number,
+  scale: [number, number],
   salt: string,
 ): void {
+  const faces: Array<{ ax: number; az: number; bx: number; bz: number; nx: number; nz: number }> = [
+    { ax: BASE.west, az: BASE.south, bx: BASE.east, bz: BASE.south, nx: 0, nz: -1 },
+    { ax: BASE.west, az: BASE.north, bx: BASE.east, bz: BASE.north, nx: 0, nz: 1 },
+    { ax: BASE.west, az: BASE.south, bx: BASE.west, bz: BASE.north, nx: -1, nz: 0 },
+    { ax: BASE.east, az: BASE.south, bx: BASE.east, bz: BASE.north, nx: 1, nz: 0 },
+  ]
   let placed = 0
-  for (let i = 0; i < count * 5 && placed < count; i += 1) {
-    const ang = hash01(`${salt}:${i}:a`) * Math.PI * 2
+  for (let i = 0; i < count * 6 && placed < count; i += 1) {
+    const face = faces[i % 4]
+    if (!face) continue
+    const t = hash01(`${salt}:${i}:t`)
     const dist = inner + hash01(`${salt}:${i}:d`) * (outer - inner)
-    const x = Math.cos(ang) * dist
-    const z = Math.sin(ang) * dist
-    if (blockedForDressing(x, z) || tooClose(x, z, 3.5)) continue
+    const x = face.ax + (face.bx - face.ax) * t + face.nx * dist
+    const z = face.az + (face.bz - face.az) * t + face.nz * dist
+    if (blockedForDressing(x, z) || tooClose(x, z, spacing)) continue
     const asset = assets[Math.floor(hash01(`${salt}:${i}:id`) * assets.length)]
     if (!asset) continue
-    add(asset, x, z, hash01(`${salt}:${i}:y`) * Math.PI * 2, 0.9 + hash01(`${salt}:${i}:s`) * 0.25)
-    taken.push({ x, z, r: 3.5 })
+    const size = scale[0] + hash01(`${salt}:${i}:s`) * (scale[1] - scale[0])
+    add(asset, x, z, hash01(`${salt}:${i}:y`) * Math.PI * 2, size)
+    taken.push({ x, z, r: spacing })
     placed += 1
   }
 }
@@ -333,9 +385,11 @@ function tooClose(x: number, z: number, radius: number): boolean {
 }
 
 function blockedForDressing(x: number, z: number): boolean {
-  if (x > BASE.west - 10 && x < BASE.east + 10 && z > BASE.south - 10 && z < BASE.north + 10) return true
-  if (Math.abs(z) < 8 && (x > BASE.east - 6 || x < BASE.west + 6)) return true
-  if (Math.abs(x) < 8 && (z > BASE.north - 6 || z < BASE.south + 6)) return true
+  if (x > BASE.west - 1.4 && x < BASE.east + 1.4 && z > BASE.south - 1.4 && z < BASE.north + 1.4) return true
+  if (Math.abs(z) < 5.5 && x > BASE.east && x < BASE.east + 14) return true
+  if (Math.abs(z) < 5.5 && x < BASE.west && x > BASE.west - 14) return true
+  if (Math.abs(x) < 5.5 && z > BASE.north && z < BASE.north + 14) return true
+  if (Math.abs(x) < 5.5 && z < BASE.south && z > BASE.south - 14) return true
   return false
 }
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { demolishTarget, findStructure, interactGate, markDemolishAt, persistCreativeStructures, placeBlueprint, placeCreativeAsset, placeWallLine, previewCreativePlacement, previewPlacement, previewWallLine } from '@/base/construction'
+import { demolishTarget, findStructure, interactGate, markDemolishAt, placeBlueprint, placeCreativeAsset, placeWallLine, previewCreativePlacement, previewPlacement, previewWallLine, removeCreativeAt } from '@/base/construction'
 import { decorationNear, removeDecoration, snapDecor } from '@/base/decorations'
 import { buildProgress, durabilityPercent, facilityPreviewHeight, structureLabel } from '@/data/facilities'
 import { canUpgrade, facilityCap, hallLevel, markUpgrade, structureLevel, upgradeCost, upgradeProgress } from '@/base/upgrade'
@@ -48,7 +48,7 @@ import { RosterPanel } from '@/ui/RosterPanel'
 import { DefenseBar } from '@/ui/DefenseBar'
 import { SandboxPanel } from '@/ui/SandboxPanel'
 import { Minimap } from '@/ui/Minimap'
-import { nearestLivingWildlife, persistCreativeWildlife, removeCreativeAnimal, WILDLIFE_LABEL } from '@/world/Wildlife'
+import { persistCreativeWildlife, WILDLIFE_LABEL } from '@/world/Wildlife'
 import { GameLoop } from './GameLoop'
 
 export class GameApp {
@@ -321,6 +321,15 @@ export class GameApp {
       this.notice = '继续操控冯老师'
     }
     if (isEditableTarget(event.target)) return
+    if ((event.code === 'Delete' || event.code === 'Backspace') && !event.repeat) {
+      event.preventDefault()
+      const hover = this.renderer.pickGround(this.input.mouseX, this.input.mouseY)
+      const actor = this.focusActor()
+      const point = hover ?? (actor ? actor.position : null)
+      if (!point) return
+      this.eraseCreative({ x: point.x, z: point.z })
+      return
+    }
     if (this.editor.isOpen() && event.key === '/' && !event.repeat) {
       event.preventDefault()
       this.editor.focusSearch()
@@ -583,27 +592,7 @@ export class GameApp {
         return
       }
       if (button === 2) {
-        const marked = markDemolishAt(this.world, { x: hit.x, y: 0, z: hit.z })
-        if (marked) {
-          persistCreativeStructures(this.world)
-          const name = structureLabel(marked.structure)
-          this.notice = marked.result === 'cancelled'
-            ? `已取消拆除 ${name}`
-            : `已标记拆除 ${name}，工匠会过来拆`
-          return
-        }
-        const animal = nearestLivingWildlife(this.world, hit, 2.6)
-        if (animal && removeCreativeAnimal(this.world, animal.id)) {
-          this.notice = `已收回${WILDLIFE_LABEL[animal.kind]}`
-          return
-        }
-        const target = decorationNear(this.world, hit.x, hit.z)
-        if (!target) {
-          this.notice = '附近没有可拆的东西'
-          return
-        }
-        removeDecoration(this.world, target.id)
-        this.notice = '已拆除装饰'
+        this.eraseCreative({ x: hit.x, z: hit.z })
         return
       }
       return
@@ -937,6 +926,17 @@ export class GameApp {
     this.packCursor = result.cursor
     this.hud.setCursor(result.cursor)
     this.notice = result.notice
+  }
+
+  private eraseCreative(point: { x: number; z: number }): boolean {
+    const removed = removeCreativeAt(this.world, { x: point.x, y: 0, z: point.z })
+    if (!removed) {
+      this.notice = '附近没有你放下的东西'
+      return false
+    }
+    if (removed.definitionId === 'watchtower') rebuildNightPosts(this.world)
+    this.notice = `已删除 ${removed.name}`
+    return true
   }
 
   private focusActor() {
