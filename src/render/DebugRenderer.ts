@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { structureNear } from '@/base/construction'
 import { bedSpot, interiorProps, isCooking, isEating, isSleeping, isWorkingInPlace, sleeperEuler, sleeperWorld } from '@/base/FacilityLife'
 import { nearestLivingEnemy } from '@/combat/Combat'
-import { isLifeBuilding, TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
+import { BIOME_PATCHES, isLifeBuilding, TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { assetById } from '@/data/assetIndex'
 import { equippedWeapon, WEAPONS } from '@/data/weapons'
 import { ENEMY_ASSETS, gateOpenAsset, STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '@/data/worldDressing'
@@ -82,6 +82,7 @@ export class DebugRenderer {
   private dungeonKey = ''
   private ground: THREE.Mesh | null = null
   private yard: THREE.Mesh | null = null
+  private readonly biomesRoot = new THREE.Group()
   private readonly fishingLines = new Map<string, THREE.Line>()
   private readonly ruinCrates = new Map<string, Marker>()
   private readonly berryBushes = new Map<string, Marker>()
@@ -130,6 +131,18 @@ export class DebugRenderer {
     this.yard.position.set((BASE.west + BASE.east) / 2, 0.02, (BASE.south + BASE.north) / 2)
     this.yard.receiveShadow = true
     this.scene.add(this.yard)
+    this.biomesRoot.name = 'biomes'
+    for (const patch of BIOME_PATCHES) {
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(patch.w, patch.d),
+        new THREE.MeshLambertMaterial({ color: patch.color }),
+      )
+      mesh.rotation.x = -Math.PI / 2
+      mesh.position.set(patch.x, 0.015, patch.z)
+      mesh.receiveShadow = true
+      this.biomesRoot.add(mesh)
+    }
+    this.scene.add(this.biomesRoot)
     this.dressingRoot.name = 'dressing'
     this.scene.add(this.dressingRoot)
     this.library.enqueue(this.bootIds())
@@ -1028,6 +1041,7 @@ export class DebugRenderer {
     const cave = isInDungeon(world)
     if (this.ground) this.ground.visible = !cave
     if (this.yard) this.yard.visible = !cave
+    this.biomesRoot.visible = !cave
     this.dressingRoot.visible = !cave
     if (cave) {
       this.scene.background = new THREE.Color(0x2a2218)

@@ -3,9 +3,21 @@ import { markDemolish, placeCreativeAsset, promoteBuildingDecorations } from '@/
 import { decorationNear, placeDecoration, removeDecoration } from '@/base/decorations'
 import { facilityFromAsset, structureLabel } from '@/data/facilities'
 import { interiorProps } from '@/base/FacilityLife'
+import { BIOME_PATCHES, seedOutdoorScenery } from '@/data/outdoorScenery'
 import { createInitialWorld } from '@/simulation/WorldState'
 
 describe('map decorations', () => {
+  it('dresses the far field with biome scenery outside the walls', () => {
+    const world = createInitialWorld()
+    expect(world.scenery.length).toBeGreaterThan(250)
+    expect(world.scenery.every((pose) => Math.abs(pose.x) > 30 || Math.abs(pose.z) > 26)).toBe(true)
+    expect(world.scenery.some((pose) => Math.abs(pose.x) > 100 || Math.abs(pose.z) > 100)).toBe(true)
+    const forest = world.scenery.filter((pose) => Math.hypot(pose.x - 55, pose.z + 20) < 48)
+    expect(forest.length).toBeGreaterThan(20)
+    expect(BIOME_PATCHES.map((patch) => patch.id)).toEqual(expect.arrayContaining(['forest', 'river', 'ruins', 'pasture']))
+    expect(seedOutdoorScenery()).toEqual(seedOutdoorScenery())
+  })
+
   it('starts with an empty player-placed decoration list', () => {
     const world = createInitialWorld()
     expect(world.decorations).toEqual([])

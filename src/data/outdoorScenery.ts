@@ -179,7 +179,82 @@ export function seedOutdoorScenery(): DecorationState[] {
   path(6, 26, 24, 42)
   path(24, 42, 38, 52)
 
+  fillWorldBiomes(add)
   return items
+}
+
+export const BIOME_PATCHES: Array<{ id: string; x: number; z: number; w: number; d: number; color: number }> = [
+  { id: 'forest', x: 88, z: -28, w: 150, d: 130, color: 0x2a4630 },
+  { id: 'river', x: -86, z: 38, w: 130, d: 110, color: 0x355044 },
+  { id: 'ruins', x: 58, z: 72, w: 90, d: 90, color: 0x4a4336 },
+  { id: 'pasture', x: 18, z: 96, w: 110, d: 90, color: 0x4a5c34 },
+  { id: 'south-woods', x: 8, z: -96, w: 140, d: 110, color: 0x314a34 },
+]
+
+function fillWorldBiomes(add: (assetId: string, x: number, z: number, yaw?: number, scale?: number) => void): void {
+  const rim: Array<[string, number, number, number, number]> = [
+    ['fort/mountain', 158, -40, 0.2, 14],
+    ['fort/mountain-2', 150, 70, 1.4, 13],
+    ['fort/mountains', -40, 158, 0.6, 14],
+    ['fort/mountain-group', -150, -50, 2.0, 13],
+    ['fort/mountain', -155, 90, 0.9, 12],
+    ['fort/mountain-2', 90, -155, 2.4, 13],
+    ['fort/mountains', 155, 140, 1.1, 12],
+    ['fort/mountain-group', -140, 150, 0.3, 12],
+  ]
+  for (const [id, x, z, yaw, scale] of rim) add(id, x, z, yaw, scale)
+
+  scatter(add, ['natureClump/pine-trees', 'natureClump/trees', 'natureClump/birch-trees', 'natureClump/maple-trees'], 18, { minX: 42, maxX: 150, minZ: -110, maxZ: 8 }, [1.05, 1.28], 'forest-clump')
+  scatter(add, ['nature/pine', 'nature/pine-2', 'nature/pine-3', 'nature/tree', 'nature/tree-2', 'nature/tree-5'], 48, { minX: 40, maxX: 148, minZ: -108, maxZ: 12 }, [0.9, 1.15], 'forest-tree')
+  scatter(add, ['nature/bush', 'natureKit/bush', 'natureKit/fern', 'natureKit/plant-big', 'nature/tall-grass'], 36, { minX: 38, maxX: 140, minZ: -100, maxZ: 10 }, [0.9, 1.2], 'forest-under')
+
+  scatter(add, ['natureClump/rocks', 'natureClump/grass'], 10, { minX: -140, maxX: -36, minZ: 4, maxZ: 108 }, [1.15, 1.4], 'river-clump')
+  scatter(add, ['nature/rock-medium', 'nature/rock-medium-2', 'natureKit/rock-medium', 'nature/pebble-round', 'nature/tall-grass', 'natureKit/grass-wispy'], 40, { minX: -138, maxX: -38, minZ: 6, maxZ: 110 }, [0.85, 1.2], 'river-bank')
+
+  scatter(add, ['natureClump/dead-trees', 'natureClump/dead-trees-2'], 8, { minX: 22, maxX: 108, minZ: 38, maxZ: 130 }, [1.05, 1.25], 'ruin-clump')
+  scatter(add, ['nature/dead-tree', 'nature/dead-tree-2', 'nature/twisted-tree', 'natureKit/twisted-tree', 'nature/rock-medium-3', 'fort/rock'], 28, { minX: 24, maxX: 110, minZ: 40, maxZ: 128 }, [0.85, 1.2], 'ruin-prop')
+
+  scatter(add, ['natureClump/grass', 'natureClump/flower-bushes', 'natureClump/flowers'], 12, { minX: -30, maxX: 90, minZ: 48, maxZ: 150 }, [1.1, 1.4], 'pasture-clump')
+  scatter(add, ['nature/tall-grass', 'natureKit/tall-grass', 'nature/clover', 'natureKit/grass', 'nature/flower-group'], 34, { minX: -28, maxX: 88, minZ: 50, maxZ: 148 }, [0.9, 1.25], 'pasture-grass')
+
+  scatter(add, ['natureClump/trees', 'natureClump/pine-trees', 'natureClump/bushes'], 14, { minX: -90, maxX: 90, minZ: -150, maxZ: -42 }, [1.05, 1.3], 'south-clump')
+  scatter(add, ['nature/tree-3', 'nature/pine-4', 'nature/bush', 'natureKit/fern', 'nature/plant-big'], 32, { minX: -88, maxX: 88, minZ: -148, maxZ: -44 }, [0.9, 1.2], 'south-tree')
+}
+
+function scatter(
+  add: (assetId: string, x: number, z: number, yaw?: number, scale?: number) => void,
+  assets: string[],
+  count: number,
+  bounds: { minX: number; maxX: number; minZ: number; maxZ: number },
+  scale: [number, number],
+  salt: string,
+): void {
+  for (let i = 0; i < count; i += 1) {
+    const x = bounds.minX + hash01(`${salt}:${i}:x`) * (bounds.maxX - bounds.minX)
+    const z = bounds.minZ + hash01(`${salt}:${i}:z`) * (bounds.maxZ - bounds.minZ)
+    if (blockedForDressing(x, z)) continue
+    const asset = assets[Math.floor(hash01(`${salt}:${i}:a`) * assets.length)]
+    if (!asset) continue
+    const yaw = hash01(`${salt}:${i}:y`) * Math.PI * 2
+    const size = scale[0] + hash01(`${salt}:${i}:s`) * (scale[1] - scale[0])
+    add(asset, x, z, yaw, size)
+  }
+}
+
+function blockedForDressing(x: number, z: number): boolean {
+  if (x > BASE.west - 10 && x < BASE.east + 10 && z > BASE.south - 10 && z < BASE.north + 10) return true
+  if (Math.abs(z) < 8 && (x > BASE.east - 6 || x < BASE.west + 6)) return true
+  if (Math.abs(x) < 8 && (z > BASE.north - 6 || z < BASE.south + 6)) return true
+  return false
+}
+
+function hash01(seed: string): number {
+  let hash = 2166136261
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return ((hash >>> 0) % 10_000) / 10_000
 }
 
 export function isLifeBuilding(definitionId: string): boolean {
