@@ -3,18 +3,19 @@ import { markDemolish, placeCreativeAsset, promoteBuildingDecorations } from '@/
 import { decorationNear, placeDecoration, removeDecoration } from '@/base/decorations'
 import { facilityFromAsset, structureLabel } from '@/data/facilities'
 import { interiorProps } from '@/base/FacilityLife'
-import { BIOME_PATCHES, seedOutdoorScenery } from '@/data/outdoorScenery'
+import { seedOutdoorScenery } from '@/data/outdoorScenery'
 import { createInitialWorld } from '@/simulation/WorldState'
 
 describe('map decorations', () => {
-  it('dresses the far field with biome scenery outside the walls', () => {
+  it('plants groves and a mountain ring instead of tiled biome rectangles', () => {
     const world = createInitialWorld()
-    expect(world.scenery.length).toBeGreaterThan(250)
+    expect(world.scenery.length).toBeGreaterThan(160)
     expect(world.scenery.every((pose) => Math.abs(pose.x) > 30 || Math.abs(pose.z) > 26)).toBe(true)
-    expect(world.scenery.some((pose) => Math.abs(pose.x) > 100 || Math.abs(pose.z) > 100)).toBe(true)
-    const forest = world.scenery.filter((pose) => Math.hypot(pose.x - 55, pose.z + 20) < 48)
-    expect(forest.length).toBeGreaterThan(20)
-    expect(BIOME_PATCHES.map((patch) => patch.id)).toEqual(expect.arrayContaining(['forest', 'river', 'ruins', 'pasture']))
+    expect(world.scenery.some((pose) => Math.hypot(pose.x, pose.z) > 140)).toBe(true)
+    const forest = world.scenery.filter((pose) => Math.hypot(pose.x - 72, pose.z + 28) < 26)
+    expect(forest.length).toBeGreaterThan(8)
+    const hole = world.scenery.filter((pose) => Math.hypot(pose.x - 72, pose.z + 28) < 5)
+    expect(hole.length).toBeLessThan(forest.length)
     expect(seedOutdoorScenery()).toEqual(seedOutdoorScenery())
   })
 

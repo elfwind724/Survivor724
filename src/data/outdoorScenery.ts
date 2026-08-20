@@ -183,62 +183,159 @@ export function seedOutdoorScenery(): DecorationState[] {
   return items
 }
 
-export const BIOME_PATCHES: Array<{ id: string; x: number; z: number; w: number; d: number; color: number }> = [
-  { id: 'forest', x: 88, z: -28, w: 150, d: 130, color: 0x2a4630 },
-  { id: 'river', x: -86, z: 38, w: 130, d: 110, color: 0x355044 },
-  { id: 'ruins', x: 58, z: 72, w: 90, d: 90, color: 0x4a4336 },
-  { id: 'pasture', x: 18, z: 96, w: 110, d: 90, color: 0x4a5c34 },
-  { id: 'south-woods', x: 8, z: -96, w: 140, d: 110, color: 0x314a34 },
-]
+const taken: Array<{ x: number; z: number; r: number }> = []
 
 function fillWorldBiomes(add: (assetId: string, x: number, z: number, yaw?: number, scale?: number) => void): void {
-  const rim: Array<[string, number, number, number, number]> = [
-    ['fort/mountain', 158, -40, 0.2, 14],
-    ['fort/mountain-2', 150, 70, 1.4, 13],
-    ['fort/mountains', -40, 158, 0.6, 14],
-    ['fort/mountain-group', -150, -50, 2.0, 13],
-    ['fort/mountain', -155, 90, 0.9, 12],
-    ['fort/mountain-2', 90, -155, 2.4, 13],
-    ['fort/mountains', 155, 140, 1.1, 12],
-    ['fort/mountain-group', -140, 150, 0.3, 12],
-  ]
-  for (const [id, x, z, yaw, scale] of rim) add(id, x, z, yaw, scale)
+  taken.length = 0
+  const pines = ['nature/pine', 'nature/pine-2', 'nature/pine-3', 'nature/pine-4', 'nature/pine-5']
+  const hardwood = ['nature/tree', 'nature/tree-2', 'nature/tree-3', 'nature/tree-4', 'nature/tree-5']
+  const under = ['nature/bush', 'natureKit/bush', 'natureKit/fern', 'nature/plant-big', 'natureKit/plant']
+  const grass = ['nature/tall-grass', 'natureKit/tall-grass', 'natureKit/grass', 'nature/clover', 'nature/flower-group']
+  const dead = ['nature/dead-tree', 'nature/dead-tree-2', 'nature/twisted-tree', 'nature/twisted-tree-2']
+  const rocks = ['nature/rock-medium', 'nature/rock-medium-2', 'natureKit/rock-medium', 'nature/pebble-round']
 
-  scatter(add, ['natureClump/pine-trees', 'natureClump/trees', 'natureClump/birch-trees', 'natureClump/maple-trees'], 18, { minX: 42, maxX: 150, minZ: -110, maxZ: 8 }, [1.05, 1.28], 'forest-clump')
-  scatter(add, ['nature/pine', 'nature/pine-2', 'nature/pine-3', 'nature/tree', 'nature/tree-2', 'nature/tree-5'], 48, { minX: 40, maxX: 148, minZ: -108, maxZ: 12 }, [0.9, 1.15], 'forest-tree')
-  scatter(add, ['nature/bush', 'natureKit/bush', 'natureKit/fern', 'natureKit/plant-big', 'nature/tall-grass'], 36, { minX: 38, maxX: 140, minZ: -100, maxZ: 10 }, [0.9, 1.2], 'forest-under')
+  const peaks = ['fort/mountain', 'fort/mountain-2', 'fort/mountains', 'fort/mountain-group']
+  for (let i = 0; i < 11; i += 1) {
+    const turn = (i / 11) * Math.PI * 2 + 0.18
+    const reach = 152 + hash01(`rim:${i}:r`) * 18
+    const x = Math.sin(turn) * reach
+    const z = Math.cos(turn) * reach
+    add(peaks[i % peaks.length]!, x, z, turn + 0.4, 11 + hash01(`rim:${i}:s`) * 3.5)
+  }
 
-  scatter(add, ['natureClump/rocks', 'natureClump/grass'], 10, { minX: -140, maxX: -36, minZ: 4, maxZ: 108 }, [1.15, 1.4], 'river-clump')
-  scatter(add, ['nature/rock-medium', 'nature/rock-medium-2', 'natureKit/rock-medium', 'nature/pebble-round', 'nature/tall-grass', 'natureKit/grass-wispy'], 40, { minX: -138, maxX: -38, minZ: 6, maxZ: 110 }, [0.85, 1.2], 'river-bank')
+  plantGrove(add, { cx: 72, cz: -28, radius: 24, hole: 6, trees: 16, brush: 9, canopy: pines, under, salt: 'grove-hunt-a' })
+  plantGrove(add, { cx: 108, cz: -16, radius: 20, hole: 5, trees: 13, brush: 7, canopy: [...pines, ...hardwood], under, salt: 'grove-hunt-b' })
+  plantGrove(add, { cx: 92, cz: -58, radius: 18, hole: 7, trees: 11, brush: 6, canopy: hardwood, under, salt: 'grove-hunt-c' })
+  plantGrove(add, { cx: 128, cz: -42, radius: 16, hole: 4, trees: 9, brush: 5, canopy: pines, under, salt: 'grove-hunt-d' })
 
-  scatter(add, ['natureClump/dead-trees', 'natureClump/dead-trees-2'], 8, { minX: 22, maxX: 108, minZ: 38, maxZ: 130 }, [1.05, 1.25], 'ruin-clump')
-  scatter(add, ['nature/dead-tree', 'nature/dead-tree-2', 'nature/twisted-tree', 'natureKit/twisted-tree', 'nature/rock-medium-3', 'fort/rock'], 28, { minX: 24, maxX: 110, minZ: 40, maxZ: 128 }, [0.85, 1.2], 'ruin-prop')
+  plantGrove(add, { cx: -18, cz: -88, radius: 18, hole: 8, trees: 9, brush: 8, canopy: hardwood, under: grass, salt: 'grove-south-a' })
+  plantGrove(add, { cx: 44, cz: -108, radius: 16, hole: 6, trees: 8, brush: 6, canopy: pines, under, salt: 'grove-south-b' })
+  plantGrove(add, { cx: -52, cz: -72, radius: 14, hole: 5, trees: 7, brush: 5, canopy: hardwood, under: grass, salt: 'grove-south-c' })
 
-  scatter(add, ['natureClump/grass', 'natureClump/flower-bushes', 'natureClump/flowers'], 12, { minX: -30, maxX: 90, minZ: 48, maxZ: 150 }, [1.1, 1.4], 'pasture-clump')
-  scatter(add, ['nature/tall-grass', 'natureKit/tall-grass', 'nature/clover', 'natureKit/grass', 'nature/flower-group'], 34, { minX: -28, maxX: 88, minZ: 50, maxZ: 148 }, [0.9, 1.25], 'pasture-grass')
+  plantGrove(add, { cx: 8, cz: 108, radius: 14, hole: 9, trees: 5, brush: 12, canopy: hardwood, under: grass, salt: 'grove-meadow-a' })
+  plantGrove(add, { cx: 52, cz: 118, radius: 12, hole: 7, trees: 4, brush: 10, canopy: pines, under: grass, salt: 'grove-meadow-b' })
 
-  scatter(add, ['natureClump/trees', 'natureClump/pine-trees', 'natureClump/bushes'], 14, { minX: -90, maxX: 90, minZ: -150, maxZ: -42 }, [1.05, 1.3], 'south-clump')
-  scatter(add, ['nature/tree-3', 'nature/pine-4', 'nature/bush', 'natureKit/fern', 'nature/plant-big'], 32, { minX: -88, maxX: 88, minZ: -148, maxZ: -44 }, [0.9, 1.2], 'south-tree')
+  plantGrove(add, { cx: 78, cz: 92, radius: 16, hole: 5, trees: 8, brush: 6, canopy: dead, under: rocks, salt: 'grove-ruin-edge' })
+
+  plantAlong(add, [
+    [-38, 18],
+    [-52, 28],
+    [-64, 36],
+    [-78, 48],
+    [-90, 62],
+    [-102, 74],
+  ], rocks, 3.2, 7, 'river-line')
+
+  scatterMeadow(add, grass, 28, 38, 78, 'yard-meadow')
 }
 
-function scatter(
+function plantGrove(
+  add: (assetId: string, x: number, z: number, yaw?: number, scale?: number) => void,
+  grove: {
+    cx: number
+    cz: number
+    radius: number
+    hole: number
+    trees: number
+    brush: number
+    canopy: string[]
+    under: string[]
+    salt: string
+  },
+): void {
+  ring(add, grove.canopy, grove.trees, grove.cx, grove.cz, grove.hole, grove.radius, 5.2, [0.92, 1.18], grove.salt)
+  ring(add, grove.under, grove.brush, grove.cx, grove.cz, Math.max(2, grove.hole - 1), grove.radius + 3, 2.4, [0.85, 1.15], `${grove.salt}-under`)
+}
+
+function ring(
   add: (assetId: string, x: number, z: number, yaw?: number, scale?: number) => void,
   assets: string[],
   count: number,
-  bounds: { minX: number; maxX: number; minZ: number; maxZ: number },
+  cx: number,
+  cz: number,
+  inner: number,
+  outer: number,
+  spacing: number,
   scale: [number, number],
   salt: string,
 ): void {
-  for (let i = 0; i < count; i += 1) {
-    const x = bounds.minX + hash01(`${salt}:${i}:x`) * (bounds.maxX - bounds.minX)
-    const z = bounds.minZ + hash01(`${salt}:${i}:z`) * (bounds.maxZ - bounds.minZ)
-    if (blockedForDressing(x, z)) continue
-    const asset = assets[Math.floor(hash01(`${salt}:${i}:a`) * assets.length)]
+  let placed = 0
+  for (let i = 0; i < count * 4 && placed < count; i += 1) {
+    const ang = hash01(`${salt}:${i}:a`) * Math.PI * 2
+    const t = inner / outer + hash01(`${salt}:${i}:t`) * (1 - inner / outer)
+    const dist = outer * Math.sqrt(t)
+    const x = cx + Math.cos(ang) * dist
+    const z = cz + Math.sin(ang) * dist
+    if (blockedForDressing(x, z) || tooClose(x, z, spacing)) continue
+    const asset = assets[Math.floor(hash01(`${salt}:${i}:id`) * assets.length)]
     if (!asset) continue
     const yaw = hash01(`${salt}:${i}:y`) * Math.PI * 2
     const size = scale[0] + hash01(`${salt}:${i}:s`) * (scale[1] - scale[0])
     add(asset, x, z, yaw, size)
+    taken.push({ x, z, r: spacing })
+    placed += 1
   }
+}
+
+function plantAlong(
+  add: (assetId: string, x: number, z: number, yaw?: number, scale?: number) => void,
+  line: Array<[number, number]>,
+  assets: string[],
+  spacing: number,
+  side: number,
+  salt: string,
+): void {
+  let n = 0
+  for (let i = 0; i < line.length - 1; i += 1) {
+    const a = line[i]
+    const b = line[i + 1]
+    if (!a || !b) continue
+    const dx = b[0] - a[0]
+    const dz = b[1] - a[1]
+    const len = Math.hypot(dx, dz) || 1
+    const px = -dz / len
+    const pz = dx / len
+    const steps = Math.max(1, Math.round(len / 4.5))
+    for (let s = 0; s <= steps; s += 1) {
+      const t = s / steps
+      const ox = (hash01(`${salt}:${n}:o`) - 0.5) * side
+      const x = a[0] + dx * t + px * ox
+      const z = a[1] + dz * t + pz * ox
+      n += 1
+      if (blockedForDressing(x, z) || tooClose(x, z, spacing)) continue
+      const asset = assets[Math.floor(hash01(`${salt}:${n}:id`) * assets.length)]
+      if (!asset) continue
+      add(asset, x, z, hash01(`${salt}:${n}:y`) * Math.PI * 2, 0.85 + hash01(`${salt}:${n}:s`) * 0.4)
+      taken.push({ x, z, r: spacing })
+    }
+  }
+}
+
+function scatterMeadow(
+  add: (assetId: string, x: number, z: number, yaw?: number, scale?: number) => void,
+  assets: string[],
+  inner: number,
+  outer: number,
+  count: number,
+  salt: string,
+): void {
+  let placed = 0
+  for (let i = 0; i < count * 5 && placed < count; i += 1) {
+    const ang = hash01(`${salt}:${i}:a`) * Math.PI * 2
+    const dist = inner + hash01(`${salt}:${i}:d`) * (outer - inner)
+    const x = Math.cos(ang) * dist
+    const z = Math.sin(ang) * dist
+    if (blockedForDressing(x, z) || tooClose(x, z, 3.5)) continue
+    const asset = assets[Math.floor(hash01(`${salt}:${i}:id`) * assets.length)]
+    if (!asset) continue
+    add(asset, x, z, hash01(`${salt}:${i}:y`) * Math.PI * 2, 0.9 + hash01(`${salt}:${i}:s`) * 0.25)
+    taken.push({ x, z, r: 3.5 })
+    placed += 1
+  }
+}
+
+function tooClose(x: number, z: number, radius: number): boolean {
+  return taken.some((spot) => Math.hypot(spot.x - x, spot.z - z) < Math.max(radius, spot.r) * 0.85)
 }
 
 function blockedForDressing(x: number, z: number): boolean {
