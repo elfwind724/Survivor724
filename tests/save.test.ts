@@ -33,6 +33,17 @@ describe('save schema', () => {
     expect(loaded.dayNoise).toEqual({ north: 0, east: 0, west: 0, south: 0 })
   })
 
+  it('fills an empty codex on old saves', () => {
+    const world = createInitialWorld()
+    const save = serializeWorld(world)
+    const raw = save as { world: Partial<typeof world> }
+    delete raw.world.codex
+    const loaded = deserializeWorld(save)
+    expect(loaded.codex.bases).toContain('pistol')
+    expect(loaded.codex.affixes).toEqual([])
+    expect(loaded.codex.procs).toEqual([])
+  })
+
   it('keeps dayIndex and headcount after a JSON load roundtrip', () => {
     const world = createInitialWorld()
     world.time.dayIndex = 7

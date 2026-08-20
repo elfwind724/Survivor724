@@ -115,6 +115,12 @@ export interface AffixRoll {
   value: number
 }
 
+export interface CodexState {
+  affixes: string[]
+  procs: string[]
+  bases: string[]
+}
+
 export interface GearPiece {
   id: string
   baseId: string
@@ -422,6 +428,7 @@ export interface WorldState {
   ruinCrates: RuinCrateState[]
   berryBushes: BerryBushState[]
   waterScoops: WaterScoopState[]
+  codex: CodexState
   gear: Record<string, GearPiece>
   groundLoot: GroundLoot[]
   nightPosts: NightPost[]

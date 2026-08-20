@@ -1,4 +1,5 @@
 import { isCombatAffix } from '@/data/dungeon'
+import { hallPoolFor, noteGear } from '@/data/hallPool'
 import { EQUIPMENT } from '@/data/equipment'
 import { itemBase, itemLabel } from '@/data/items'
 import { WEAPONS } from '@/data/weapons'
@@ -91,9 +92,10 @@ export function rollGear(world: WorldState, seed: string, luck = 0, slot: EquipS
   const baseId = pickPool[Math.floor(hash01(`${seed}:base`) * pickPool.length)] ?? 'pistol'
   const def = EQUIPMENT.find((entry) => entry.id === baseId)
   const slotId = def?.slot ?? 'weapon'
+  const hallPool = hallPoolFor(world)
   const affixCount = rarity === 'common' ? 0 : rarity === 'magic' ? 1 + (hash01(`${seed}:n`) > 0.55 ? 1 : 0) : rarity === 'rare' ? 3 + Math.floor(hash01(`${seed}:n`) * 3) : 4 + Math.floor(hash01(`${seed}:n`) * 3)
-  const affixes = rollAffixes(`${seed}:aff`, affixCount)
-  const procs = rollProcs(`${seed}:proc`, rarity)
+  const affixes = rollAffixes(`${seed}:aff`, affixCount, hallPool.affixes)
+  const procs = rollProcs(`${seed}:proc`, rarity, hallPool.procs)
   const piece: GearPiece = {
     id: `g-${baseId}-${(gearSerial += 1)}`,
     baseId,
@@ -110,6 +112,7 @@ export function rollGear(world: WorldState, seed: string, luck = 0, slot: EquipS
 
 export function giveGear(world: WorldState, piece: GearPiece, inventoryId: string): boolean {
   world.gear[piece.id] = piece
+  noteGear(world, piece)
   return addItem(inventoryOf(world.inventories, inventoryId), piece.id, 1)
 }
 
@@ -202,7 +205,10 @@ export function maybeDropGear(
   const dropAt = at ?? survivor?.position ?? { x: 0, z: 0 }
   if (survivor) {
     const bag = inventoryOf(world.inventories, survivor.inventoryId)
-    if (addItem(bag, piece.id, 1)) return piece
+    if (addItem(bag, piece.id, 1)) {
+      noteGear(world, piece)
+      return piece
+    }
   }
   spawnGroundLoot(world, piece, dropAt.x, dropAt.z)
   return piece
@@ -223,7 +229,10 @@ export function pickupGroundLoot(world: WorldState, survivor: SurvivorState): Ge
       continue
     }
     const piece = world.gear[drop.gearId]
-    if (piece) picked.push(piece)
+    if (piece) {
+      noteGear(world, piece)
+      picked.push(piece)
+    }
   }
   world.groundLoot = kept
   return picked
@@ -263,13 +272,15 @@ function rollRarity(seed: string, luck: number): ItemRarity {
   return 'common'
 }
 
-function rollAffixes(seed: string, count: number): AffixRoll[] {
+function rollAffixes(seed: string, count: number, allowed: Array<AffixRoll['id']>): AffixRoll[] {
+  const pool = STAT_AFFIXES.filter((entry) => allowed.includes(entry.id))
+  if (pool.length === 0 || count <= 0) return []
   const used = new Set<string>()
   const rolls: AffixRoll[] = []
   let i = 0
-  while (rolls.length < count && i < 20) {
+  while (rolls.length < Math.min(count, pool.length) && i < 24) {
     i += 1
-    const pick = STAT_AFFIXES[Math.floor(hash01(`${seed}:${i}`) * STAT_AFFIXES.length)]
+    const pick = pool[Math.floor(hash01(`${seed}:${i}`) * pool.length)]
     if (!pick || used.has(pick.id)) continue
     used.add(pick.id)
     const span = pick.max - pick.min
@@ -279,18 +290,18 @@ function rollAffixes(seed: string, count: number): AffixRoll[] {
   return rolls
 }
 
-function rollProcs(seed: string, rarity: ItemRarity): WeaponProc[] {
-  if (rarity === 'common' || rarity === 'magic') return []
+function rollProcs(seed: string, rarity: ItemRarity, allowed: WeaponProc[]): WeaponProc[] {
+  if (rarity === 'common' || rarity === 'magic' || allowed.length === 0) return []
   const count = rarity === 'legendary' ? 1 + (hash01(`${seed}:p`) > 0.45 ? 1 : 0) : hash01(`${seed}:p`) > 0.55 ? 1 : 0
   const used = new Set<WeaponProc>()
   const out: WeaponProc[] = []
   let i = 0
-  while (out.length < count && i < 16) {
+  while (out.length < Math.min(count, allowed.length) && i < 16) {
     i += 1
-    const pick = PROCS[Math.floor(hash01(`${seed}:${i}`) * PROCS.length)]
-    if (!pick || used.has(pick.id)) continue
-    used.add(pick.id)
-    out.push(pick.id)
+    const pick = allowed[Math.floor(hash01(`${seed}:${i}`) * allowed.length)]
+    if (!pick || used.has(pick)) continue
+    used.add(pick)
+    out.push(pick)
   }
   return out
 }

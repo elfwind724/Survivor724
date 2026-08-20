@@ -3,6 +3,7 @@ import { demolishTarget, findStructure, interactGate, markDemolishAt, persistCre
 import { decorationNear, removeDecoration, snapDecor } from '@/base/decorations'
 import { buildProgress, durabilityPercent, facilityPreviewHeight, structureLabel } from '@/data/facilities'
 import { canUpgrade, facilityCap, hallLevel, markUpgrade, structureLevel, upgradeCost, upgradeProgress } from '@/base/upgrade'
+import { unlocksAtHall } from '@/data/hallPool'
 import { PICK_LABEL, type DungeonPickId } from '@/data/dungeon'
 import { itemLabel } from '@/data/items'
 import { rebuildNightPosts } from '@/combat/Night'
@@ -605,7 +606,11 @@ export class GameApp {
         return
       }
       const cost = upgradeCost(structure).map((item) => `${item.count}${itemLabel(item.itemId)}`).join(' ')
-      this.notice = `已点升级 ${structureLabel(structure)} 到 ${structure.level + 1} 级，需 ${cost}。左上角施工队列会显示谁来了、卡在哪`
+      const nextLevel = structure.level + 1
+      const extra = structure.definitionId === 'hall'
+        ? hallUpgradeHint(nextLevel)
+        : ''
+      this.notice = `已点升级 ${structureLabel(structure)} 到 ${nextLevel} 级，需 ${cost}。左上角施工队列会显示谁来了、卡在哪${extra}`
       return
     }
 
@@ -1010,6 +1015,13 @@ function isScaleUpKey(event: KeyboardEvent): boolean {
 
 function isScaleDownKey(event: KeyboardEvent): boolean {
   return event.code === 'Minus' || event.code === 'NumpadSubtract' || event.key === '-' || event.key === '_'
+}
+
+function hallUpgradeHint(nextLevel: number): string {
+  const unlocked = unlocksAtHall(nextLevel)
+  const names = [...unlocked.affixes, ...unlocked.procs]
+  if (names.length <= 0) return ''
+  return `。完成后掉落解锁 ${names.join('、')}`
 }
 
 function escapeChrome(value: string): string {

@@ -1526,6 +1526,55 @@ body,
   gap: 6px;
 }
 
+.sheet-codex section {
+  margin: 0 0 10px;
+}
+
+.sheet-codex h4 {
+  margin: 0 0 6px;
+  color: var(--hud-brass);
+  font-size: 13px;
+}
+
+.sheet-codex ul {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sheet-codex li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--hud-line);
+  background: #1a1612;
+  font-size: 12px;
+}
+
+.sheet-codex li span {
+  color: var(--hud-muted);
+}
+
+.sheet-codex li.is-seen {
+  border-color: #6a5a38;
+}
+
+.sheet-codex li.is-seen span {
+  color: #d8c07a;
+}
+
+.sheet-codex li.is-ready span {
+  color: #8aa06a;
+}
+
+.sheet-codex li.is-locked {
+  opacity: 0.55;
+}
+
 .sheet-skill strong {
   flex: 1;
   font-size: 14px;

@@ -11,6 +11,7 @@ import {
   type DungeonPickId,
 } from '@/data/dungeon'
 import { itemBase } from '@/data/items'
+import { hallPoolFor, noteGear } from '@/data/hallPool'
 import { findGear, giveGear, isGearId, rollGear, spawnGroundLoot } from '@/data/loot'
 import { addItem, inventoryOf, usedSlots } from '@/inventory/Inventory'
 import { ensureHotbar } from '@/inventory/Pack'
@@ -367,8 +368,9 @@ function blessWeapon(world: WorldState, survivor: SurvivorState, run: DungeonRun
   const piece = findGear(world, weaponId)
   if (!piece) return true
   const used = new Set(piece.affixes.map((affix) => affix.id))
-  const unused = COMBAT_AFFIX_IDS.filter((id) => !used.has(id))
-  const pick = unused[Math.floor(hash01(`${run.seed}:shrine:${run.index}`) * unused.length)] ?? COMBAT_AFFIX_IDS[0]
+  const unlocked = new Set(hallPoolFor(world).affixes)
+  const unused = COMBAT_AFFIX_IDS.filter((id) => !used.has(id) && unlocked.has(id))
+  const pick = unused[Math.floor(hash01(`${run.seed}:shrine:${run.index}`) * unused.length)]
   if (!pick) return true
   const meta = COMBAT_AFFIX_META[pick]
   const span = meta.max - meta.min
@@ -377,6 +379,7 @@ function blessWeapon(world: WorldState, survivor: SurvivorState, run: DungeonRun
   const existing = piece.affixes.find((entry) => entry.id === pick)
   if (existing) existing.value = Math.round((existing.value + value) * 10) / 10
   else piece.affixes.push(affix)
+  noteGear(world, piece)
   return true
 }
 

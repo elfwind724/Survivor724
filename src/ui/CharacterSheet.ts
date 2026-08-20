@@ -18,6 +18,8 @@ import { xpToNext } from '@/survivors/Progress'
 import { findSurvivor } from '@/simulation/EntityRegistry'
 import type { AffixRoll, EquipSlot, SkillId, SurvivorState, WeaponProc, WorldState } from '@/simulation/types'
 import { assignmentLabel } from '@/jobs/Roster'
+import { AFFIX_CATALOG, PROC_CATALOG, unlocksAtHall, weaponBaseCatalog } from '@/data/hallPool'
+import { hallLevel } from '@/base/upgrade'
 import { survivorPortrait } from './GameHud'
 
 const JOB_LABEL: Record<string, string> = {
@@ -28,7 +30,7 @@ const JOB_LABEL: Record<string, string> = {
   builder: '工匠',
 }
 
-type SheetTab = 'stats' | 'skills' | 'gear'
+type SheetTab = 'stats' | 'skills' | 'gear' | 'codex'
 
 export class CharacterSheet {
   private openId: string | null = null
@@ -84,7 +86,7 @@ export class CharacterSheet {
     this.root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((button) => {
       button.addEventListener('click', () => {
         const next = button.dataset.tab
-        if (next === 'stats' || next === 'skills' || next === 'gear') this.tab = next
+        if (next === 'stats' || next === 'skills' || next === 'gear' || next === 'codex') this.tab = next
         this.pickSlot = null
         this.compareId = null
         this.lastKey = ''
@@ -172,6 +174,10 @@ function sheetKey(world: WorldState, survivor: SurvivorState, pick: EquipSlot | 
     pick ?? '-',
     compare ?? '-',
     survivor.health,
+    hallLevel(world),
+    world.codex.affixes.length,
+    world.codex.procs.length,
+    world.codex.bases.length,
     survivor.level,
     survivor.xp,
     survivor.attrPoints,
@@ -201,6 +207,7 @@ function renderSheet(world: WorldState, survivor: SurvivorState, pick: EquipSlot
       ['skills', '技能'],
       ['stats', '概况'],
       ['gear', '装备'],
+      ['codex', '图鉴'],
     ] as const
   )
     .map(([id, label]) => `<button type="button" class="sheet-tab${tab === id ? ' is-on' : ''}" data-tab="${id}">${label}</button>`)
@@ -209,7 +216,9 @@ function renderSheet(world: WorldState, survivor: SurvivorState, pick: EquipSlot
     ? renderSkillTab(world, survivor)
     : tab === 'stats'
       ? renderStatsTab(world, survivor)
-      : renderGearTab(world, survivor, pick, compare)
+      : tab === 'codex'
+        ? renderCodexTab(world)
+        : renderGearTab(world, survivor, pick, compare)
   return `
     <div class="sheet">
       <header class="sheet-head">
@@ -225,6 +234,42 @@ function renderSheet(world: WorldState, survivor: SurvivorState, pick: EquipSlot
       ${body}
     </div>
   `
+}
+
+function renderCodexTab(world: WorldState): string {
+  const level = hallLevel(world)
+  const next = unlocksAtHall(level + 1)
+  const nextLine = level >= 5
+    ? '大厅已满级，词条池全开'
+    : next.affixes.length + next.procs.length > 0
+      ? `升到 ${level + 1} 级解锁：${[...next.affixes, ...next.procs].join('、')}`
+      : `升到 ${level + 1} 级继续开池`
+  const book = world.codex
+  const affixRows = AFFIX_CATALOG.map((entry) => {
+    const seen = book.affixes.includes(entry.id)
+    const open = entry.hall <= level
+    const klass = seen ? 'is-seen' : open ? 'is-ready' : 'is-locked'
+    const mark = seen ? '已见' : open ? '可掉落' : `大厅${entry.hall}级`
+    return `<li class="${klass}"><strong>${escapeHtml(entry.label)}</strong><span>${mark}</span></li>`
+  }).join('')
+  const procRows = PROC_CATALOG.map((entry) => {
+    const seen = book.procs.includes(entry.id)
+    const open = entry.hall <= level
+    const klass = seen ? 'is-seen' : open ? 'is-ready' : 'is-locked'
+    const mark = seen ? '已见' : open ? '可掉落' : `大厅${entry.hall}级`
+    return `<li class="${klass}"><strong>${escapeHtml(entry.label)}</strong><span>${mark}</span></li>`
+  }).join('')
+  const gunRows = weaponBaseCatalog().map((gun) => {
+    const seen = book.bases.includes(gun.id)
+    return `<li class="${seen ? 'is-seen' : 'is-ready'}"><strong>${escapeHtml(gun.label)}</strong><span>${seen ? '已见' : '未遇见'}</span></li>`
+  }).join('')
+  return `<div class="sheet-codex">
+    <p class="sheet-role">市政大厅 ${level} 级 · 掉落词条随大厅升级解锁</p>
+    <p class="sheet-yield">${escapeHtml(nextLine)}</p>
+    <section><h4>词条</h4><ul>${affixRows}</ul></section>
+    <section><h4>特效</h4><ul>${procRows}</ul></section>
+    <section><h4>枪种</h4><ul>${gunRows}</ul></section>
+  </div>`
 }
 
 function renderSkillTab(world: WorldState, survivor: SurvivorState): string {

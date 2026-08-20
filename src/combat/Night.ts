@@ -4,6 +4,7 @@ import { refillBerryBushes } from '@/world/Forage'
 import { emptyDayNoise, gunshotHordeExtra, hordeCounts, loudestGunshotSector } from '@/data/enemies'
 import { equippedWeapon, magazineSize, writeMag } from '@/data/weapons'
 import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
+import { noteGear } from '@/data/hallPool'
 import { isGearId, RARITY_LABEL, rollGear, spawnGroundLoot } from '@/data/loot'
 import { cellCenter } from '@/navigation/NavGrid'
 import { findContainer } from '@/simulation/EntityRegistry'
@@ -112,6 +113,7 @@ export function nightLootFor(kills: number, world?: WorldState): NightLoot[] {
   ]
   if (world && fallen >= 6) {
     const piece = rollGear(world, `night:${world.time.dayIndex}:${fallen}`, fallen > 18 ? 0.12 : 0.04, 'weapon')
+    noteGear(world, piece)
     loot.push({ itemId: piece.id, label: `${RARITY_LABEL[piece.rarity]} ${piece.name}`, count: 1 })
   }
   return loot

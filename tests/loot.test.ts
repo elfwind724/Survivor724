@@ -11,6 +11,8 @@ import { stepWorld } from '@/simulation/SimStep'
 describe('diablo-style loot', () => {
   it('rolls colored rarities, affixes, and legendary procs', () => {
     const world = createInitialWorld()
+    const hall = world.structures.find((entry) => entry.definitionId === 'hall')
+    if (hall) hall.level = 5
     const legend = rollGear(world, 'force-legend-seed-zzz', 0.9, 'weapon')
     expect(world.gear[legend.id]).toBe(legend)
     expect(['common', 'magic', 'rare', 'legendary']).toContain(legend.rarity)

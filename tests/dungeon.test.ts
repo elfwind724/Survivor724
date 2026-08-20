@@ -234,6 +234,24 @@ describe('dungeon run', () => {
     expect(html).toContain('空手回营')
   })
 
+  it('does not let a shrine add hall-locked combat affixes', () => {
+    const world = createInitialWorld()
+    const hunter = findSurvivor(world, 'hunter')
+    if (!hunter) throw new Error('missing hunter')
+    const piece = rollGear(world, 'shrine-locked-gun', 0.2, 'weapon')
+    piece.affixes = [
+      { id: 'min_dmg', label: '最小攻击', value: 4 },
+      { id: 'max_dmg', label: '最大攻击', value: 8 },
+    ]
+    hunter.equipment.weapon = piece.id
+    enterDungeon(world, hunter)
+    if (!world.dungeonRun) throw new Error('missing run')
+    world.dungeonRun.roomCleared = true
+    world.dungeonRun.picks = ['shrine', 'ammo', 'bandage']
+    expect(chooseDungeonPick(world, hunter, 'shrine')).toBe(true)
+    expect(piece.affixes.every((affix) => affix.id === 'min_dmg' || affix.id === 'max_dmg')).toBe(true)
+  })
+
   it('lets a shrine bless the starter pistol into a magic drop', () => {
     const world = createInitialWorld()
     const hunter = findSurvivor(world, 'hunter')

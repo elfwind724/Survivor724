@@ -22,7 +22,7 @@ export const TUTORIAL_LINES = [
   'N 打开背包，点物品再点快捷栏互换',
   '1-9 使用快捷栏：换枪、吃饭、包扎',
   '废墟矿井旁按 E 进本刷宝，洞里随时可撤离，尽量天黑前出来',
-  'C 打开人物面板对比哪把枪更强',
+  'C 打开人物面板对比哪把枪更强，图鉴里看大厅解锁的词条',
 ] as const
 
 export const PICK_LABEL: Record<DungeonPickId, string> = {

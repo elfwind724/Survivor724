@@ -2,6 +2,7 @@ import { seedFishingSpots } from '@/world/Fishing'
 import { seedRuinCrates } from '@/world/Ruins'
 import { seedBerryBushes } from '@/world/Forage'
 import { seedWaterScoops } from '@/world/Draw'
+import { emptyCodex } from '@/data/hallPool'
 import type { WorldState } from '@/simulation/types'
 
 export const SAVE_VERSION = 3
@@ -44,6 +45,10 @@ export function deserializeWorld(raw: unknown): WorldState {
   if (!Array.isArray(world.ruinCrates) || world.ruinCrates.length === 0) world.ruinCrates = seedRuinCrates()
   if (!Array.isArray(world.berryBushes) || world.berryBushes.length === 0) world.berryBushes = seedBerryBushes()
   if (!Array.isArray(world.waterScoops) || world.waterScoops.length === 0) world.waterScoops = seedWaterScoops()
+  if (!world.codex || typeof world.codex !== 'object') world.codex = emptyCodex()
+  if (!Array.isArray(world.codex.affixes)) world.codex.affixes = []
+  if (!Array.isArray(world.codex.procs)) world.codex.procs = []
+  if (!Array.isArray(world.codex.bases) || world.codex.bases.length === 0) world.codex.bases = ['pistol']
   if (Array.isArray(world.groundLoot)) {
     for (const drop of world.groundLoot) {
       if (typeof drop.count !== 'number' || drop.count < 1) drop.count = 1
