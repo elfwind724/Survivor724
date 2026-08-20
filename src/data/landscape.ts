@@ -19,16 +19,23 @@ export interface GroundStrip {
   width: number
 }
 
+export const ROAD_SPINES: Array<Array<[number, number]>> = [
+  [[BASE.east + 1, 0], [48, -8], [62, -18]],
+  [[BASE.west - 1, 0], [-40, 12], [-50, 24]],
+  [[0, BASE.north + 1], [12, 42], [28, 50]],
+  [[0, BASE.south - 1], [6, -42], [10, -58]],
+]
+
 export function riverStrips(): GroundStrip[] {
   return stripsAlong(RIVER_SPINE, RIVER_WIDTH)
 }
 
 export function roadStrips(): GroundStrip[] {
   return [
-    ...stripsAlong([[BASE.east + 1, 0], [48, -8], [62, -18]], 5.5),
-    ...stripsAlong([[BASE.west - 1, 0], [-40, 12], [-50, 24]], 5.5),
-    ...stripsAlong([[0, BASE.north + 1], [12, 42], [28, 50]], 5.2),
-    ...stripsAlong([[0, BASE.south - 1], [6, -42], [10, -58]], 5.2),
+    ...stripsAlong(ROAD_SPINES[0] ?? [], 5.5),
+    ...stripsAlong(ROAD_SPINES[1] ?? [], 5.5),
+    ...stripsAlong(ROAD_SPINES[2] ?? [], 5.2),
+    ...stripsAlong(ROAD_SPINES[3] ?? [], 5.2),
   ]
 }
 
@@ -37,14 +44,15 @@ export function pointNearRiver(x: number, z: number, pad = 0): boolean {
 }
 
 export function distToRiver(x: number, z: number): number {
-  let best = Number.POSITIVE_INFINITY
-  for (let i = 0; i < RIVER_SPINE.length - 1; i += 1) {
-    const a = RIVER_SPINE[i]
-    const b = RIVER_SPINE[i + 1]
-    if (!a || !b) continue
-    best = Math.min(best, distToSegment(x, z, a[0], a[1], b[0], b[1]))
-  }
-  return best
+  return distToPolylines(x, z, [RIVER_SPINE])
+}
+
+export function distToRoad(x: number, z: number): number {
+  return distToPolylines(x, z, ROAD_SPINES)
+}
+
+export function pointNearRoad(x: number, z: number, pad = 0): boolean {
+  return distToRoad(x, z) <= (5.5 + pad) / 2
 }
 
 /**
@@ -72,12 +80,13 @@ export function terrainTint(x: number, z: number): [number, number, number] {
   const ruins = smoothstep(24, 78, x) * smoothstep(34, 92, z)
   const rock = smoothstep(128, 165, d)
   const dirt = 1 - smoothstep(36, 58, d)
+  const track = 1 - smoothstep(0, 4.8, distToRoad(x, z))
   const patch = (valueNoise(x * 0.22, z * 0.22) - 0.5) * 0.09
   const blades = (valueNoise(x * 0.9, z * 0.9) - 0.5) * 0.05
   const g = [
-    0.2 + woods * -0.05 + wet * -0.02 + ruins * 0.08 + rock * 0.16 + dirt * 0.04 + patch + blades,
-    0.34 + woods * -0.06 + wet * -0.07 + ruins * -0.1 + rock * -0.12 + dirt * 0.02 + patch * 0.55 + blades,
-    0.13 + woods * -0.03 + wet * 0.05 + ruins * -0.03 + rock * 0.05 + dirt * -0.02 + patch * 0.25,
+    0.2 + woods * -0.05 + wet * -0.02 + ruins * 0.08 + rock * 0.16 + dirt * 0.04 + track * 0.14 + patch + blades,
+    0.34 + woods * -0.06 + wet * -0.07 + ruins * -0.1 + rock * -0.12 + dirt * 0.02 + track * -0.08 + patch * 0.55 + blades,
+    0.13 + woods * -0.03 + wet * 0.05 + ruins * -0.03 + rock * 0.05 + dirt * -0.02 + track * -0.05 + patch * 0.25,
   ] as [number, number, number]
   return [
     clamp01(g[0]),
@@ -113,6 +122,19 @@ function stripsAlong(points: Array<[number, number]>, width: number): GroundStri
     })
   }
   return out
+}
+
+function distToPolylines(x: number, z: number, lines: Array<Array<[number, number]>>): number {
+  let best = Number.POSITIVE_INFINITY
+  for (const line of lines) {
+    for (let i = 0; i < line.length - 1; i += 1) {
+      const a = line[i]
+      const b = line[i + 1]
+      if (!a || !b) continue
+      best = Math.min(best, distToSegment(x, z, a[0], a[1], b[0], b[1]))
+    }
+  }
+  return best
 }
 
 function distToSegment(px: number, pz: number, ax: number, az: number, bx: number, bz: number): number {

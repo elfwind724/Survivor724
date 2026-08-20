@@ -1,7 +1,7 @@
 import type { DecorationState } from '@/simulation/types'
 import { BASE } from '@/simulation/baseLayout'
 import { assetById } from '@/data/assetIndex'
-import { RIVER_SPINE } from '@/data/landscape'
+import { distToRoad, pointNearRiver, ROAD_SPINES, RIVER_SPINE } from '@/data/landscape'
 
 export const TOWER_STAND_HEIGHT = 2.05
 
@@ -218,6 +218,12 @@ function dressYardEdge(add: (assetId: string, x: number, z: number, yaw?: number
   add('natureClump/bushes', -12, 35, 1.8, 1.12)
   add('nature/bush-with-flowers', 16, 33, 0.7, 1)
   add('natureKit/tall-grass', -6, 32.4, 2.0, 1.08)
+
+  add('natureClump/pine-trees', 8, -118, 0.4, 1.28)
+  add('natureClump/trees', -96, -38, 1.15, 1.22)
+  add('natureClump/maple-trees', 88, 70, 0.25, 1.18)
+  add('natureClump/pine-trees', -42, 116, 2.05, 1.24)
+  add('natureClump/trees', 112, -86, 1.7, 1.2)
 }
 
 const taken: Array<{ x: number; z: number; r: number }> = []
@@ -255,6 +261,11 @@ function fillWorldBiomes(add: (assetId: string, x: number, z: number, yaw?: numb
   plantGrove(add, { cx: 78, cz: 92, radius: 16, hole: 5, trees: 8, brush: 6, canopy: dead, under: rocks, salt: 'grove-ruin-edge' })
 
   plantAlong(add, RIVER_SPINE, rocks, 3.2, 8, 'river-line')
+  for (const [index, spine] of ROAD_SPINES.entries()) {
+    plantRoadShoulder(add, ['natureKit/pebble-round', 'nature/pebble-round', 'natureKit/grass', 'natureKit/clover'], spine, `road-${index}`)
+  }
+
+  plantHorizonBelt(add, [...pines, ...hardwood], under, 'horizon')
 
   const brush = ['nature/bush', 'natureKit/bush', 'natureKit/fern', 'nature/bush-with-flowers', 'natureKit/plant']
   scatterAroundBase(add, grass, 2.2, 11, 120, 2.15, [0.88, 1.22], 'yard-grass')
@@ -342,6 +353,64 @@ function plantAlong(
       if (!asset) continue
       add(asset, x, z, hash01(`${salt}:${n}:y`) * Math.PI * 2, 0.85 + hash01(`${salt}:${n}:s`) * 0.4)
       taken.push({ x, z, r: spacing })
+    }
+  }
+}
+
+function plantHorizonBelt(
+  add: (assetId: string, x: number, z: number, yaw?: number, scale?: number) => void,
+  canopy: string[],
+  under: string[],
+  salt: string,
+): void {
+  for (let i = 0; i < 9; i += 1) {
+    const turn = (i / 9) * Math.PI * 2 + hash01(`${salt}:${i}:t`) * 0.42
+    const reach = 96 + hash01(`${salt}:${i}:r`) * 24
+    const x = Math.sin(turn) * reach
+    const z = Math.cos(turn) * reach
+    if (pointNearRiver(x, z, 14) || distToRoad(x, z) < 10) continue
+    plantGrove(add, {
+      cx: x,
+      cz: z,
+      radius: 9 + hash01(`${salt}:${i}:rad`) * 5,
+      hole: 3,
+      trees: 6,
+      brush: 4,
+      canopy,
+      under,
+      salt: `${salt}:${i}`,
+    })
+  }
+}
+
+function plantRoadShoulder(
+  add: (assetId: string, x: number, z: number, yaw?: number, scale?: number) => void,
+  assets: string[],
+  line: Array<[number, number]>,
+  salt: string,
+): void {
+  let n = 0
+  for (let i = 0; i < line.length - 1; i += 1) {
+    const a = line[i]
+    const b = line[i + 1]
+    if (!a || !b) continue
+    const dx = b[0] - a[0]
+    const dz = b[1] - a[1]
+    const len = Math.hypot(dx, dz) || 1
+    const px = -dz / len
+    const pz = dx / len
+    const steps = Math.max(1, Math.round(len / 3.8))
+    for (let s = 0; s <= steps; s += 1) {
+      const t = s / steps
+      const side = (hash01(`${salt}:${n}:side`) < 0.5 ? -1 : 1) * (3.4 + hash01(`${salt}:${n}:w`) * 3.2)
+      const x = a[0] + dx * t + px * side
+      const z = a[1] + dz * t + pz * side
+      n += 1
+      if (blockedForDressing(x, z) || distToRoad(x, z) < 3.1 || tooClose(x, z, 2.8)) continue
+      const asset = assets[Math.floor(hash01(`${salt}:${n}:id`) * assets.length)]
+      if (!asset) continue
+      add(asset, x, z, hash01(`${salt}:${n}:y`) * Math.PI * 2, 0.8 + hash01(`${salt}:${n}:s`) * 0.35)
+      taken.push({ x, z, r: 2.8 })
     }
   }
 }

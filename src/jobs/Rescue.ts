@@ -7,11 +7,51 @@ const REACH = 1.6
 const DRAG_SPEED = 0.55
 
 export function assignedRescuer(world: WorldState, downed: SurvivorState): SurvivorState | undefined {
+  const id = rescueAssignments(world).get(downed.id)
+  return id ? world.survivors.find((entry) => entry.id === id) : undefined
+}
+
+export function orderRescue(world: WorldState, victimId: string, preferredId?: string): string {
+  const victim = world.survivors.find((entry) => entry.id === victimId)
+  if (!victim?.downed) return '这个人还能走'
+  const candidates = world.survivors.filter(
+    (entry) => !entry.downed && entry.id !== victim.id && entry.id !== world.player.controlledId,
+  )
+  const preferred = preferredId ? candidates.find((entry) => entry.id === preferredId) : undefined
+  const rescuer =
+    preferred ??
+    [...candidates].sort((a, b) => distanceXZ(a.position, victim.position) - distanceXZ(b.position, victim.position))[0]
+  if (!rescuer) return '没人能去救'
+  for (const [id, assigned] of Object.entries(world.rescueOrders)) {
+    if (assigned === rescuer.id) delete world.rescueOrders[id]
+  }
+  world.rescueOrders[victim.id] = rescuer.id
+  return `已派 ${rescuer.name} 去救 ${victim.name}`
+}
+
+function pruneRescueOrders(world: WorldState): void {
+  for (const [victimId, rescuerId] of Object.entries(world.rescueOrders)) {
+    const victim = world.survivors.find((entry) => entry.id === victimId)
+    const rescuer = world.survivors.find((entry) => entry.id === rescuerId)
+    if (!victim?.downed || !rescuer || rescuer.downed) delete world.rescueOrders[victimId]
+  }
+}
+
+function rescueAssignments(world: WorldState): Map<string, string> {
+  pruneRescueOrders(world)
   const fallen = world.survivors.filter((entry) => entry.downed).sort((a, b) => a.id.localeCompare(b.id))
   const free = world.survivors.filter((entry) => !entry.downed && entry.id !== world.player.controlledId)
   const used = new Set<string>()
   const map = new Map<string, string>()
   for (const victim of fallen) {
+    const orderedId = world.rescueOrders[victim.id]
+    const ordered = orderedId ? free.find((entry) => entry.id === orderedId) : undefined
+    if (!ordered || used.has(ordered.id)) continue
+    used.add(ordered.id)
+    map.set(victim.id, ordered.id)
+  }
+  for (const victim of fallen) {
+    if (map.has(victim.id)) continue
     const rescuer = [...free]
       .filter((entry) => !used.has(entry.id))
       .sort((a, b) => distanceXZ(a.position, victim.position) - distanceXZ(b.position, victim.position))[0]
@@ -19,8 +59,7 @@ export function assignedRescuer(world: WorldState, downed: SurvivorState): Survi
     used.add(rescuer.id)
     map.set(victim.id, rescuer.id)
   }
-  const id = map.get(downed.id)
-  return id ? world.survivors.find((entry) => entry.id === id) : undefined
+  return map
 }
 
 export function isRescuing(world: WorldState, survivor: SurvivorState): boolean {

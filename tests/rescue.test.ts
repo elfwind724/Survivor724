@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assignedRescuer } from '@/jobs/Rescue'
+import { assignedRescuer, orderRescue } from '@/jobs/Rescue'
 import { insideBase } from '@/survivors/Living'
 import { activityCaption } from '@/survivors/Activity'
 import { stepWorld } from '@/simulation/SimStep'
@@ -68,5 +68,21 @@ describe('daytime field rescue', () => {
     expect(scav.downed).toBe(true)
     expect(activityCaption(world, scav)).toMatch(/拖回/)
     expect(activityCaption(world, builder)).toMatch(/拖回/)
+  })
+
+  it('honors a portrait rescue order over the nearest body', () => {
+    const world = createInitialWorld()
+    const scav = world.survivors.find((entry) => entry.id === 'scavenger')
+    const fisher = world.survivors.find((entry) => entry.id === 'fisher')
+    const builder = world.survivors.find((entry) => entry.id === 'builder')
+    if (!scav || !fisher || !builder) throw new Error('missing people')
+    scav.position = { x: 40, y: 0, z: 55 }
+    scav.downed = true
+    scav.health = 8
+    fisher.position = { x: -55, y: 0, z: 32 }
+    expect(assignedRescuer(world, scav)?.id).toBe('builder')
+    expect(orderRescue(world, scav.id, 'fisher')).toContain('河西')
+    expect(assignedRescuer(world, scav)?.id).toBe('fisher')
+    expect(world.rescueOrders[scav.id]).toBe('fisher')
   })
 })

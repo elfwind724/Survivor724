@@ -21,7 +21,7 @@ import type { PackClick, PackCursor } from '@/inventory/Pack'
 
 export interface HudPick {
   id: string
-  kind: 'select' | 'possess'
+  kind: 'select' | 'possess' | 'rescue'
 }
 
 export type HudCommand =
@@ -420,6 +420,12 @@ export class GameHud {
     if (!button?.dataset.survivor) return
     event.stopPropagation()
     const id = button.dataset.survivor
+    if (button.dataset.downed === '1') {
+      this.lastClickAt = 0
+      this.lastClickId = id
+      this.onPick({ id, kind: 'rescue' })
+      return
+    }
     const now = performance.now()
     const kind = this.lastClickId === id && now - this.lastClickAt < 320 ? 'possess' : 'select'
     this.lastClickAt = now
@@ -480,7 +486,7 @@ function renderPortrait(card: HudCard): string {
     hunger < 40 ? '<b class="hud-pip hud-pip-hunger" title="饿"></b>' : '',
     thirst < 40 ? '<b class="hud-pip hud-pip-thirst" title="渴"></b>' : '',
   ].join('')
-  return `<button type="button" class="hud-portrait ${flags}" data-survivor="${card.id}" title="${escapeHtml(card.name)} · ${escapeHtml(card.job)} · ${escapeHtml(card.status)}">
+  return `<button type="button" class="hud-portrait ${flags}" data-survivor="${card.id}" data-downed="${card.downed ? '1' : '0'}" title="${escapeHtml(card.name)} · ${escapeHtml(card.job)} · ${escapeHtml(card.status)}">
     <span class="hud-face" aria-hidden="true">${card.portrait}</span>
     <i class="hud-hp" aria-hidden="true"><b style="width:${Math.max(4, hp)}%"></b></i>
     ${pips}
@@ -511,7 +517,7 @@ function renderInspect(model: HudModel): string {
     <p>${escapeHtml(card.status)} · 袋${card.bagUsed}/${card.bagCap}${card.dusk ? ` · ${escapeHtml(card.dusk)}` : ''}</p>
     ${bars}
     ${gun}
-    <small>C 装备 · 双击接管</small>
+    <small>${card.downed ? '点头像派人救援' : 'C 装备 · 双击接管'}</small>
   </aside>`
 }
 

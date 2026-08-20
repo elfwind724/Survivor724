@@ -217,6 +217,7 @@ export function createInitialWorld(): WorldState {
     raidBestRarity: null,
     dayGunshots: 0,
     dayNoise: { north: 0, east: 0, west: 0, south: 0 },
+    rescueOrders: {},
     codex: emptyCodex(),
   }
 

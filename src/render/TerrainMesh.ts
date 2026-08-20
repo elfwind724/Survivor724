@@ -26,9 +26,49 @@ export function createTerrainMesh(): THREE.Mesh {
     roughness: 0.94,
     metalness: 0,
   })
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <map_fragment>',
+      `#include <map_fragment>
+#if defined( USE_MAP )
+    vec2 macroUv = vMapUv * 0.16 + vec2(0.27, 0.09);
+    vec3 macroSample = texture2D( map, macroUv ).rgb;
+    diffuseColor.rgb *= mix( vec3(1.0), macroSample, 0.34 );
+#endif
+`,
+    )
+  }
   const mesh = new THREE.Mesh(geometry, material)
   mesh.name = 'ground'
   mesh.receiveShadow = true
+  return mesh
+}
+
+export function createSkyDome(): THREE.Mesh {
+  const geometry = new THREE.SphereGeometry(240, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2)
+  const pos = geometry.getAttribute('position')
+  const colors = new Float32Array(pos.count * 3)
+  const zenith = new THREE.Color(0xb7cce0)
+  const horizon = new THREE.Color(0x9aaf98)
+  const scratch = new THREE.Color()
+  for (let i = 0; i < pos.count; i += 1) {
+    const y = pos.getY(i)
+    scratch.copy(horizon).lerp(zenith, Math.max(0, Math.min(1, y / 240)))
+    colors[i * 3] = scratch.r
+    colors[i * 3 + 1] = scratch.g
+    colors[i * 3 + 2] = scratch.b
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  const material = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    side: THREE.BackSide,
+    fog: false,
+    depthWrite: false,
+  })
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.name = 'sky'
+  mesh.renderOrder = -1
+  mesh.frustumCulled = false
   return mesh
 }
 

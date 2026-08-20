@@ -146,6 +146,19 @@ describe('game hud', () => {
     expect(html).toContain('关闭')
   })
 
+  it('marks a downed portrait so clicking it orders a rescue', () => {
+    const world = createInitialWorld()
+    const scav = world.survivors.find((entry) => entry.id === 'scavenger')
+    if (!scav) throw new Error('missing scavenger')
+    scav.downed = true
+    scav.health = 8
+    world.player.selectedId = scav.id
+    const html = renderHudHtml(buildHudModel(world))
+    expect(html).toContain('data-downed="1"')
+    expect(html).toContain('点头像派人救援')
+    expect(html).toContain('is-downed')
+  })
+
   it('marks the controlled hunter on the minimap separately from npcs', () => {
     const world = createInitialWorld()
     world.player.controlledId = 'hunter'

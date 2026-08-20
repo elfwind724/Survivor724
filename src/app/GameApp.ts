@@ -26,6 +26,7 @@ import { cameraRelativeWish } from '@/controls/CameraWish'
 import { Input } from '@/controls/Input'
 import { cycleControlled, possessSurvivor } from '@/controls/PlayerControl'
 import { followingSurvivors, toggleFollow } from '@/jobs/Follow'
+import { orderRescue } from '@/jobs/Rescue'
 import { beginTravel } from '@/navigation/Travel'
 import { rebuildNav, worldToCell } from '@/navigation/NavGrid'
 import { DebugRenderer } from '@/render/DebugRenderer'
@@ -99,9 +100,14 @@ export class GameApp {
     this.world = createInitialWorld()
     this.renderer = new DebugRenderer(canvas)
     this.hud = new GameHud(hudRoot, ({ id, kind }) => {
+      const previous = this.world.player.selectedId
       this.world.player.selectedId = id
       this.renderer.recenter()
       if (kind === 'possess') this.handleDirect(id)
+      if (kind === 'rescue') {
+        const preferred = previous && previous !== id ? previous : undefined
+        this.notice = orderRescue(this.world, id, preferred)
+      }
     }, (command) => {
       if (command === 'reset-view') this.resetView()
       if (command === 'toggle-interiors') {

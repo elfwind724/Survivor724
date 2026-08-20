@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pointNearRiver, riverStrips, roadStrips, RIVER_SPINE, terrainBlocksWalk, terrainHeight, terrainTint } from '@/data/landscape'
+import { distToRoad, pointNearRiver, riverStrips, roadStrips, RIVER_SPINE, terrainBlocksWalk, terrainHeight, terrainTint } from '@/data/landscape'
 import { seedOutdoorScenery } from '@/data/outdoorScenery'
 import { BASE } from '@/simulation/baseLayout'
 
@@ -57,5 +57,20 @@ describe('landscape', () => {
     const a = terrainTint(12, 8)
     const b = terrainTint(18, 14)
     expect(Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1])).toBeGreaterThan(0.008)
+  })
+
+  it('browns the dirt tracks and puts a tree belt in front of the rim', () => {
+    expect(distToRoad(48, -8)).toBeLessThan(2)
+    expect(distToRoad(0, 0)).toBeGreaterThan(20)
+    const track = terrainTint(48, -8)
+    const grass = terrainTint(10, 8)
+    expect(track[0]).toBeGreaterThan(grass[0])
+    expect(track[1]).toBeLessThan(grass[1])
+    const scenery = seedOutdoorScenery()
+    const belt = scenery.filter((pose) => {
+      const reach = Math.hypot(pose.x, pose.z)
+      return reach > 88 && reach < 130 && pose.assetId.includes('tree')
+    })
+    expect(belt.length).toBeGreaterThan(8)
   })
 })

@@ -10,7 +10,7 @@ import { cellCenter, worldToCell } from '@/navigation/NavGrid'
 import { followCameraOffset } from '@/controls/CameraWish'
 import { BASE } from '@/simulation/baseLayout'
 import { riverStrips, roadStrips, terrainHeight } from '@/data/landscape'
-import { createTerrainMesh } from '@/render/TerrainMesh'
+import { createSkyDome, createTerrainMesh } from '@/render/TerrainMesh'
 import type { EnemyState, GridCell, StructureState, SurvivorState, WildlifeState, WorldState } from '@/simulation/types'
 import { isCasting } from '@/world/Fishing'
 import { wildlifeAssetOf, wildlifeHeight } from '@/world/Wildlife'
@@ -91,7 +91,7 @@ export class DebugRenderer {
   private readonly waterScoops = new Map<string, Marker>()
 
   constructor(canvas: HTMLCanvasElement) {
-    this.scene.background = new THREE.Color(0x8fa88a)
+    this.scene.background = new THREE.Color(0x9aaf98)
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500)
     this.camera.position.set(0, 48, 36)
     this.camera.lookAt(0, 0, 0)
@@ -104,9 +104,9 @@ export class DebugRenderer {
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
-    this.hemi = new THREE.HemisphereLight(0xc5d0c2, 0x3d4536, 1.05)
-    this.sun = new THREE.DirectionalLight(0xffe9c4, 1.28)
-    this.sun.position.set(36, 62, -22)
+    this.hemi = new THREE.HemisphereLight(0xc9d6e2, 0x3d4536, 1.02)
+    this.sun = new THREE.DirectionalLight(0xffe3b5, 1.32)
+    this.sun.position.set(48, 54, -30)
     this.sun.castShadow = true
     this.sun.shadow.mapSize.set(2048, 2048)
     this.sun.shadow.camera.left = -140
@@ -114,7 +114,8 @@ export class DebugRenderer {
     this.sun.shadow.camera.top = 140
     this.sun.shadow.camera.bottom = -140
     this.scene.add(this.hemi, this.sun)
-    this.scene.fog = new THREE.Fog(0x96aa90, 90, 290)
+    this.scene.fog = new THREE.Fog(0x9aaf98, 88, 300)
+    this.scene.add(createSkyDome())
 
     this.ground = createTerrainMesh()
     this.scene.add(this.ground)
@@ -140,7 +141,7 @@ export class DebugRenderer {
       mesh.receiveShadow = true
       this.landscapeRoot.add(mesh)
     }
-    const dirtMat = new THREE.MeshLambertMaterial({ color: 0x6a5844 })
+    const dirtMat = new THREE.MeshStandardMaterial({ color: 0x6a5844, roughness: 0.96, metalness: 0 })
     for (const strip of roadStrips()) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(strip.width, 0.05, strip.length), dirtMat)
       mesh.rotation.y = strip.yaw
