@@ -1,4 +1,5 @@
 import { facilityDefinition } from '@/data/facilities'
+import { terrainBlocksWalk } from '@/data/landscape'
 import type { GridCell, NavGridState, StructureState, Vec3, WorldState } from '@/simulation/types'
 
 export const NAV_CELL = 1
@@ -62,6 +63,14 @@ export function rebuildNav(world: WorldState): void {
     for (const cell of structure.cells) {
       if (!inBounds(nav, cell)) continue
       nav.blocked[cellIndex(nav, cell)] = 1
+    }
+  }
+  for (let z = 0; z < nav.height; z += 1) {
+    for (let x = 0; x < nav.width; x += 1) {
+      const index = z * nav.width + x
+      if (nav.blocked[index] === 1) continue
+      const at = cellCenter(nav, { x, z })
+      if (terrainBlocksWalk(at.x, at.z)) nav.blocked[index] = 1
     }
   }
   nav.version += 1

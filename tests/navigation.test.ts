@@ -68,9 +68,10 @@ describe('navigation', () => {
     const world = createInitialWorld()
     expect(world.nav.originX).toBe(NAV_ORIGIN)
     expect(world.nav.width).toBe(NAV_SIZE)
-    expect(isBlocked(world.nav, worldToCell(world.nav, vec3(150, 0, 0)))).toBe(false)
-    expect(isBlocked(world.nav, worldToCell(world.nav, vec3(-150, 0, 40)))).toBe(false)
-    expect(isBlocked(world.nav, worldToCell(world.nav, vec3(0, 0, 150)))).toBe(false)
+    expect(isBlocked(world.nav, worldToCell(world.nav, vec3(110, 0, 0)))).toBe(false)
+    expect(isBlocked(world.nav, worldToCell(world.nav, vec3(-90, 0, 20)))).toBe(false)
+    expect(isBlocked(world.nav, worldToCell(world.nav, vec3(0, 0, 110)))).toBe(false)
+    expect(isBlocked(world.nav, worldToCell(world.nav, vec3(0, 0, 168)))).toBe(true)
   })
 
   it('shifts old ±80 nav cells onto the larger grid', () => {

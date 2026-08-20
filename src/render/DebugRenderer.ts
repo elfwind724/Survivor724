@@ -9,7 +9,8 @@ import { ENEMY_ASSETS, gateOpenAsset, STRUCTURE_ASSETS, SURVIVOR_ASSETS } from '
 import { cellCenter, worldToCell } from '@/navigation/NavGrid'
 import { followCameraOffset } from '@/controls/CameraWish'
 import { BASE } from '@/simulation/baseLayout'
-import { riverStrips, roadStrips } from '@/data/landscape'
+import { riverStrips, roadStrips, terrainHeight } from '@/data/landscape'
+import { createTerrainMesh } from '@/render/TerrainMesh'
 import type { EnemyState, GridCell, StructureState, SurvivorState, WildlifeState, WorldState } from '@/simulation/types'
 import { isCasting } from '@/world/Fishing'
 import { wildlifeAssetOf, wildlifeHeight } from '@/world/Wildlife'
@@ -115,13 +116,7 @@ export class DebugRenderer {
     this.scene.add(this.hemi, this.sun)
     this.scene.fog = new THREE.Fog(0xa6c0d0, 70, 280)
 
-    this.ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(360, 360),
-      new THREE.MeshLambertMaterial({ color: 0x3a4a36 }),
-    )
-    this.ground.rotation.x = -Math.PI / 2
-    this.ground.name = 'ground'
-    this.ground.receiveShadow = true
+    this.ground = createTerrainMesh()
     this.scene.add(this.ground)
 
     this.yard = new THREE.Mesh(
@@ -139,17 +134,17 @@ export class DebugRenderer {
       opacity: 0.92,
     })
     for (const strip of riverStrips()) {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(strip.width, 0.05, strip.length), waterMat)
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(strip.width, 0.08, strip.length), waterMat)
       mesh.rotation.y = strip.yaw
-      mesh.position.set(strip.x, -0.03, strip.z)
+      mesh.position.set(strip.x, terrainHeight(strip.x, strip.z) + 0.22, strip.z)
       mesh.receiveShadow = true
       this.landscapeRoot.add(mesh)
     }
     const dirtMat = new THREE.MeshLambertMaterial({ color: 0x6a5844 })
     for (const strip of roadStrips()) {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(strip.width, 0.04, strip.length), dirtMat)
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(strip.width, 0.05, strip.length), dirtMat)
       mesh.rotation.y = strip.yaw
-      mesh.position.set(strip.x, 0.03, strip.z)
+      mesh.position.set(strip.x, Math.max(0.03, terrainHeight(strip.x, strip.z) + 0.04), strip.z)
       mesh.receiveShadow = true
       this.landscapeRoot.add(mesh)
     }
