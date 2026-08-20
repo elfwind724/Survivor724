@@ -311,6 +311,41 @@ body,
   border-color: #8a5a2a;
 }
 
+.hud-chip-warn.is-dusk-1 {
+  color: #e6d48a;
+}
+
+.hud-chip-warn.is-dusk-2 {
+  color: #f0a04a;
+  border-color: #a45a20;
+}
+
+.hud-chip-warn.is-dusk-3 {
+  color: #f07868;
+  border-color: #8a2820;
+  background: #3a1814;
+}
+
+.hud-portrait.is-dusk-yellow em,
+.hud-dusk-yellow {
+  color: #e2c46a;
+}
+
+.hud-portrait.is-dusk-red em,
+.hud-dusk-red {
+  color: #e07060;
+}
+
+.hud-dusk-green {
+  color: #8fba7a;
+  font-style: normal;
+}
+
+.hud-dusk-yellow,
+.hud-dusk-red {
+  font-style: normal;
+}
+
 .hud-reset {
   height: 28px;
   padding: 0 10px;

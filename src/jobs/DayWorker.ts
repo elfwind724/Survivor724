@@ -23,6 +23,7 @@ import type { InventoryState } from '@/simulation/types'
 import { beginTravel, followTravel } from '@/navigation/Travel'
 import { findContainer, findJob, findNode } from '@/simulation/EntityRegistry'
 import { diningSpot, drinkOne, eatOne, EAT_SECONDS, hungerThreshold, insideBase, shouldEat } from '@/survivors/Living'
+import { duskStatus, duskWarningLevel, secondsUntilDusk } from '@/simulation/TimeSystem'
 import { distanceXZ, type DayPhase, type SurvivorState, type WorldState } from '@/simulation/types'
 
 export function isWorkPhase(phase: DayPhase): boolean {
@@ -49,8 +50,50 @@ export function bagIsFull(world: WorldState, survivor: SurvivorState): boolean {
   return usedSlots(bag) >= Math.max(1, Math.floor(bag.capacity * survivor.returnFill))
 }
 
+export function fieldReturnForecast(
+  world: WorldState,
+  survivor: SurvivorState,
+): { tone: 'green' | 'yellow' | 'red'; eta: number; remain: number } | null {
+  if (insideBase(survivor.position)) return null
+  if (world.time.phase !== 'dawn' && world.time.phase !== 'day' && world.time.phase !== 'dusk') return null
+  const warehouse = findContainer(world, 'warehouse')
+  if (!warehouse) return null
+  const eta = distanceXZ(survivor.position, warehouse.position) / Math.max(0.5, survivor.moveSpeed)
+  const remain = world.time.phase === 'dusk' ? 0 : secondsUntilDusk(world)
+  return { tone: duskStatus(eta, remain), eta, remain }
+}
+
+const FAR_RETURN_ETA = 16
+
 export function shouldReturn(world: WorldState, survivor: SurvivorState): boolean {
-  return isReturnPhase(world.time.phase) || bagIsFull(world, survivor)
+  if (isReturnPhase(world.time.phase) || bagIsFull(world, survivor)) return true
+  const forecast = fieldReturnForecast(world, survivor)
+  if (!forecast) return false
+  const level = duskWarningLevel(world)
+  if (level >= 2) return true
+  return level >= 1 && (forecast.tone !== 'green' || forecast.eta >= FAR_RETURN_ETA)
+}
+
+function isReturningHome(survivor: SurvivorState): boolean {
+  return (
+    survivor.workerState === 'ReturnToBase'
+    || survivor.workerState === 'DepositItems'
+    || survivor.workerState === 'ReturnEquipment'
+  )
+}
+
+function shouldAbortFieldNow(world: WorldState, survivor: SurvivorState): boolean {
+  if (survivor.dayAssignment === 'follow' || survivor.dayAssignment === 'watch' || survivor.watchPostId) return false
+  if (isReturnPhase(world.time.phase)) return true
+  const forecast = fieldReturnForecast(world, survivor)
+  if (!forecast) return false
+  const level = duskWarningLevel(world)
+  if (level <= 0) return false
+  if (level >= 3) return true
+  const working = survivor.workerState === 'Work' || survivor.workerState === 'CollectOutput'
+  if (working) return forecast.tone === 'red'
+  if (level >= 2) return true
+  return forecast.tone !== 'green' || forecast.eta >= FAR_RETURN_ETA
 }
 
 export function recallFieldWorkers(world: WorldState): number {
@@ -79,12 +122,9 @@ export function stepDayWorker(world: WorldState, survivor: SurvivorState, dt: nu
   }
   const job = currentJob(world, survivor)
   const definition = job ? jobDefinition(job.definitionId) : undefined
-  if (isReturnPhase(world.time.phase)) {
-    const returning = survivor.workerState === 'ReturnToBase'
-      || survivor.workerState === 'DepositItems'
-      || survivor.workerState === 'ReturnEquipment'
-    if (!insideBase(survivor.position) && !returning) beginReturn(world, survivor)
-    else if (insideBase(survivor.position) && isInterruptible(survivor.workerState, definition?.category ?? 'field')) {
+  if (shouldAbortFieldNow(world, survivor)) {
+    if (!insideBase(survivor.position) && !isReturningHome(survivor)) beginReturn(world, survivor)
+    else if (insideBase(survivor.position) && isReturnPhase(world.time.phase) && isInterruptible(survivor.workerState, definition?.category ?? 'field')) {
       beginReturn(world, survivor)
     }
   }

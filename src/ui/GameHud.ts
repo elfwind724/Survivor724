@@ -9,12 +9,12 @@ import { gunshotHordeExtra, loudestGunshotSector } from '@/data/enemies'
 import { itemLabel } from '@/data/items'
 import { gearLabel, isGearId, nearbyLootName } from '@/data/loot'
 import { isInDungeon, nearDungeonEntrance } from '@/dungeon/Dungeon'
+import { fieldReturnForecast } from '@/jobs/DayWorker'
 import { assignmentLabel } from '@/jobs/Roster'
 import { equippedWeapon, INFINITE_AMMO, magazineSize, readMag } from '@/data/weapons'
-import { findContainer } from '@/simulation/EntityRegistry'
-import { duskStatus, duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel, secondsUntilDusk } from '@/simulation/TimeSystem'
+import { duskWarningLevel, duskWarningText, hudTimeCaption, phaseLabel } from '@/simulation/TimeSystem'
 import { insideBase } from '@/survivors/Living'
-import { distanceXZ, type ItemRarity, type SurvivorState, type WorldState } from '@/simulation/types'
+import type { ItemRarity, SurvivorState, WorldState } from '@/simulation/types'
 import { clampVital } from '@/survivors/Vitals'
 import { HOTBAR_SIZE, hotbarOf, type HotbarEntry } from '@/survivors/Equipment'
 import type { PackClick, PackCursor } from '@/inventory/Pack'
@@ -67,6 +67,7 @@ export interface HudCard {
   bagUsed: number
   bagCap: number
   dusk: string
+  duskTone: 'green' | 'yellow' | 'red' | ''
 }
 
 export interface HudModel {
@@ -76,6 +77,7 @@ export interface HudModel {
   timeScale: number
   notice: string
   warning: string
+  duskLevel: 0 | 1 | 2 | 3
   sites: number
   queue: QueueEntry[]
   interiors: boolean
@@ -165,7 +167,8 @@ export function buildHudModel(
     caption: hudTimeCaption(world),
     timeScale: world.time.timeScale,
     notice,
-    warning: dungeonWarning(world) || duskWarningText(duskWarningLevel(world)) || raidNightWarning(world) || huntNoiseWarning(world),
+    warning: dungeonWarning(world) || composeDuskWarning(world) || raidNightWarning(world) || huntNoiseWarning(world),
+    duskLevel: duskWarningLevel(world),
     sites: queue.length,
     queue,
     interiors: world.showInteriors,
@@ -255,7 +258,7 @@ export function renderHudHtml(model: HudModel): string {
         <strong>第 ${model.day} 天</strong>
         <span class="hud-phase">${model.phase}</span>
         <span class="hud-caption">${model.caption}</span>
-        ${scale}${sites}${model.warning ? `<span class="hud-chip hud-chip-warn">${model.warning}</span>` : ''}
+        ${scale}${sites}${model.warning ? `<span class="hud-chip hud-chip-warn is-dusk-${model.duskLevel}">${model.warning}</span>` : ''}
         ${model.dungeon ? `<span class="hud-chip">房间 ${model.dungeon.room}/${model.dungeon.total}</span>` : ''}
         <span class="hud-tools">
           <button type="button" class="hud-reset" data-action="reset-view">复位镜头</button>
@@ -447,6 +450,7 @@ function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
   const gun = equippedWeapon(survivor)
   const bag = world.inventories[survivor.inventoryId]
   const fill = bag ? bagFill(bag) : { used: 0, capacity: 0, full: false }
+  const dusk = duskReturnHint(world, survivor)
   return {
     id: survivor.id,
     name: survivor.name,
@@ -464,7 +468,8 @@ function cardModel(world: WorldState, survivor: SurvivorState): HudCard {
     portrait: survivorPortrait(survivor),
     bagUsed: fill.used,
     bagCap: fill.capacity,
-    dusk: duskReturnHint(world, survivor),
+    dusk: dusk.label,
+    duskTone: dusk.tone,
     bars: [
       { key: 'hp', label: '血', value: clampVital(survivor.health) },
       { key: 'hunger', label: '饥', value: clampVital(survivor.hunger) },
@@ -478,6 +483,7 @@ function renderPortrait(card: HudCard): string {
     card.live ? 'is-live' : '',
     card.selected ? 'is-selected' : '',
     card.downed ? 'is-downed' : '',
+    card.duskTone ? `is-dusk-${card.duskTone}` : '',
   ].filter(Boolean).join(' ')
   const hp = Math.round(card.bars.find((bar) => bar.key === 'hp')?.value ?? 0)
   const hunger = card.bars.find((bar) => bar.key === 'hunger')?.value ?? 100
@@ -514,7 +520,7 @@ function renderInspect(model: HudModel): string {
       <strong>${escapeHtml(card.name)}</strong>
       <span>${escapeHtml(card.job)}</span>
     </header>
-    <p>${escapeHtml(card.status)} · 袋${card.bagUsed}/${card.bagCap}${card.dusk ? ` · ${escapeHtml(card.dusk)}` : ''}</p>
+    <p>${escapeHtml(card.status)} · 袋${card.bagUsed}/${card.bagCap}${card.dusk ? ` · <em class="hud-dusk-${card.duskTone || 'green'}">${escapeHtml(card.dusk)}</em>` : ''}</p>
     ${bars}
     ${gun}
     <small>${card.downed ? '点头像派人救援' : 'C 装备 · 双击接管'}</small>
@@ -525,17 +531,35 @@ function shortName(name: string): string {
   return name.slice(0, 2)
 }
 
-function duskReturnHint(world: WorldState, survivor: SurvivorState): string {
-  if (insideBase(survivor.position)) return ''
-  if (world.time.phase !== 'dawn' && world.time.phase !== 'day' && world.time.phase !== 'dusk') return ''
-  const warehouse = findContainer(world, 'warehouse')
-  if (!warehouse) return ''
-  const eta = distanceXZ(survivor.position, warehouse.position) / Math.max(0.5, survivor.moveSpeed)
-  const remain = world.time.phase === 'dusk' ? 0 : secondsUntilDusk(world)
-  const status = duskStatus(eta, remain)
-  if (status === 'green') return '能赶回'
-  if (status === 'yellow') return '可能迟到'
-  return '赶不回 · H召回'
+function duskReturnHint(world: WorldState, survivor: SurvivorState): { label: string; tone: 'green' | 'yellow' | 'red' | '' } {
+  const forecast = fieldReturnForecast(world, survivor)
+  if (!forecast) return { label: '', tone: '' }
+  if (forecast.tone === 'green') return { label: '能赶回', tone: 'green' }
+  if (forecast.tone === 'yellow') return { label: '可能迟到', tone: 'yellow' }
+  return { label: '赶不回 · H召回', tone: 'red' }
+}
+
+function composeDuskWarning(world: WorldState): string {
+  const level = duskWarningLevel(world)
+  const base = duskWarningText(level)
+  const late = lateReturnWarning(world)
+  if (base && late) return `${base} · ${late}`
+  return base || late
+}
+
+function lateReturnWarning(world: WorldState): string {
+  if (world.time.phase !== 'dusk' && world.time.phase !== 'night') return ''
+  const late = world.survivors.filter(
+    (entry) => !entry.downed && entry.id !== world.player.controlledId && !insideBase(entry.position),
+  )
+  if (late.length === 0) return ''
+  const names = late.slice(0, 2).map((entry) => entry.name).join('、')
+  const first = late[0]
+  if (!first || world.time.phase === 'dusk') return `${names}还在外面`
+  const sector = Math.abs(first.position.x) >= Math.abs(first.position.z)
+    ? first.position.x >= 0 ? '东' : '西'
+    : first.position.z >= 0 ? '北' : '南'
+  return `${names}还在${sector}门外，尸潮往那边挤`
 }
 
 function hotbarModel(world: WorldState, cursor: PackCursor | null): HudModel['hotbar'] {

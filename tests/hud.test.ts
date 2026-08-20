@@ -146,6 +146,19 @@ describe('game hud', () => {
     expect(html).toContain('关闭')
   })
 
+  it('shows numbered dusk warnings on the clock', () => {
+    const world = createInitialWorld()
+    world.time.daySeconds = 60 + 11 * 60 - 180
+    world.time.phase = 'day'
+    const html = renderHudHtml(buildHudModel(world))
+    expect(html).toContain('第一次黄昏警告')
+    expect(html).toContain('is-dusk-1')
+    world.time.daySeconds = 60 + 11 * 60 - 20
+    const late = renderHudHtml(buildHudModel(world))
+    expect(late).toContain('第三次黄昏警告')
+    expect(late).toContain('is-dusk-3')
+  })
+
   it('marks a downed portrait so clicking it orders a rescue', () => {
     const world = createInitialWorld()
     const scav = world.survivors.find((entry) => entry.id === 'scavenger')

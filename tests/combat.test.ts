@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { createEnemy, reloadWeapon, stepProjectiles, towerRangeBonus, tryShoot } from '@/combat/Combat'
 import { reinforceSector } from '@/combat/Defense'
-import { assignedRescuer, nightLootFor, stepNightCycle, stepNightDefender } from '@/combat/Night'
+import { assignedRescuer, lateReturnHordeExtra, nightLootFor, stepNightCycle, stepNightDefender } from '@/combat/Night'
 import { demolishStructure } from '@/base/construction'
 import { countItem } from '@/inventory/Inventory'
 import { gunshotHordeExtra, hordeCounts, sectorOfPoint } from '@/data/enemies'
 import { assignWatch } from '@/jobs/Roster'
+import { stepDayWorker } from '@/jobs/DayWorker'
 import { TOWER_STAND_HEIGHT } from '@/data/outdoorScenery'
 import { equippedWeapon, fireProfile, magazineSize, muzzleOrigin, readMag } from '@/data/weapons'
 import { DAY_END, DUSK_END, duskWarningLevel } from '@/simulation/TimeSystem'
@@ -518,5 +519,59 @@ describe('combat and night', () => {
     expect(duskWarningLevel(world)).toBe(3)
     world.time.phase = 'dusk'
     expect(duskWarningLevel(world)).toBe(3)
+  })
+
+  it('turns distant field workers around on the first dusk warning', () => {
+    const world = createInitialWorld()
+    const fisher = findSurvivor(world, 'fisher')
+    if (!fisher) throw new Error('missing fisher')
+    fisher.position = { x: 120, y: 0, z: -20 }
+    fisher.workerState = 'TravelToTarget'
+    fisher.destination = { x: 128, y: 0, z: -20 }
+    fisher.path = []
+    world.time.daySeconds = DAY_END - 150
+    world.time.phase = 'day'
+    expect(duskWarningLevel(world)).toBe(1)
+    stepDayWorker(world, fisher, 1 / 30)
+    expect(fisher.workerState).toBe('ReturnToBase')
+  })
+
+  it('lets a worker finish the current swing on the second warning, then pulls everyone on the third', () => {
+    const world = createInitialWorld()
+    const scav = findSurvivor(world, 'scavenger')
+    if (!scav) throw new Error('missing scavenger')
+    scav.position = { x: 40, y: 0, z: 55 }
+    scav.currentJobId = null
+    scav.workerState = 'Work'
+    scav.destination = null
+    scav.path = []
+    world.time.daySeconds = DAY_END - 80
+    world.time.phase = 'day'
+    expect(duskWarningLevel(world)).toBe(2)
+    stepDayWorker(world, scav, 1 / 30)
+    expect(scav.workerState).toBe('Work')
+    world.time.daySeconds = DAY_END - 20
+    world.time.phase = 'day'
+    expect(duskWarningLevel(world)).toBe(3)
+    stepDayWorker(world, scav, 1 / 30)
+    expect(scav.workerState).toBe('ReturnToBase')
+  })
+
+  it('sends extra night enemies toward a late field worker', () => {
+    const world = createInitialWorld()
+    const fisher = findSurvivor(world, 'fisher')
+    if (!fisher) throw new Error('missing fisher')
+    fisher.position = { x: -55, y: 0, z: 32 }
+    fisher.workerState = 'ReturnToBase'
+    const extra = lateReturnHordeExtra(world)
+    expect(extra.approach).toBe('west')
+    expect(extra.wanderers).toBe(2)
+    expect(extra.runners).toBe(1)
+    const base = hordeCounts(world.time.dayIndex)
+    world.time.phase = 'night'
+    world.nightSpawnedDay = 0
+    stepNightCycle(world)
+    expect(world.nightSpawned).toBe(base.wanderers + base.runners + extra.wanderers + extra.runners)
+    expect(world.enemies.filter((enemy) => enemy.position.x < -50).length).toBeGreaterThanOrEqual(extra.wanderers)
   })
 })

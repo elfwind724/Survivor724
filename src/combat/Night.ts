@@ -1,7 +1,7 @@
 import { repairStructure } from '@/base/construction'
 import { refillRuinCrates } from '@/world/Ruins'
 import { refillBerryBushes } from '@/world/Forage'
-import { emptyDayNoise, gunshotHordeExtra, hordeCounts, loudestGunshotSector } from '@/data/enemies'
+import { emptyDayNoise, gunshotHordeExtra, hordeCounts, loudestGunshotSector, sectorOfPoint } from '@/data/enemies'
 import { equippedWeapon, magazineSize, writeMag } from '@/data/weapons'
 import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
 import { noteGear } from '@/data/hallPool'
@@ -258,8 +258,39 @@ function spawnHorde(world: WorldState): void {
   )
   const extra = gunshotHordeExtra(world.dayGunshots)
   const approach = loudestGunshotSector(world.dayNoise)
-  if (!approach || extra.wanderers + extra.runners <= 0) return
-  spawnHordeWave(world, extra, approach, false)
+  if (approach && extra.wanderers + extra.runners > 0) spawnHordeWave(world, extra, approach, false)
+  const late = lateReturnHordeExtra(world)
+  if (late.approach && late.wanderers + late.runners > 0) spawnHordeWave(world, late, late.approach, false)
+}
+
+export function lateReturners(world: WorldState): SurvivorState[] {
+  return world.survivors.filter(
+    (entry) => !entry.downed && entry.id !== world.player.controlledId && !insideBase(entry.position),
+  )
+}
+
+export function lateReturnHordeExtra(
+  world: WorldState,
+): { wanderers: number; runners: number; approach: HordeApproach | null } {
+  const late = lateReturners(world)
+  if (late.length === 0) return { wanderers: 0, runners: 0, approach: null }
+  const votes: Record<Exclude<HordeApproach, 'all'>, number> = { north: 0, east: 0, south: 0, west: 0 }
+  for (const person of late) {
+    votes[sectorOfPoint(person.position.x, person.position.z)] += 1
+  }
+  let approach: Exclude<HordeApproach, 'all'> = 'west'
+  let best = -1
+  for (const id of ['north', 'east', 'south', 'west'] as const) {
+    if (votes[id] > best) {
+      best = votes[id]
+      approach = id
+    }
+  }
+  return {
+    wanderers: Math.min(10, late.length * 2),
+    runners: Math.min(6, late.length),
+    approach,
+  }
 }
 
 export function edgePoint(seed: number, approach: HordeApproach = 'all') {

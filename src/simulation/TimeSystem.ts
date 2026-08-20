@@ -39,9 +39,9 @@ export function duskWarningLevel(world: WorldState): 0 | 1 | 2 | 3 {
 }
 
 export function duskWarningText(level: 0 | 1 | 2 | 3): string {
-  if (level === 1) return '该评估返程'
-  if (level === 2) return '做完这下就回'
-  if (level === 3) return '立刻回营'
+  if (level === 1) return '第一次黄昏警告 · 远的人该往回走'
+  if (level === 2) return '第二次黄昏警告 · 做完这下就回 · H召回'
+  if (level === 3) return '第三次黄昏警告 · 立刻回营'
   return ''
 }
 
