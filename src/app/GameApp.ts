@@ -42,7 +42,7 @@ import { recallFieldWorkers } from '@/jobs/DayWorker'
 import { BuildMenu } from '@/ui/BuildMenu'
 import { CharacterSheet } from '@/ui/CharacterSheet'
 import { handlePackClick, salvageSelected, selectHotbarSlot, useSelected, type PackClick, type PackCursor } from '@/inventory/Pack'
-import { CreativeEditor } from '@/ui/CreativeEditor'
+import { CreativeEditor, isEditableTarget } from '@/ui/CreativeEditor'
 import { GameHud } from '@/ui/GameHud'
 import { RosterPanel } from '@/ui/RosterPanel'
 import { DefenseBar } from '@/ui/DefenseBar'
@@ -296,6 +296,10 @@ export class GameApp {
         this.notice = '已关闭瞭望塔任命'
         return
       }
+      if (this.editor.isOpen() && this.editor.isSearchFocused()) {
+        this.editor.blurSearch()
+        return
+      }
       if (this.editor.isOpen()) {
         this.editor.close()
         this.notice = '已关闭创造栏'
@@ -315,6 +319,12 @@ export class GameApp {
       }
       possessSurvivor(this.world, this.world.player.heroId)
       this.notice = '继续操控冯老师'
+    }
+    if (isEditableTarget(event.target)) return
+    if (this.editor.isOpen() && event.key === '/' && !event.repeat) {
+      event.preventDefault()
+      this.editor.focusSearch()
+      return
     }
     if (event.code === 'KeyG') {
       const self = this.world.survivors.find((entry) => entry.id === this.world.player.heroId)
@@ -374,7 +384,11 @@ export class GameApp {
       this.sandbox.toggle()
       this.notice = this.sandbox.isOpen() ? '沙盘：改尸潮和防线，立刻开打' : '已关闭沙盘'
     }
-    if (event.code === 'KeyI') this.editor.toggle()
+    if (event.code === 'KeyI') {
+      event.preventDefault()
+      this.editor.toggle()
+      return
+    }
     if ((event.code === 'KeyR' || event.code === 'KeyQ') && this.editor.getBrush()) {
       event.preventDefault()
       this.editor.rotate(event.shiftKey || event.code === 'KeyQ' ? -Math.PI / 2 : Math.PI / 2)
