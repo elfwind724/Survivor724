@@ -5,6 +5,7 @@ import { depositIfNearWarehouse } from '@/inventory/Cargo'
 import { stepFishing } from '@/world/Fishing'
 import { stepScavenge } from '@/world/Ruins'
 import { stepGather } from '@/world/Forage'
+import { stepDraw } from '@/world/Draw'
 import { stepWildlife } from '@/world/Wildlife'
 import { readyForNightPost, stepNightCycle, stepNightDefender } from '@/combat/Night'
 import { type ControlIntent, stepPlayerControl } from '@/controls/PlayerControl'
@@ -36,6 +37,7 @@ export function stepWorld(world: WorldState, dt: number, intent: ControlIntent |
       stepFishing(world, self, dt, { autoTravel: false, moving })
       stepScavenge(world, self, dt, { autoTravel: false, moving })
       stepGather(world, self, dt, { autoTravel: false, moving })
+      stepDraw(world, self, dt, { autoTravel: false, moving })
       pickupGroundLoot(world, self)
       depositIfNearWarehouse(world, self)
       autoCombat(world, self)

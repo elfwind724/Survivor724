@@ -6,6 +6,7 @@ import { createWorkZone } from '@/base/workZones'
 import { seedFishingSpots } from '@/world/Fishing'
 import { seedRuinCrates } from '@/world/Ruins'
 import { seedBerryBushes } from '@/world/Forage'
+import { seedWaterScoops } from '@/world/Draw'
 import { loadCreativeWildlife, seedWildlife } from '@/world/Wildlife'
 import { createDefenseSectors } from '@/combat/Defense'
 import { rebuildNightPosts } from '@/combat/Night'
@@ -190,6 +191,7 @@ export function createInitialWorld(): WorldState {
     fishingSpots: seedFishingSpots(),
     ruinCrates: seedRuinCrates(),
     berryBushes: seedBerryBushes(),
+    waterScoops: seedWaterScoops(),
     gear: {},
     groundLoot: [],
     nightPosts: [],

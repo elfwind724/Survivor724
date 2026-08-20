@@ -329,6 +329,13 @@ export interface DefenseSector {
   order: 'hold' | 'reinforce' | 'fallback'
 }
 
+export interface WaterScoopState {
+  id: string
+  position: Vec3
+  water: Vec3
+  occupantId: string | null
+}
+
 export interface BerryBushState {
   id: string
   position: Vec3
@@ -414,6 +421,7 @@ export interface WorldState {
   fishingSpots: FishingSpotState[]
   ruinCrates: RuinCrateState[]
   berryBushes: BerryBushState[]
+  waterScoops: WaterScoopState[]
   gear: Record<string, GearPiece>
   groundLoot: GroundLoot[]
   nightPosts: NightPost[]

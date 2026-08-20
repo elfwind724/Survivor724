@@ -143,7 +143,7 @@ export function skillEffectLines(survivor: SurvivorState, id: SkillId): string[]
   const rank = level - 1
   if (id === 'hunt') return [`剥皮多肉 +${Math.round(rank * 8)}%`, '命中野兽后可剥生肉']
   if (id === 'fish') return [`出鱼加成 +${Math.round(rank * 8)}%`, `下竿速度 +${Math.round(rank * 4.5)}%`, level >= 3 ? '可钓深水，一次两条' : '深水需钓鱼 3 级']
-  if (id === 'gather') return [`摘果加成 +${Math.round(rank * 8)}%`, `采集速度 +${Math.round(rank * 4.5)}%`, '果丛摘空再换下一丛']
+  if (id === 'gather') return [`摘果加成 +${Math.round(rank * 8)}%`, `采集速度 +${Math.round(rank * 4.5)}%`, '河边舀水也吃这档']
   if (id === 'cook') return [`出餐加成 +${Math.round(rank * 8)}%`, `做饭速度 +${Math.round(rank * 4.5)}%`]
   if (id === 'scavenge') return [`搜刮加成 +${Math.round(rank * 8)}%`, `翻找速度 +${Math.round(rank * 4.5)}%`, '箱子里出废铁、弹药，发电机搬不走']
   if (id === 'build') return [`施工速度 +${Math.round(rank * 6)}%`, '建造、拆除、修墙都吃这档']

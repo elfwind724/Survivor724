@@ -82,6 +82,7 @@ export class DebugRenderer {
   private readonly fishingLines = new Map<string, THREE.Line>()
   private readonly ruinCrates = new Map<string, Marker>()
   private readonly berryBushes = new Map<string, Marker>()
+  private readonly waterScoops = new Map<string, Marker>()
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
@@ -324,6 +325,7 @@ export class DebugRenderer {
     this.syncWildlife(world, dt)
     this.syncRuinCrates(world)
     this.syncBerryBushes(world)
+    this.syncWaterScoops(world)
     this.syncGroundLoot(world)
     for (const survivor of world.survivors) {
       let marker = this.survivors.get(survivor.id)
@@ -767,6 +769,7 @@ export class DebugRenderer {
     for (const node of world.nodes) {
       if (node.kind === 'scavenge' && world.ruinCrates.length > 0) continue
       if (node.kind === 'berry' && world.berryBushes.length > 0) continue
+      if (node.kind === 'water' && world.waterScoops.length > 0) continue
       const mesh = new THREE.Mesh(
         new THREE.CylinderGeometry(1.6, 1.6, 0.4, 10),
         new THREE.MeshLambertMaterial({ color: node.kind === 'hunt' ? 0x4d6b3c : node.kind === 'fish' ? 0x3c5d6b : 0x6b4d3c }),
@@ -794,6 +797,42 @@ export class DebugRenderer {
       peg.position.set(hole.position.x, 0.55, hole.position.z)
       this.scene.add(peg)
       this.extras.push(peg)
+    }
+  }
+
+  private syncWaterScoops(world: WorldState): void {
+    const seen = new Set<string>()
+    for (const bank of world.waterScoops) {
+      seen.add(bank.id)
+      let marker = this.waterScoops.get(bank.id)
+      if (!marker) {
+        const group = new THREE.Group()
+        const post = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.08, 0.1, 0.9, 6),
+          new THREE.MeshLambertMaterial({ color: 0x6a5a3a }),
+        )
+        post.position.y = 0.45
+        const pail = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.22, 0.18, 0.28, 8),
+          new THREE.MeshLambertMaterial({ color: 0x3d6a82 }),
+        )
+        pail.position.y = 0.22
+        pail.name = 'pail'
+        group.add(post)
+        group.add(pail)
+        this.scene.add(group)
+        marker = { id: bank.id, mesh: group }
+        this.waterScoops.set(bank.id, marker)
+      }
+      marker.mesh.position.set(bank.position.x, 0, bank.position.z)
+      const occupied = Boolean(bank.occupantId)
+      const pail = marker.mesh.getObjectByName('pail')
+      if (pail) pail.position.y = occupied ? 0.55 : 0.22
+    }
+    for (const [id, marker] of this.waterScoops) {
+      if (seen.has(id)) continue
+      this.disposeObject(marker.mesh)
+      this.waterScoops.delete(id)
     }
   }
 
