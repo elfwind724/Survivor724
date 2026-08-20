@@ -329,6 +329,17 @@ export interface DefenseSector {
   order: 'hold' | 'reinforce' | 'fallback'
 }
 
+export type RuinCrateKind = 'crate' | 'locker' | 'pile' | 'heavy'
+
+export interface RuinCrateState {
+  id: string
+  kind: RuinCrateKind
+  position: Vec3
+  occupantId: string | null
+  searched: boolean
+  loot: ItemStack[]
+}
+
 export interface ResourceNodeState {
   id: string
   kind: 'hunt' | 'fish' | 'scavenge' | 'wood' | 'berry' | 'water'
@@ -394,6 +405,7 @@ export interface WorldState {
   enemies: EnemyState[]
   wildlife: WildlifeState[]
   fishingSpots: FishingSpotState[]
+  ruinCrates: RuinCrateState[]
   gear: Record<string, GearPiece>
   groundLoot: GroundLoot[]
   nightPosts: NightPost[]

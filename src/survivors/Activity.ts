@@ -2,6 +2,7 @@ import { isCooking, isSleeping } from '@/base/FacilityLife'
 import { nearestCarcass } from '@/combat/Combat'
 import { WORK_SECONDS } from '@/data/jobs'
 import { isCasting, remainingCast } from '@/world/Fishing'
+import { isSearchingRuin, remainingSearch } from '@/world/Ruins'
 import { itemLabel } from '@/data/items'
 import { EAT_SECONDS } from '@/survivors/Living'
 import { xpToNext } from '@/survivors/Progress'
@@ -31,6 +32,7 @@ export function activityCaption(world: WorldState, survivor: SurvivorState): str
     return '剥皮取肉中'
   }
   if (isCasting(world, survivor)) return '下竿等待'
+  if (isSearchingRuin(world, survivor)) return '翻箱中'
   if (world.time.phase === 'night' || world.time.phase === 'aftermath') return '守夜中'
   const job = jobId(world, survivor)
   switch (survivor.workerState) {
@@ -59,9 +61,11 @@ export function activityCaption(world: WorldState, survivor: SurvivorState): str
 
 export function activityCooldown(world: WorldState, survivor: SurvivorState): number {
   if (isCasting(world, survivor)) return remainingCast(world, survivor)
+  if (isSearchingRuin(world, survivor)) return remainingSearch(world, survivor)
   if (survivor.workerState === 'Work') {
     if (jobId(world, survivor) === 'hunt' && survivor.fireCooldown > 0) return survivor.fireCooldown
     if (jobId(world, survivor) === 'fish') return remainingCast(world, survivor)
+    if (jobId(world, survivor) === 'scavenge') return remainingSearch(world, survivor)
     return Math.max(0, WORK_SECONDS - survivor.workElapsed)
   }
   if (survivor.workerState === 'Eat') return Math.max(0, EAT_SECONDS - survivor.workElapsed)
@@ -102,7 +106,7 @@ function workCaption(job: string): string {
   if (job === 'gather') return '采集中'
   if (job === 'draw') return '打水中'
   if (job === 'upgrade') return '升级中'
-  if (job === 'scavenge') return '搜刮中'
+  if (job === 'scavenge') return '翻箱中'
   if (job === 'cook') return '做饭中'
   if (job === 'build') return '建造中'
   if (job === 'demolish') return '拆除中'
@@ -114,6 +118,7 @@ function workCaption(job: string): string {
 function travelCaption(job: string): string {
   if (job === 'hunt') return '去打猎'
   if (job === 'fish') return '去钓鱼'
+  if (job === 'scavenge') return '去废墟'
   if (job === 'gather') return '去采果'
   if (job === 'draw') return '去打水'
   if (job === 'cook') return '去厨房'

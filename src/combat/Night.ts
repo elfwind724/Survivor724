@@ -1,4 +1,5 @@
 import { repairStructure } from '@/base/construction'
+import { refillRuinCrates } from '@/world/Ruins'
 import { emptyDayNoise, gunshotHordeExtra, hordeCounts, loudestGunshotSector } from '@/data/enemies'
 import { equippedWeapon, magazineSize, writeMag } from '@/data/weapons'
 import { addItem, countItem, inventoryOf, removeItem } from '@/inventory/Inventory'
@@ -81,6 +82,7 @@ export function stepNightCycle(world: WorldState): void {
     world.raidBestRarity = null
     world.dayGunshots = 0
     world.dayNoise = emptyDayNoise()
+    refillRuinCrates(world)
     world.enemies = []
     for (const post of world.nightPosts) post.occupantId = null
     for (const survivor of world.survivors) {

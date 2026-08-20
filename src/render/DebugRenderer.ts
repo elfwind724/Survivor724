@@ -80,6 +80,7 @@ export class DebugRenderer {
   private dungeonRoot: THREE.Group | null = null
   private dungeonKey = ''
   private readonly fishingLines = new Map<string, THREE.Line>()
+  private readonly ruinCrates = new Map<string, Marker>()
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene.background = new THREE.Color(0x1b2124)
@@ -320,6 +321,7 @@ export class DebugRenderer {
     this.syncStructures(world)
     this.syncEnemies(world, dt)
     this.syncWildlife(world, dt)
+    this.syncRuinCrates(world)
     this.syncGroundLoot(world)
     for (const survivor of world.survivors) {
       let marker = this.survivors.get(survivor.id)
@@ -761,6 +763,7 @@ export class DebugRenderer {
     }
 
     for (const node of world.nodes) {
+      if (node.kind === 'scavenge' && world.ruinCrates.length > 0) continue
       const mesh = new THREE.Mesh(
         new THREE.CylinderGeometry(1.6, 1.6, 0.4, 10),
         new THREE.MeshLambertMaterial({ color: node.kind === 'hunt' ? 0x4d6b3c : node.kind === 'fish' ? 0x3c5d6b : 0x6b4d3c }),
@@ -788,6 +791,43 @@ export class DebugRenderer {
       peg.position.set(hole.position.x, 0.55, hole.position.z)
       this.scene.add(peg)
       this.extras.push(peg)
+    }
+  }
+
+  private syncRuinCrates(world: WorldState): void {
+    const seen = new Set<string>()
+    for (const box of world.ruinCrates) {
+      seen.add(box.id)
+      let marker = this.ruinCrates.get(box.id)
+      if (!marker) {
+        const group = new THREE.Group()
+        const size: [number, number, number] = box.kind === 'heavy' ? [1.8, 1.4, 1.4] : box.kind === 'locker' ? [0.7, 1.5, 0.6] : box.kind === 'pile' ? [1.4, 0.55, 1.1] : [1.1, 0.7, 0.8]
+        const color = box.kind === 'heavy' ? 0x3a4048 : box.kind === 'locker' ? 0x4a5560 : box.kind === 'pile' ? 0x7a6a4a : 0x6b5340
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(size[0], size[1], size[2]),
+          new THREE.MeshLambertMaterial({ color }),
+        )
+        mesh.position.y = size[1] / 2
+        mesh.name = 'body'
+        group.add(mesh)
+        this.scene.add(group)
+        marker = { id: box.id, mesh: group }
+        this.ruinCrates.set(box.id, marker)
+      }
+      marker.mesh.position.set(box.position.x, 0, box.position.z)
+      const body = marker.mesh.getObjectByName('body')
+      if (body) {
+        body.scale.y = box.searched && box.kind !== 'heavy' ? 0.35 : 1
+        if (body instanceof THREE.Mesh && body.material instanceof THREE.MeshLambertMaterial) {
+          body.material.opacity = box.searched && box.kind !== 'heavy' ? 0.55 : 1
+          body.material.transparent = box.searched && box.kind !== 'heavy'
+        }
+      }
+    }
+    for (const [id, marker] of this.ruinCrates) {
+      if (seen.has(id)) continue
+      this.disposeObject(marker.mesh)
+      this.ruinCrates.delete(id)
     }
   }
 

@@ -1,4 +1,5 @@
 import { seedFishingSpots } from '@/world/Fishing'
+import { seedRuinCrates } from '@/world/Ruins'
 import type { WorldState } from '@/simulation/types'
 
 export const SAVE_VERSION = 3
@@ -38,6 +39,7 @@ export function deserializeWorld(raw: unknown): WorldState {
     world.dayNoise.south = Math.max(0, world.dayNoise.south || 0)
   }
   if (!Array.isArray(world.fishingSpots) || world.fishingSpots.length === 0) world.fishingSpots = seedFishingSpots()
+  if (!Array.isArray(world.ruinCrates) || world.ruinCrates.length === 0) world.ruinCrates = seedRuinCrates()
   if (Array.isArray(world.groundLoot)) {
     for (const drop of world.groundLoot) {
       if (typeof drop.count !== 'number' || drop.count < 1) drop.count = 1
